@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f4c5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Abwasser Rechner">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Abwasser Rechner</title>
+  <style>
+    :root{
+      --bg:#eef4f4;--surface:#fff;--text:#16353c;--muted:#60777c;
+      --primary:#0f4c5c;--accent:#2c7a7b;--line:#d5e1e2;
+      --danger:#b42318;--ok:#16794a;--warn:#946200;--shadow:0 18px 50px rgba(18,50,57,.11);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-width:320px;background:radial-gradient(circle at top right,rgba(44,122,123,.16),transparent 30rem),var(--bg);
+      color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    .app{width:min(1180px,calc(100% - 24px));margin:auto;padding:22px 0 60px}
+    header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:18px}
+    .eyebrow{margin:0;color:var(--accent);font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+    h1{margin:.2rem 0;font-size:clamp(2rem,6vw,3.5rem);letter-spacing:-.045em;line-height:1}
+    header p:last-child{margin:0;color:var(--muted)}
+    .install{border:0;border-radius:12px;background:var(--primary);color:#fff;padding:.8rem 1rem;font-weight:800;display:none}
+    .toolbar{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:12px}
+    .toolbar input{width:100%;border:1px solid var(--line);border-radius:14px;padding:1rem;background:#fff;outline:0}
+    .toolbar input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(44,122,123,.12)}
+    .secondary{border:0;border-radius:12px;background:#e2eeee;color:var(--primary);font-weight:800;padding:.8rem 1rem}
+    .chips{display:flex;gap:8px;overflow:auto;padding-bottom:6px;margin-bottom:14px}
+    .chip{white-space:nowrap;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);padding:.62rem .86rem;font-weight:750}
+    .chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,420px);gap:16px;align-items:start}
+    .panel{background:rgba(255,255,255,.96);border:1px solid rgba(15,76,92,.1);border-radius:20px;box-shadow:var(--shadow)}
+    .catalog{padding:16px}
+    .catalog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .catalog h2,.workspace h2{margin:0}
+    #count{color:var(--muted);font-size:.88rem}
+    .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .card{position:relative;border:1px solid var(--line);border-radius:15px;background:#fff;text-align:left;padding:15px;min-height:126px;transition:.16s ease}
+    .card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(18,50,57,.09)}
+    .card.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(44,122,123,.12)}
+    .cat{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:800}
+    .card h3{margin:.35rem 0;font-size:1.04rem}
+    .card p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.4}
+    .workspace{position:sticky;top:10px;padding:18px}
+    .empty{text-align:center;color:var(--muted);padding:36px 8px}
+    .formula{display:inline-block;margin:.6rem 0 1rem;background:#e5f0f0;color:var(--primary);border-radius:999px;padding:.48rem .7rem;font-weight:800;font-size:.84rem}
+    .desc{color:var(--muted);line-height:1.5}
+    .fields{display:grid;gap:11px}
+    label{display:grid;gap:5px;font-weight:750}
+    .input-row{display:grid;grid-template-columns:1fr auto;border:1px solid #b8c9cc;border-radius:12px;overflow:hidden}
+    .input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(44,122,123,.12)}
+    input,select{min-width:0;border:0;outline:0;background:transparent;padding:.9rem 1rem;color:var(--text)}
+    .unit{display:grid;place-items:center;padding:0 .8rem;background:#f3f7f7;color:var(--muted);font-weight:750;min-width:62px}
+    .error{min-height:1em;color:var(--danger);font-size:.8rem;font-weight:650}
+    .actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:13px}
+    .primary{border:0;border-radius:12px;background:var(--primary);color:#fff;padding:.85rem 1rem;font-weight:800}
+    .result{margin-top:14px;padding:15px;border-radius:14px;background:var(--primary);color:#fff}
+    .result small{display:block;opacity:.75;text-transform:uppercase;letter-spacing:.06em;font-weight:750}
+    .result strong{display:block;font-size:clamp(2rem,8vw,3.2rem);margin:.25rem 0;line-height:1.1}
+    .result p{margin:0;opacity:.8;font-size:.88rem;line-height:1.4}
+    .hint{margin-top:11px;padding:12px 13px;border-left:4px solid var(--accent);background:#f0f7f7;border-radius:0 12px 12px 0}
+    .hint.ok{border-color:var(--ok)} .hint.warn{border-color:var(--warn)}
+    .hint h4{margin:0 0 4px;font-size:.9rem}.hint p{margin:0;color:#4b666c;font-size:.88rem;line-height:1.45}
+    footer{text-align:center;color:var(--muted);font-size:.77rem;margin-top:16px;line-height:1.45}
+    @media(max-width:880px){.layout{grid-template-columns:1fr}.workspace{position:static;order:-1}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:600px){.app{width:min(100% - 12px,1180px);padding-top:12px}header{display:block}.install{margin-top:12px}.toolbar{grid-template-columns:1fr}.cards{grid-template-columns:1fr}.catalog,.workspace{padding:13px}.actions{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <p class="eyebrow">Abwassertechnik</p>
+      <h1>Abwasser Rechner</h1>
+      <p>Lokale Berechnungen direkt im Browser.</p>
+    </div>
+    <button id="installBtn" class="install">App installieren</button>
+  </header>
+
+  <div class="toolbar">
+    <input id="search" placeholder="Rechner suchen">
+    <button id="clearSearch" class="secondary">Löschen</button>
+  </div>
+
+  <nav id="chips" class="chips"></nav>
+
+  <main class="layout">
+    <section class="panel catalog">
+      <div class="catalog-head"><h2>Rechner</h2><span id="count"></span></div>
+      <div id="cards" class="cards"></div>
+    </section>
+    <aside id="workspace" class="panel workspace">
+      <div class="empty"><h2>Rechner auswählen</h2><p>Alle Berechnungen laufen lokal und ohne Datenübertragung.</p></div>
+    </aside>
+  </main>
+
+  <footer>
+    Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sind separat zu prüfen.
+  </footer>
+</div>
+
+<script>
+const C=[
+{id:"load",cat:"Grundlagen",name:"Tagesfracht",short:"Volumenstrom × Konzentration",formula:"B = Q × c ÷ 1.000",fields:[F("q","Volumenstrom","m³/d"),F("c","Konzentration","mg/l")],calc:v=>v.q*v.c/1000,unit:"kg/d",digits:4,h:()=>I("Hinweis","Bei stark schwankenden Zuläufen ist ein Einzelwert nur eingeschränkt repräsentativ.")},
+{id:"conc",cat:"Grundlagen",name:"Konzentration",short:"Aus Fracht und Volumenstrom",formula:"c = B × 1.000 ÷ Q",fields:[F("b","Tagesfracht","kg/d"),F("q","Volumenstrom","m³/d",.000001)],calc:v=>v.b*1000/v.q,unit:"mg/l",digits:3},
+{id:"flow",cat:"Grundlagen",name:"Volumenstrom umrechnen",short:"l/s, m³/h und m³/d",formula:"1 l/s = 3,6 m³/h = 86,4 m³/d",fields:[F("x","Ausgangswert",""),S("from","Von",["l/s","m³/h","m³/d"]),S("to","Nach",["m³/d","m³/h","l/s"])],calc:v=>flow(v.x,v.from,v.to),unit:v=>v.to,digits:4},
+{id:"removal",cat:"Stickstoff",name:"Eliminationsgrad",short:"Abbau zwischen Zu- und Ablauf",formula:"η = (c₀ − c₁) ÷ c₀ × 100",fields:[F("cin","Zulauf","mg/l",.000001),F("cout","Ablauf","mg/l")],calc:v=>(v.cin-v.cout)/v.cin*100,unit:"%",digits:2,h:v=>v.cout>v.cin?W("Plausibilität","Ablaufwert liegt über dem Zulaufwert. Zeitversatz und Probenahme prüfen."):null},
+{id:"nh4",cat:"Stickstoff",name:"NH₄-N-Abbau",short:"Orientierender Nitrifikationsgrad",formula:"η = (NH₄-Nzu − NH₄-Nab) ÷ NH₄-Nzu × 100",fields:[F("cin","NH₄-N Zulauf","mg/l",.000001),F("cout","NH₄-N Ablauf","mg/l")],calc:v=>(v.cin-v.cout)/v.cin*100,unit:"%",digits:2,h:()=>I("Betriebshinweis","Bei erhöhtem NH₄-N im Ablauf Sauerstoff, Schlammalter, Temperatur, pH und Hemmstoffe prüfen.")},
+{id:"o2",cat:"Stickstoff",name:"O₂-Bedarf Nitrifikation",short:"Theoretischer Bedarf aus NH₄-N-Fracht",formula:"O₂ ≈ 4,57 × NH₄-N-Fracht",fields:[F("b","NH₄-N-Fracht","kg N/d")],calc:v=>4.57*v.b,unit:"kg O₂/d",digits:2},
+{id:"loading",cat:"Biologie",name:"Schlammbelastung",short:"BSB₅-Fracht bezogen auf TS-Masse",formula:"BTS = BSB₅-Fracht ÷ (V × TS)",fields:[F("b","BSB₅-Fracht","kg/d"),F("v","Belebungsvolumen","m³",.000001),F("ts","TS","kg/m³",.000001)],calc:v=>v.b/(v.v*v.ts),unit:"kg BSB₅/(kg TS·d)",digits:4},
+{id:"age",cat:"Biologie",name:"Schlammalter",short:"TS-Inventar durch täglichen Abzug",formula:"tTS = TS-Inventar ÷ Feststoffabzug",fields:[F("inv","TS-Inventar","kg"),F("w","Feststoffabzug","kg TS/d",.000001)],calc:v=>v.inv/v.w,unit:"d",digits:2},
+{id:"svi",cat:"Schlamm",name:"SVI",short:"Schlammvolumenindex",formula:"SVI = SV₃₀ ÷ TS",fields:[F("sv","SV₃₀","ml/l"),F("ts","TS","g/l",.000001)],calc:v=>v.sv/v.ts,unit:"ml/g",digits:1,h:v=>{let x=v.sv/v.ts;return x>150?W("Orientierung","Erhöhter SVI. Absetzverhalten und Fadenbakterien prüfen."):I("Orientierung","Anlagenbezogen und im zeitlichen Verlauf bewerten.")}},
+{id:"tsload",cat:"Schlamm",name:"TS-Fracht",short:"Feststofffracht eines Schlammstroms",formula:"BTS = Q × TS",fields:[F("q","Schlammstrom","m³/d"),F("ts","TS","kg/m³")],calc:v=>v.q*v.ts,unit:"kg TS/d",digits:2},
+{id:"hrt",cat:"Hydraulik",name:"Aufenthaltszeit",short:"Volumen bezogen auf Durchfluss",formula:"t = V ÷ Q × 24",fields:[F("v","Beckenvolumen","m³"),F("q","Volumenstrom","m³/d",.000001)],calc:v=>v.v/v.q*24,unit:"h",digits:2},
+{id:"surface",cat:"Hydraulik",name:"Oberflächenbeschickung",short:"Durchfluss bezogen auf Oberfläche",formula:"qA = Q ÷ (A × 24)",fields:[F("q","Volumenstrom","m³/d"),F("a","Oberfläche","m²",.000001)],calc:v=>v.q/(v.a*24),unit:"m³/(m²·h)",digits:3},
+{id:"dose",cat:"Chemikalien",name:"Dosierstrom",short:"Aus Wasserstrom und spezifischer Dosierung",formula:"V̇ = Q × D ÷ 1.000",fields:[F("q","Wasserstrom","m³/h"),F("d","Spezifische Dosierung","ml/m³")],calc:v=>v.q*v.d/1000,unit:"l/h",digits:3},
+{id:"active",cat:"Chemikalien",name:"Wirkstofffracht",short:"Produktmenge × Dichte × Anteil",formula:"mW = V × ρ × w",fields:[F("v","Produktmenge","l/d"),F("rho","Dichte","kg/l",.000001),F("w","Wirkstoffgehalt","%",0,100)],calc:v=>v.v*v.rho*v.w/100,unit:"kg/d",digits:3},
+{id:"tank",cat:"Chemikalien",name:"Tankreichweite",short:"Bestand bezogen auf Verbrauch",formula:"t = Bestand ÷ Tagesverbrauch",fields:[F("s","Tankinhalt","l"),F("u","Verbrauch","l/d",.000001)],calc:v=>v.s/v.u,unit:"d",digits:1},
+{id:"cost",cat:"Wirtschaftlichkeit",name:"Chemikalienkosten",short:"Verbrauch × Preis × Zeitraum",formula:"K = Verbrauch × Preis × Zeitraum",fields:[F("u","Verbrauch","kg/d"),F("p","Preis","€/kg"),S("period","Zeitraum",["Tag","30 Tage","365 Tage"])],calc:v=>v.u*v.p*(v.period==="Tag"?1:v.period==="30 Tage"?30:365),unit:"€",digits:2},
+{id:"fep",cat:"Phosphor",name:"Fe/P-Molverhältnis",short:"Molares Verhältnis von Fe zu P",formula:"β = (Fe/55,845) ÷ (P/30,974)",fields:[F("fe","Dosiertes Fe","mg/l"),F("p","Entferntes P","mg/l",.000001)],calc:v=>(v.fe/55.845)/(v.p/30.974),unit:"mol Fe/mol P",digits:3,h:()=>I("Bewertung","Das erforderliche Verhältnis hängt stark von Produkt, pH, Kontaktbedingungen und Restwert ab.")},
+{id:"product",cat:"Phosphor",name:"Produktbedarf",short:"Flüssigprodukt aus Metallbedarf",formula:"V = mMetall ÷ (ρ × w)",fields:[F("m","Metallbedarf","kg/d"),F("rho","Dichte","kg/l",.000001),F("w","Metallanteil","%",.000001,100)],calc:v=>v.m/(v.rho*v.w/100),unit:"l/d",digits:2}
+];
+function F(id,label,unit,min=0,max=Infinity){return{t:"n",id,label,unit,min,max}}
+function S(id,label,o){return{t:"s",id,label,o}}
+function N(x,d=4){return new Intl.NumberFormat("de-DE",{maximumFractionDigits:d}).format(x)}
+function I(title,text){return{kind:"",title,text}} function W(title,text){return{kind:"warn",title,text}}
+function flow(x,f,t){let d=f==="l/s"?x*86.4:f==="m³/h"?x*24:x;return t==="l/s"?d/86.4:t==="m³/h"?d/24:d}
+let state={cat:"Alle",q:"",sel:null},cats=["Alle",...new Set(C.map(x=>x.cat))];
+const cards=document.querySelector("#cards"),workspace=document.querySelector("#workspace"),chips=document.querySelector("#chips"),count=document.querySelector("#count");
+function drawChips(){chips.innerHTML=cats.map(x=>`<button class="chip ${state.cat===x?"active":""}" data-c="${x}">${x}</button>`).join("");chips.querySelectorAll("button").forEach(b=>b.onclick=()=>{state.cat=b.dataset.c;draw()})}
+function list(){let q=state.q.toLowerCase();return C.filter(x=>(state.cat==="Alle"||x.cat===state.cat)&&(!q||(`${x.name} ${x.short} ${x.cat}`).toLowerCase().includes(q)))}
+function drawCards(){let l=list();count.textContent=`${l.length} von ${C.length}`;cards.innerHTML=l.map(x=>`<button class="card ${state.sel===x.id?"active":""}" data-id="${x.id}"><span class="cat">${x.cat}</span><h3>${x.name}</h3><p>${x.short}</p></button>`).join("")||`<p>Keine Treffer.</p>`;cards.querySelectorAll(".card").forEach(b=>b.onclick=()=>select(b.dataset.id))}
+function draw(){drawChips();drawCards()}
+function field(x){return x.t==="s"?`<label>${x.label}<div class="input-row"><select id="f-${x.id}">${x.o.map(o=>`<option>${o}</option>`).join("")}</select><span class="unit">Auswahl</span></div><span class="error" id="e-${x.id}"></span></label>`:`<label>${x.label}<div class="input-row"><input id="f-${x.id}" inputmode="decimal"><span class="unit">${x.unit}</span></div><span class="error" id="e-${x.id}"></span></label>`}
+function select(id){state.sel=id;drawCards();let c=C.find(x=>x.id===id);workspace.innerHTML=`<p class="eyebrow">${c.cat}</p><h2>${c.name}</h2><span class="formula">${c.formula}</span><p class="desc">${c.short}</p><form id="form"><div class="fields">${c.fields.map(field).join("")}</div><div class="actions"><button class="primary">Berechnen</button><button type="button" class="secondary" id="reset">Zurücksetzen</button></div></form><div id="out"></div>`;document.querySelector("#form").onsubmit=e=>{e.preventDefault();calc(c)};document.querySelector("#reset").onclick=()=>{document.querySelector("#form").reset();document.querySelector("#out").innerHTML=""};if(innerWidth<881)workspace.scrollIntoView({behavior:"smooth"})}
+function parse(s){s=s.trim().replaceAll(" ","").replaceAll(".","").replace(",",".");if(!s)return null;let x=Number(s);return Number.isFinite(x)?x:null}
+function calc(c){let v={},bad=false;c.fields.forEach(x=>{let el=document.querySelector("#f-"+x.id),er=document.querySelector("#e-"+x.id);er.textContent="";if(x.t==="s"){v[x.id]=el.value;return}let y=parse(el.value);if(y===null||y<x.min||y>x.max){er.textContent="Bitte gültigen Wert eingeben.";bad=true}else v[x.id]=y});if(bad)return;let r=c.calc(v),u=typeof c.unit==="function"?c.unit(v):c.unit,h=c.h?c.h(v,r):null;document.querySelector("#out").innerHTML=`<section class="result"><small>Ergebnis</small><strong>${c.unit==="€"?new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"}).format(r):N(r,c.digits)+" "+u}</strong></section>${h?`<div class="hint ${h.kind}"><h4>${h.title}</h4><p>${h.text}</p></div>`:""}`}
+document.querySelector("#search").oninput=e=>{state.q=e.target.value;drawCards()};document.querySelector("#clearSearch").onclick=()=>{document.querySelector("#search").value="";state.q="";drawCards()};
+let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.querySelector("#installBtn").style.display="block"});document.querySelector("#installBtn").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null};
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"));
+draw();
+</script>
+</body>
+</html>
