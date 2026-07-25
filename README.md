@@ -1,36 +1,42 @@
-# Abwasser Rechner – Version 0.4
+# Abwasser Rechner – Version 0.5
 
-## Neu
+## Neue Anlagenakte
 
-- eigenständige Startseite beziehungsweise Homepage
-- Klick auf Logo oder „Startseite“ führt jederzeit zurück
-- dauerhaftes Kategorienmenü auf der linken Seite
-- Kategorien lassen sich auf- und zuklappen
-- direkte Auswahl einzelner Rechner im Seitenmenü
-- mobile Navigation mit ein- und ausblendbarem Menü
-- Breadcrumb-Navigation
-- Kategorien und Favoriten als Schnellzugriff auf der Startseite
-- sichtbare Ausbauplanung für:
-  - Kunden- und Anlagenvergleich
-  - PDF-Berichte
-  - Diagramme
-  - Produktdatenbank
-  - Wissensbereich
+Version 0.5 ergänzt die Rechner um eine zentrale Anlagenverwaltung.
 
-Die geplanten Module sind in Version 0.4 bewusst als „Geplant“ gekennzeichnet.
-Die fachlichen Rechner aus Version 0.3 bleiben erhalten.
+### Enthalten
 
-## GitHub aktualisieren
+- Anlagenübersicht für mehrere Kläranlagen
+- kommunale, industrielle und gemischte Anlagen
+- Anlagenname, interne Nummer, Ausbaugröße, Belastung und Verfahren
+- vollständige Anlagenadresse
+- getrennte Betreiberanschrift
+- mehrere Ansprechpartner mit Funktion und Kontaktdaten
+- zentrale Betriebsparameter
+- Anlagenstartseite mit Kennzahlen
+- frei konfigurierbare Grenz- und Zielwerte
+- Ampelübersicht in Grün, Gelb, Rot und Grau
+- Export einer Anlagenakte als JSON
+- Import einer Anlagenakte aus JSON
+- lokale Speicherung im Browser
 
-1. ZIP-Datei entpacken.
-2. Im Repository `Add file` → `Upload files` wählen.
-3. Alle Dateien sowie den kompletten Ordner `js` hochladen.
-4. Vorhandene Dateien ersetzen.
-5. Commit-Nachricht:
+## Ampellogik
 
-   `Version 0.4 - Startseite und Seitenmenue`
+Die mitgelieferten Schwellen sind ausschließlich Start- beziehungsweise Orientierungswerte.
+Sie müssen an Genehmigungsbescheid, Betriebsziele, Verfahren, Messstelle und örtliche Randbedingungen angepasst werden.
 
-6. Änderungen committen.
-7. Nach Veröffentlichung prüfen, ob oben links „Version 0.4“ erscheint.
+## Rechnerverknüpfung
 
-Bei einer alten Anzeige die Seite vollständig neu laden oder kurz in einem privaten Browserfenster öffnen.
+Die zentrale Datenbasis ist jetzt vorhanden. In Version 0.5 wird die aktive Anlage bereits bei jedem Rechner angezeigt.
+Die automatische Feldzuordnung und Rückspeicherung zwischen Anlagenprofil und einzelnen Rechnern wird in den folgenden Versionen rechnerweise ergänzt.
+
+## GitHub
+
+1. ZIP entpacken.
+2. Alle Dateien und den Ordner `js` in das Repository hochladen.
+3. Vorhandene Dateien ersetzen.
+4. Commit-Nachricht:
+
+   `Version 0.5 - Anlagenakte und Ampelsystem`
+
+5. Nach der Veröffentlichung muss oben links `Version 0.5` stehen.

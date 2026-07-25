@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>Abwasser Rechner v0.4</title>
+  <title>Abwasser Rechner v0.5</title>
 </head>
 <body>
 <div class="app-layout">
@@ -19,26 +19,51 @@
         <span class="brand-mark">AR</span>
         <span class="brand-copy">
           <strong>Abwasser Rechner</strong>
-          <small>Version 0.4</small>
+          <small>Version 0.5</small>
         </span>
       </button>
       <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
     </div>
 
     <button id="dashboardNav" class="nav-home active" type="button">
-      <span class="nav-icon">⌂</span>
-      <span>Startseite</span>
+      <span class="nav-icon">⌂</span><span>Startseite</span>
     </button>
+
+    <section class="plant-context">
+      <label for="activePlantSelect">Aktive Anlage</label>
+      <select id="activePlantSelect"></select>
+      <div class="plant-context-actions">
+        <button id="managePlantsButton" type="button">Anlagen verwalten</button>
+        <button id="newPlantButton" type="button">＋</button>
+      </div>
+    </section>
 
     <div class="sidebar-search">
       <input id="searchInput" type="search" placeholder="Rechner suchen">
       <button id="clearSearch" type="button" aria-label="Suche löschen">×</button>
     </div>
 
+    <nav class="app-menu" aria-label="Anwendungsbereiche">
+      <section class="menu-group open">
+        <button class="menu-group-toggle" type="button" data-static-toggle="anlagen" aria-expanded="true">
+          <span class="menu-icon">KA</span><span class="menu-label">Anlagen</span><span class="menu-chevron">›</span>
+        </button>
+        <div class="menu-items" data-static-items="anlagen">
+          <button type="button" data-view="plants">Anlagenübersicht</button>
+          <button type="button" data-view="plantForm">Neue Anlage</button>
+          <button type="button" data-view="plantDashboard">Anlagenstartseite</button>
+          <button type="button" data-view="limits">Grenz- und Zielwerte</button>
+          <button type="button" data-view="traffic">Ampelübersicht</button>
+        </div>
+      </section>
+    </nav>
+
     <nav id="categoryMenu" class="category-menu" aria-label="Rechnerkategorien"></nav>
 
     <div class="sidebar-bottom">
       <button id="favoriteFilter" class="side-action" type="button">★ Favoriten</button>
+      <button id="exportPlantButton" class="side-action" type="button">Anlage exportieren</button>
+      <label class="side-action file-label">Anlage importieren<input id="importPlantInput" type="file" accept=".json,application/json"></label>
       <button id="installButton" class="side-action hidden" type="button">App installieren</button>
     </div>
   </aside>
@@ -54,12 +79,14 @@
         <span id="breadcrumbCurrent" class="breadcrumb-current"></span>
       </div>
       <div class="topbar-actions">
+        <span id="activePlantBadge" class="active-plant-badge"></span>
         <button id="printButton" class="button secondary hidden" type="button">Drucken</button>
       </div>
     </header>
 
     <main id="mainContent" class="main-content">
       <section id="dashboard" class="dashboard-view"></section>
+      <section id="applicationView" class="application-view hidden"></section>
 
       <section id="calculatorView" class="calculator-view hidden">
         <div class="catalog-column">
