@@ -9,51 +9,84 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>Abwasser Rechner v0.3</title>
+  <title>Abwasser Rechner v0.4</title>
 </head>
 <body>
-<div class="app-shell">
-  <header class="app-header">
-    <div>
-      <p class="eyebrow">Abwassertechnik</p>
-      <h1>Abwasser Rechner</h1>
-      <p class="subtitle">Nachvollziehbare Berechnungen direkt im Browser – ohne Cloud und ohne Anmeldung.</p>
-      <span class="version">Version 0.3 · Chemie &amp; Schlammentwässerung</span>
+<div class="app-layout">
+  <aside id="sidebar" class="sidebar" aria-label="Hauptnavigation">
+    <div class="brand-row">
+      <button id="homeButton" class="brand-button" type="button" aria-label="Zur Startseite">
+        <span class="brand-mark">AR</span>
+        <span class="brand-copy">
+          <strong>Abwasser Rechner</strong>
+          <small>Version 0.4</small>
+        </span>
+      </button>
+      <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
     </div>
-    <div class="header-actions">
-      <button id="installButton" class="button primary hidden" type="button">App installieren</button>
-      <button id="favoriteFilter" class="button secondary" type="button">★ Favoriten</button>
+
+    <button id="dashboardNav" class="nav-home active" type="button">
+      <span class="nav-icon">⌂</span>
+      <span>Startseite</span>
+    </button>
+
+    <div class="sidebar-search">
+      <input id="searchInput" type="search" placeholder="Rechner suchen">
+      <button id="clearSearch" type="button" aria-label="Suche löschen">×</button>
     </div>
-  </header>
 
-  <section class="toolbar" aria-label="Rechner filtern">
-    <input id="searchInput" type="search" placeholder="Rechner suchen, z. B. Polymer, Fällmittel oder TS">
-    <button id="clearSearch" class="button secondary" type="button">Suche löschen</button>
-    <button class="button secondary" type="button" onclick="window.print()">Drucken</button>
-  </section>
+    <nav id="categoryMenu" class="category-menu" aria-label="Rechnerkategorien"></nav>
 
-  <nav id="categoryChips" class="chips" aria-label="Kategorien"></nav>
+    <div class="sidebar-bottom">
+      <button id="favoriteFilter" class="side-action" type="button">★ Favoriten</button>
+      <button id="installButton" class="side-action hidden" type="button">App installieren</button>
+    </div>
+  </aside>
 
-  <main class="main-grid">
-    <section class="panel catalog-panel">
-      <div class="panel-heading">
-        <div><p class="eyebrow">Werkzeuge</p><h2>Rechner</h2></div>
-        <span id="calculatorCount" class="count"></span>
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <div class="content-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="sidebarOpen" class="icon-button menu-toggle" type="button" aria-label="Menü öffnen">☰</button>
+        <button id="breadcrumbHome" class="breadcrumb-home" type="button">Startseite</button>
+        <span id="breadcrumbSeparator" class="breadcrumb-separator hidden">›</span>
+        <span id="breadcrumbCurrent" class="breadcrumb-current"></span>
       </div>
-      <div id="calculatorCards" class="card-grid"></div>
-    </section>
-
-    <aside id="workspace" class="panel workspace">
-      <div class="empty-state">
-        <h2>Rechner auswählen</h2>
-        <p>Wähle links ein Werkzeug. Eingaben und Ergebnisse bleiben lokal auf deinem Gerät.</p>
+      <div class="topbar-actions">
+        <button id="printButton" class="button secondary hidden" type="button">Drucken</button>
       </div>
-    </aside>
-  </main>
+    </header>
 
-  <footer>
-    Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
-  </footer>
+    <main id="mainContent" class="main-content">
+      <section id="dashboard" class="dashboard-view"></section>
+
+      <section id="calculatorView" class="calculator-view hidden">
+        <div class="catalog-column">
+          <div class="catalog-header">
+            <div>
+              <p class="eyebrow" id="catalogEyebrow">Werkzeuge</p>
+              <h1 id="catalogTitle">Rechner</h1>
+              <p id="catalogDescription" class="subtitle">Wähle einen Rechner aus.</p>
+            </div>
+            <span id="calculatorCount" class="count"></span>
+          </div>
+          <div id="calculatorCards" class="card-grid"></div>
+        </div>
+
+        <aside id="workspace" class="panel workspace">
+          <div class="empty-state">
+            <h2>Rechner auswählen</h2>
+            <p>Wähle links ein Werkzeug. Eingaben und Ergebnisse bleiben lokal auf deinem Gerät.</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <footer>
+      Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
+    </footer>
+  </div>
 </div>
 <script type="module" src="js/app.js"></script>
 </body>
