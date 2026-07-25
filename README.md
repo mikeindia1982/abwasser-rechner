@@ -1,42 +1,42 @@
-# Abwasser Rechner – Version 0.5
+# Abwasser Rechner – Version 0.6
 
-## Neue Anlagenakte
+## Neu: Standort und Navigation
 
-Version 0.5 ergänzt die Rechner um eine zentrale Anlagenverwaltung.
+- eingebettete Google-Maps-Karte auf der Anlagenstartseite
+- Standortanzeige über Anlagenadresse oder GPS-Koordinaten
+- Schaltfläche „Navigation starten“
+- Schaltfläche „Standort in Google Maps“
+- Schaltfläche zur Prüfung von Street View
+- Nutzung ohne eigenen Google-Maps-API-Schlüssel
+- Kartendarstellung benötigt eine Internetverbindung
 
-### Enthalten
+## Neu: Zufahrt und Besuch
 
-- Anlagenübersicht für mehrere Kläranlagen
-- kommunale, industrielle und gemischte Anlagen
-- Anlagenname, interne Nummer, Ausbaugröße, Belastung und Verfahren
-- vollständige Anlagenadresse
-- getrennte Betreiberanschrift
-- mehrere Ansprechpartner mit Funktion und Kontaktdaten
-- zentrale Betriebsparameter
-- Anlagenstartseite mit Kennzahlen
-- frei konfigurierbare Grenz- und Zielwerte
-- Ampelübersicht in Grün, Gelb, Rot und Grau
-- Export einer Anlagenakte als JSON
-- Import einer Anlagenakte aus JSON
-- lokale Speicherung im Browser
+Je Anlage können jetzt zusätzlich gespeichert werden:
 
-## Ampellogik
+- Parkmöglichkeit
+- Tor beziehungsweise Zufahrt
+- Zugangscode oder Schlüsselhinweis
+- Öffnungs- und Besuchszeiten
+- Anmeldung beziehungsweise Pförtner
+- erforderliche persönliche Schutzausrüstung
+- LKW-Zufahrt
+- Lieferhinweise
+- Besonderheiten vor Ort
 
-Die mitgelieferten Schwellen sind ausschließlich Start- beziehungsweise Orientierungswerte.
-Sie müssen an Genehmigungsbescheid, Betriebsziele, Verfahren, Messstelle und örtliche Randbedingungen angepasst werden.
+Die wichtigsten Angaben werden direkt neben der Karte angezeigt.
 
-## Rechnerverknüpfung
+## Hinweise
 
-Die zentrale Datenbasis ist jetzt vorhanden. In Version 0.5 wird die aktive Anlage bereits bei jedem Rechner angezeigt.
-Die automatische Feldzuordnung und Rückspeicherung zwischen Anlagenprofil und einzelnen Rechnern wird in den folgenden Versionen rechnerweise ergänzt.
+Google Maps wird über öffentliche Maps-Links geöffnet. Die eingebettete Karte benötigt eine aktive Internetverbindung. Ohne Internet bleiben Anlagenakte, Rechner und lokal gespeicherte Daten weiterhin nutzbar.
 
-## GitHub
+## GitHub aktualisieren
 
-1. ZIP entpacken.
+1. ZIP-Datei entpacken.
 2. Alle Dateien und den Ordner `js` in das Repository hochladen.
 3. Vorhandene Dateien ersetzen.
 4. Commit-Nachricht:
 
-   `Version 0.5 - Anlagenakte und Ampelsystem`
+   `Version 0.6 - Google Maps und Anfahrtsdaten`
 
-5. Nach der Veröffentlichung muss oben links `Version 0.5` stehen.
+5. Nach der Veröffentlichung muss oben links `Version 0.6` stehen.

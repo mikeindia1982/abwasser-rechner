@@ -1,11 +1,11 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.5";
-const STORAGE_FAVORITES="abwasser-favorites-v05";
-const STORAGE_MENU="abwasser-menu-v05";
-const STORAGE_PLANTS="abwasser-plants-v05";
-const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v05";
+const VERSION="0.6";
+const STORAGE_FAVORITES="abwasser-favorites-v06";
+const STORAGE_MENU="abwasser-menu-v06";
+const STORAGE_PLANTS="abwasser-plants-v06";
+const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v06";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -37,6 +37,7 @@ const emptyPlant=()=>({
     process:"",notes:""
   },
   address:{street:"",postalCode:"",city:"",state:"Brandenburg",country:"Deutschland",gps:"",deliveryAddress:""},
+  access:{parking:"",gate:"",accessCode:"",openingHours:"",registration:"",ppe:"",truckAccess:"",deliveryNotes:"",siteNotes:""},
   operator:{name:"",legalForm:"",customerNumber:"",street:"",postalCode:"",city:"",phone:"",email:"",website:""},
   contacts:[],
   parameters:{
@@ -83,6 +84,34 @@ function fmt(value,digits=1){
 }
 function esc(value=""){
   return String(value).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+}
+
+function locationQuery(plant){
+  const gps=(plant.address?.gps||"").trim();
+  if(gps)return gps;
+  return [
+    plant.address?.street,
+    plant.address?.postalCode,
+    plant.address?.city,
+    plant.address?.country
+  ].filter(Boolean).join(", ");
+}
+function googleMapsUrls(plant){
+  const query=encodeURIComponent(locationQuery(plant));
+  return {
+    show:`https://www.google.com/maps/search/?api=1&query=${query}`,
+    navigate:`https://www.google.com/maps/dir/?api=1&destination=${query}`,
+    embed:`https://www.google.com/maps?q=${query}&output=embed`,
+    street:`https://www.google.com/maps/search/?api=1&query=${query}`
+  };
+}
+function mapsButtons(plant){
+  const urls=googleMapsUrls(plant);
+  return `<div class="map-actions">
+    <a class="button primary" href="${urls.navigate}" target="_blank" rel="noopener">Navigation starten</a>
+    <a class="button secondary" href="${urls.show}" target="_blank" rel="noopener">Standort in Google Maps</a>
+    <a class="button secondary" href="${urls.street}" target="_blank" rel="noopener">Street View prüfen</a>
+  </div>`;
 }
 function persistMenu(){localStorage.setItem(STORAGE_MENU,JSON.stringify([...state.openCategories]))}
 function filtered(){
@@ -326,6 +355,17 @@ function showPlantForm(id=null){
       ${field("address.gps","GPS-Koordinaten",p.address.gps)}
       <label class="field-label span-2">Abweichende Zufahrts-/Lieferadresse<textarea name="address.deliveryAddress">${esc(p.address.deliveryAddress)}</textarea></label>
     </div></section>
+    <section class="form-section"><h2>Zufahrt und Besuch</h2><div class="form-grid">
+      ${field("access.parking","Parkmöglichkeit",p.access?.parking||"")}
+      ${field("access.gate","Tor / Zufahrt",p.access?.gate||"")}
+      ${field("access.accessCode","Zugangscode / Schlüsselhinweis",p.access?.accessCode||"")}
+      ${field("access.openingHours","Öffnungs- oder Besuchszeiten",p.access?.openingHours||"")}
+      ${field("access.registration","Anmeldung / Pförtner",p.access?.registration||"")}
+      ${field("access.ppe","Erforderliche PSA",p.access?.ppe||"")}
+      ${field("access.truckAccess","LKW-Zufahrt",p.access?.truckAccess||"")}
+      ${field("access.deliveryNotes","Hinweise für Lieferungen",p.access?.deliveryNotes||"")}
+      <label class="field-label span-2">Besonderheiten vor Ort<textarea name="access.siteNotes">${esc(p.access?.siteNotes||"")}</textarea></label>
+    </div></section>
 
     <section class="form-section"><h2>Betreiber</h2><div class="form-grid">
       ${field("operator.name","Betreibername",p.operator.name)}
@@ -390,6 +430,7 @@ function showPlantForm(id=null){
     e.preventDefault();
     const fd=new FormData(e.currentTarget);
     const result=existing?structuredClone(existing):p;
+    result.access=result.access||{};
     for(const [key,value] of fd.entries()){
       if(key.startsWith("contact."))continue;
       const [section,prop]=key.split(".");
@@ -441,12 +482,30 @@ function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
   const primary=plant.contacts?.[0];
+  const mapUrls=googleMapsUrls(plant);
   appView.innerHTML=`<section class="plant-hero">
     <div><p class="eyebrow">Anlagenstartseite</p><h1>${esc(plant.master.name||"Unbenannte Anlage")}</h1>
     <p class="subtitle">${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmt(plant.master.capacityPE,0)} EW`:""}</p></div>
     <div class="hero-actions"><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
   ${renderTrafficSummary(plant)}
+  <section class="map-section">
+    <div class="map-frame-wrap">
+      ${locationQuery(plant)?`<iframe class="map-frame" title="Standort der Anlage" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapUrls.embed}"></iframe>`:`<div class="map-placeholder"><strong>Kein Standort hinterlegt</strong><span>Adresse oder GPS-Koordinaten ergänzen.</span></div>`}
+    </div>
+    <article class="map-info-card">
+      <p class="eyebrow">Standort und Anfahrt</p>
+      <h2>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"Adresse fehlt")}</h2>
+      <p>${plant.address.gps?`GPS: ${esc(plant.address.gps)}`:"Navigation erfolgt über die hinterlegte Anlagenadresse."}</p>
+      ${locationQuery(plant)?mapsButtons(plant):""}
+      <div class="access-quick">
+        <div><span>Parken</span><strong>${esc(plant.access?.parking||"–")}</strong></div>
+        <div><span>Zufahrt</span><strong>${esc(plant.access?.gate||"–")}</strong></div>
+        <div><span>Anmeldung</span><strong>${esc(plant.access?.registration||"–")}</strong></div>
+        <div><span>PSA</span><strong>${esc(plant.access?.ppe||"–")}</strong></div>
+      </div>
+    </article>
+  </section>
   <div class="record-grid">
     <article class="record-card"><h2>Anlage</h2><dl>
       <div><dt>Adresse</dt><dd>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"–")}</dd></div>
@@ -457,6 +516,14 @@ function showPlantDashboard(){
     </dl></article>
     <article class="record-card"><h2>Hauptansprechpartner</h2><dl>
       <div><dt>Name</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Funktion</dt><dd>${esc(primary?.role||"–")}</dd></div><div><dt>Kontakt</dt><dd>${esc(primary?.mobile||primary?.phone||primary?.email||"–")}</dd></div>
+    </dl></article>
+    <article class="record-card"><h2>Zufahrt und Besuch</h2><dl>
+      <div><dt>Parken</dt><dd>${esc(plant.access?.parking||"–")}</dd></div>
+      <div><dt>Tor / Zugang</dt><dd>${esc(plant.access?.gate||"–")}</dd></div>
+      <div><dt>Zugangscode</dt><dd>${esc(plant.access?.accessCode||"–")}</dd></div>
+      <div><dt>Besuchszeiten</dt><dd>${esc(plant.access?.openingHours||"–")}</dd></div>
+      <div><dt>LKW-Zufahrt</dt><dd>${esc(plant.access?.truckAccess||"–")}</dd></div>
+      <div><dt>Hinweise</dt><dd>${esc(plant.access?.siteNotes||"–")}</dd></div>
     </dl></article>
   </div>
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Zentrale Datenbasis</p><h2>Betriebswerte</h2></div><button class="text-button" id="editParameters">Werte bearbeiten</button></div>
@@ -536,7 +603,7 @@ $("#importPlantInput").onchange=async e=>{
     const parsed=JSON.parse(await file.text());const imported=parsed.plant||parsed;
     if(!imported.master||!imported.address||!imported.operator)throw new Error("Ungültige Anlagenakte");
     imported.id=crypto.randomUUID();imported.createdAt=new Date().toISOString();imported.updatedAt=new Date().toISOString();
-    imported.limits=imported.limits||structuredClone(defaultLimits);imported.contacts=imported.contacts||[];imported.parameters=imported.parameters||{};
+    imported.limits=imported.limits||structuredClone(defaultLimits);imported.contacts=imported.contacts||[];imported.parameters=imported.parameters||{};imported.access=imported.access||{};
     plants.push(imported);activePlantId=imported.id;savePlants();showPlantDashboard();
   }catch(err){alert(`Import nicht möglich: ${err.message}`)}
   e.target.value="";
