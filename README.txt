@@ -1,18 +1,22 @@
-ABWASSER RECHNER VERSION 0.2
+ABWASSER RECHNER – VERSION 0.2.1
 
-Neu:
-- Fällmittelrechner für Eisen(III)-chlorid, Eisen(III)-chloridsulfat,
-  Polyaluminiumchlorid, Aluminiumsulfat und benutzerdefinierte Produkte
-- Metall- und Produktbedarf, l/h, ml/m³ sowie Kosten
-- editierbare Produktdaten
-- Favoriten und Versionsanzeige
+BEHOBEN:
+- Ungültig verschachtelte Buttons in den Rechnerkarten entfernt.
+- Favoritenstern ist jetzt ein eigenständiger, korrekt beschrifteter Button.
+- Rechnerkarten sind per Maus und Tastatur bedienbar.
+- Dezimalzahlen werden sowohl mit Komma als auch mit Punkt korrekt erkannt:
+  1,42 und 1.42 ergeben jeweils 1,42.
+- Service-Worker-Cache auf Version 0.2.1 angehoben.
 
-GitHub:
+GITHUB-AKTUALISIERUNG:
 1. ZIP entpacken.
-2. Im Repository Add file > Upload files öffnen.
-3. Alle Dateien aus diesem Ordner hochladen und vorhandene Dateien ersetzen.
-4. Commit message: Version 0.2 - Faellmittelrechner
+2. Im Repository auf Add file -> Upload files klicken.
+3. Alle Dateien aus dem Ordner hochladen und vorhandene Dateien ersetzen.
+4. Commit message:
+   Version 0.2.1 - Eingabefehler und Favoriten behoben
 5. Commit changes.
-6. GitHub Pages einige Minuten aktualisieren lassen.
+6. Nach der Veröffentlichung die Seite einmal neu laden.
 
-Die Produktvorgaben sind nur Beispielwerte und vor realer Anwendung mit dem Produktdatenblatt abzugleichen.
+HINWEIS:
+Die Produktwerte sind editierbare Beispielwerte und müssen mit dem
+jeweiligen aktuellen Produktdatenblatt abgeglichen werden.
