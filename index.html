@@ -1,73 +1,60 @@
 <!doctype html>
-<html lang="de"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f4c5c"><meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
-<title>Abwasser Rechner v0.2.1</title>
-<style>
-:root{--bg:#eef4f4;--s:#fff;--t:#17353c;--m:#60777c;--p:#0f4c5c;--a:#2c7a7b;--l:#d5e1e2;--d:#b42318;--o:#16794a;--w:#946200}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#2c7a7b29,transparent 31rem),var(--bg);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
-button,input,select{font:inherit}button{cursor:pointer}.app{width:min(1220px,calc(100% - 24px));margin:auto;padding:22px 0 60px}
-header{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:18px}.ey{margin:0;color:var(--a);font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
-h1{margin:.2rem 0;font-size:clamp(2rem,6vw,3.55rem);letter-spacing:-.045em;line-height:1}header p:last-child{margin:0;color:var(--m)}.badge{display:inline-block;margin-top:.45rem;padding:.28rem .55rem;border-radius:999px;background:#dceaea;color:var(--p);font-weight:800;font-size:.78rem}
-.actions,.headact{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:.8rem 1rem;font-weight:800}.pri{background:var(--p);color:#fff}.sec{background:#e2eeee;color:var(--p)}
-.toolbar{display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:12px}.toolbar input{border:1px solid var(--l);border-radius:14px;padding:1rem;background:#fff;outline:0}
-.chips{display:flex;gap:8px;overflow:auto;padding-bottom:6px;margin-bottom:14px}.chip{white-space:nowrap;border:1px solid var(--l);border-radius:999px;background:#fff;color:var(--m);padding:.62rem .86rem;font-weight:750}.chip.on{background:var(--p);color:#fff;border-color:var(--p)}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(355px,445px);gap:16px;align-items:start}.panel{background:#ffffffef;border:1px solid #0f4c5c1a;border-radius:20px;box-shadow:0 18px 50px #1232391c}.catalog,.work{padding:16px}.work{position:sticky;top:10px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.card{position:relative;border:1px solid var(--l);cursor:pointer;border-radius:15px;background:#fff;text-align:left;padding:15px;min-height:132px}.card:focus-visible{outline:3px solid #2c7a7b55;outline-offset:2px}.card.on{border-color:var(--a);box-shadow:0 0 0 3px #2c7a7b1f}.cat{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--a);font-weight:800}.card h3{margin:.35rem 2rem .35rem 0}.card p{margin:0;color:var(--m);font-size:.88rem;line-height:1.4}.fav{position:absolute;right:8px;top:7px;border:0;background:transparent;color:#9bb0b3;font-size:1.1rem}.fav.on{color:#d79b00}
-.formula{display:inline-block;margin:.6rem 0 1rem;background:#e5f0f0;color:var(--p);border-radius:999px;padding:.48rem .7rem;font-weight:800;font-size:.84rem}.desc{color:var(--m);line-height:1.5}.st{margin:1rem 0 .45rem;font-size:.77rem;text-transform:uppercase;letter-spacing:.08em;color:var(--a);font-weight:800}
-.fields{display:grid;gap:11px}label{display:grid;gap:5px;font-weight:750}.row{display:grid;grid-template-columns:1fr auto;border:1px solid #b8c9cc;border-radius:12px;overflow:hidden}input,select{min-width:0;border:0;outline:0;background:transparent;padding:.9rem 1rem}.unit{display:grid;place-items:center;padding:0 .8rem;background:#f4f8f8;color:var(--m);font-weight:750;min-width:65px}.err{min-height:1em;color:var(--d);font-size:.8rem}
-.res{margin-top:14px;padding:15px;border-radius:14px;background:var(--p);color:#fff}.res small{display:block;opacity:.75;text-transform:uppercase;font-weight:750}.res strong{display:block;font-size:clamp(2rem,8vw,3.1rem);margin:.25rem 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.met{padding:12px;border-radius:12px;background:#f4f8f8;border:1px solid var(--l)}.met small{display:block;color:var(--m);font-size:.72rem;text-transform:uppercase}.met strong{display:block;margin-top:.2rem}
-.hint{margin-top:11px;padding:12px 13px;border-left:4px solid var(--a);background:#f0f7f7;border-radius:0 12px 12px 0}.hint.warn{border-color:var(--w)}.hint.ok{border-color:var(--o)}.hint h4{margin:0 0 4px}.hint p{margin:0;color:#4b666c;font-size:.88rem;line-height:1.45}.info{margin:.3rem 0 .9rem;padding:11px 12px;background:#fbfdfd;border:1px solid var(--l);border-radius:12px;color:var(--m);font-size:.85rem}
-footer{text-align:center;color:var(--m);font-size:.77rem;margin-top:16px}@media(max-width:900px){.layout{grid-template-columns:1fr}.work{position:static;order:-1}}@media(max-width:620px){header{display:block}.headact{margin-top:12px}.toolbar{grid-template-columns:1fr}.cards,.grid{grid-template-columns:1fr}.actions{display:grid}}
-</style></head><body><div class="app">
-<header><div><p class="ey">Abwassertechnik</p><h1>Abwasser Rechner</h1><p>Lokale Berechnungen ohne Cloud.</p><span class="badge">Version 0.2.1 · Stabilitätsupdate</span></div><div class="headact"><button id="favOnly" class="btn sec">★ Favoriten</button></div></header>
-<div class="toolbar"><input id="search" placeholder="Rechner suchen"><button id="clear" class="btn sec">Suche löschen</button><button class="btn sec" onclick="print()">Drucken</button></div><nav id="chips" class="chips"></nav>
-<main class="layout"><section class="panel catalog"><div style="display:flex;justify-content:space-between"><h2>Rechner</h2><span id="count"></span></div><div id="cards" class="cards"></div></section><aside id="work" class="panel work"><div style="text-align:center;color:var(--m);padding:38px 8px"><h2>Rechner auswählen</h2><p>Alle Berechnungen laufen lokal.</p></div></aside></main>
-<footer>Orientierende Berechnungshilfe. Produktdatenblätter und anlagenspezifische Randbedingungen separat prüfen.</footer></div>
-<script>
-const P={"Eisen(III)-chlorid":{m:"Fe",d:1.42,s:13.7,r:1.8,n:"Beispielwerte – mit dem konkreten Produktdatenblatt abgleichen."},"Eisen(III)-chloridsulfat":{m:"Fe",d:1.50,s:11.5,r:1.8,n:"Beispielwerte – Handelsprodukte unterscheiden sich."},"Polyaluminiumchlorid (PAC)":{m:"Al",d:1.25,s:5.3,r:1.5,n:"Beispielwerte – Al-Gehalt und Basizität sind produktabhängig."},"Aluminiumsulfat":{m:"Al",d:1.30,s:4.2,r:1.5,n:"Beispielwerte – Flüssig- und Festprodukte getrennt bewerten."},"Benutzerdefiniert":{m:"Fe",d:1,s:10,r:1.8,n:"Eigene Produktdaten vollständig eintragen."}};
-const C=[
-{id:"precip",cat:"Phosphor",name:"Fällmittelrechner",short:"P-Entfernung, Metall- und Produktbedarf",formula:"ΔP → Metallbedarf → Produktbedarf → Kosten",type:"p"},
-{id:"load",cat:"Grundlagen",name:"Tagesfracht",short:"Volumenstrom × Konzentration",formula:"B = Q × c ÷ 1.000",f:[Nf("q","Volumenstrom","m³/d"),Nf("c","Konzentration","mg/l")],calc:v=>v.q*v.c/1000,u:"kg/d",dg:4},
-{id:"conc",cat:"Grundlagen",name:"Konzentration",short:"Aus Fracht und Volumenstrom",formula:"c = B × 1.000 ÷ Q",f:[Nf("b","Tagesfracht","kg/d"),Nf("q","Volumenstrom","m³/d",.000001)],calc:v=>v.b*1000/v.q,u:"mg/l",dg:3},
-{id:"nh4",cat:"Stickstoff",name:"NH₄-N-Abbau",short:"Orientierender Nitrifikationsgrad",formula:"η = (Zu − Ab) ÷ Zu × 100",f:[Nf("cin","NH₄-N Zulauf","mg/l",.000001),Nf("cout","NH₄-N Ablauf","mg/l")],calc:v=>(v.cin-v.cout)/v.cin*100,u:"%",dg:2},
-{id:"o2",cat:"Stickstoff",name:"O₂-Bedarf Nitrifikation",short:"Theoretischer Bedarf",formula:"O₂ ≈ 4,57 × NH₄-N-Fracht",f:[Nf("b","NH₄-N-Fracht","kg N/d")],calc:v=>4.57*v.b,u:"kg O₂/d",dg:2},
-{id:"loading",cat:"Biologie",name:"Schlammbelastung",short:"BSB₅-Fracht bezogen auf TS-Masse",formula:"BTS = BSB₅ ÷ (V × TS)",f:[Nf("b","BSB₅-Fracht","kg/d"),Nf("v","Belebungsvolumen","m³",.000001),Nf("ts","TS","kg/m³",.000001)],calc:v=>v.b/(v.v*v.ts),u:"kg BSB₅/(kg TS·d)",dg:4},
-{id:"age",cat:"Biologie",name:"Schlammalter",short:"TS-Inventar durch Feststoffabzug",formula:"tTS = Inventar ÷ Abzug",f:[Nf("i","TS-Inventar","kg"),Nf("w","Feststoffabzug","kg TS/d",.000001)],calc:v=>v.i/v.w,u:"d",dg:2},
-{id:"svi",cat:"Schlamm",name:"SVI",short:"Schlammvolumenindex",formula:"SVI = SV₃₀ ÷ TS",f:[Nf("sv","SV₃₀","ml/l"),Nf("ts","TS","g/l",.000001)],calc:v=>v.sv/v.ts,u:"ml/g",dg:1},
-{id:"hrt",cat:"Hydraulik",name:"Aufenthaltszeit",short:"Volumen bezogen auf Durchfluss",formula:"t = V ÷ Q × 24",f:[Nf("v","Beckenvolumen","m³"),Nf("q","Volumenstrom","m³/d",.000001)],calc:v=>v.v/v.q*24,u:"h",dg:2},
-{id:"dose",cat:"Chemikalien",name:"Dosierstrom",short:"Wasserstrom × spezifische Dosierung",formula:"V̇ = Q × D ÷ 1.000",f:[Nf("q","Wasserstrom","m³/h"),Nf("d","Dosierung","ml/m³")],calc:v=>v.q*v.d/1000,u:"l/h",dg:3},
-{id:"tank",cat:"Chemikalien",name:"Tankreichweite",short:"Bestand bezogen auf Verbrauch",formula:"t = Bestand ÷ Verbrauch",f:[Nf("s","Tankinhalt","l"),Nf("u","Verbrauch","l/d",.000001)],calc:v=>v.s/v.u,u:"d",dg:1},
-{id:"cost",cat:"Wirtschaftlichkeit",name:"Chemikalienkosten",short:"Verbrauch × Preis × Zeitraum",formula:"K = Verbrauch × Preis × Zeitraum",f:[Nf("u","Verbrauch","kg/d"),Nf("p","Preis","€/kg"),Sf("z","Zeitraum",["Tag","30 Tage","365 Tage"])],calc:v=>v.u*v.p*(v.z==="Tag"?1:v.z==="30 Tage"?30:365),u:"€",dg:2}
-];
-function Nf(id,l,u,min=0,max=Infinity){return{t:"n",id,l,u,min,max}}function Sf(id,l,o){return{t:"s",id,l,o}}function de(x,d=4){return new Intl.NumberFormat("de-DE",{maximumFractionDigits:d}).format(x)}function eur(x){return new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"}).format(x)}
-let S={cat:"Alle",q:"",sel:null,fo:false,favs:new Set(JSON.parse(localStorage.getItem("abw02")||"[]"))};const cats=["Alle",...new Set(C.map(x=>x.cat))],cards=$("#cards"),work=$("#work"),chips=$("#chips");
-function $(x){return document.querySelector(x)}function all(x){return document.querySelectorAll(x)}
-function draw(){chips.innerHTML=cats.map(x=>`<button class="chip ${S.cat===x?"on":""}" data-c="${x}">${x}</button>`).join("");all(".chip").forEach(b=>b.onclick=()=>{S.cat=b.dataset.c;S.fo=false;draw()});let q=S.q.toLowerCase(),L=C.filter(x=>(S.cat==="Alle"||x.cat===S.cat)&&(!S.fo||S.favs.has(x.id))&&(!q||(`${x.name} ${x.short}`).toLowerCase().includes(q)));$("#count").textContent=`${L.length} von ${C.length}`;cards.innerHTML=L.map(x=>`<article class="card ${S.sel===x.id?"on":""}" data-id="${x.id}" role="button" tabindex="0" aria-label="${x.name} öffnen"><span class="cat">${x.cat}</span><button type="button" class="fav ${S.favs.has(x.id)?"on":""}" data-f="${x.id}" aria-label="${S.favs.has(x.id)?"Aus Favoriten entfernen":"Zu Favoriten hinzufügen"}">★</button><h3>${x.name}</h3><p>${x.short}</p></article>`).join("");all(".card").forEach(b=>{b.onclick=e=>{if(e.target.closest(".fav"))return;select(b.dataset.id)};b.onkeydown=e=>{if((e.key==="Enter"||e.key===" ")&&!e.target.closest(".fav")){e.preventDefault();select(b.dataset.id)}}});all(".fav").forEach(b=>b.onclick=e=>{e.stopPropagation();S.favs.has(b.dataset.f)?S.favs.delete(b.dataset.f):S.favs.add(b.dataset.f);localStorage.setItem("abw02",JSON.stringify([...S.favs]));draw()})}
-function fh(x){return x.t==="s"?`<label>${x.l}<div class="row"><select id="f-${x.id}">${x.o.map(o=>`<option>${o}</option>`).join("")}</select><span class="unit">Auswahl</span></div><span class="err" id="e-${x.id}"></span></label>`:`<label>${x.l}<div class="row"><input id="f-${x.id}" inputmode="decimal"><span class="unit">${x.u}</span></div><span class="err" id="e-${x.id}"></span></label>`}
-function select(id){S.sel=id;draw();let c=C.find(x=>x.id===id);if(c.type==="p")return rp();work.innerHTML=`<p class="ey">${c.cat}</p><h2>${c.name}</h2><span class="formula">${c.formula}</span><p class="desc">${c.short}</p><form id="form"><div class="fields">${c.f.map(fh).join("")}</div><div class="actions"><button class="btn pri">Berechnen</button><button type="button" class="btn sec" id="reset">Zurücksetzen</button></div></form><div id="out"></div>`;$("#form").onsubmit=e=>{e.preventDefault();calc(c)};$("#reset").onclick=()=>{$("#form").reset();$("#out").innerHTML=""}}
-function parse(s){
-  s=String(s).trim().replace(/\s+/g,"");
-  if(!s)return null;
-  const comma=s.lastIndexOf(","), point=s.lastIndexOf(".");
-  if(comma>=0&&point>=0){
-    const decimal=Math.max(comma,point);
-    const intPart=s.slice(0,decimal).replace(/[.,]/g,"");
-    const fracPart=s.slice(decimal+1).replace(/[.,]/g,"");
-    s=intPart+"."+fracPart;
-  }else{
-    s=s.replace(",",".");
-  }
-  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s))return null;
-  const x=Number(s);
-  return Number.isFinite(x)?x:null
-}
-function calc(c){let v={},bad=false;c.f.forEach(x=>{let el=$("#f-"+x.id),er=$("#e-"+x.id);er.textContent="";if(x.t==="s"){v[x.id]=el.value;return}let y=parse(el.value);if(y===null||y<x.min||y>x.max){er.textContent="Bitte gültigen Wert eingeben.";bad=true}else v[x.id]=y});if(bad)return;let r=c.calc(v);$("#out").innerHTML=`<section class="res"><small>Ergebnis</small><strong>${c.u==="€"?eur(r):de(r,c.dg)+" "+c.u}</strong></section>`}
-function rp(){work.innerHTML=`<p class="ey">Phosphor</p><h2>Fällmittelrechner</h2><span class="formula">ΔP → Metallbedarf → Produktbedarf → Kosten</span><p class="desc">Orientierende Berechnung klassischer Eisen- und Aluminiumsalze.</p><form id="pf"><p class="st">Anlagendaten</p><div class="fields">${fh(Nf("q","Volumenstrom","m³/d",.000001))}${fh(Nf("pin","Aktueller P-Wert","mg P/l"))}${fh(Nf("pt","Zielwert","mg P/l"))}${fh(Nf("h","Dosierzeit","h/d",.000001,24))}</div><p class="st">Produkt</p><div class="fields"><label>Produkt<div class="row"><select id="f-prod">${Object.keys(P).map(x=>`<option>${x}</option>`).join("")}</select><span class="unit">Auswahl</span></div></label><label>Metall<div class="row"><select id="f-met"><option>Fe</option><option>Al</option></select><span class="unit">Element</span></div></label>${fh(Nf("den","Dichte","kg/l",.000001))}${fh(Nf("share","Metallgehalt","%",.000001,100))}${fh(Nf("ratio","Metall/P","mol/mol",.000001))}${fh(Nf("safe","Sicherheitszuschlag","%",0,300))}${fh(Nf("price","Produktpreis","€/kg"))}</div><div id="pi" class="info"></div><div class="actions"><button class="btn pri">Berechnen</button><button type="button" class="btn sec" id="pr">Zurücksetzen</button></div></form><div id="out"></div>`;$("#f-prod").onchange=()=>ap($("#f-prod").value);$("#pf").onsubmit=e=>{e.preventDefault();cp()};$("#pr").onclick=()=>{rp()};ap("Eisen(III)-chlorid")}
-function setv(id,v){$("#f-"+id).value=String(v).replace(".",",")}function ap(n){let p=P[n];$("#f-met").value=p.m;setv("den",p.d);setv("share",p.s);setv("ratio",p.r);setv("safe",10);setv("price",0);$("#pi").innerHTML=`<strong>${n}</strong><br>${p.n}<br>Alle Werte sind editierbar.`}
-function gv(id,min=0,max=Infinity){let e=$("#e-"+id);if(e)e.textContent="";let v=parse($("#f-"+id).value);if(v===null||v<min||v>max){if(e)e.textContent="Bitte gültigen Wert eingeben.";return null}return v}
-function met(l,v){return`<div class="met"><small>${l}</small><strong>${v}</strong></div>`}
-function cp(){let q=gv("q",.000001),pin=gv("pin"),pt=gv("pt"),h=gv("h",.000001,24),den=gv("den",.000001),sh=gv("share",.000001,100),ra=gv("ratio",.000001),sa=gv("safe",0,300),pr=gv("price");if([q,pin,pt,h,den,sh,ra,sa,pr].some(x=>x===null))return;if(pt>=pin){$("#out").innerHTML=`<div class="hint warn"><h4>Eingaben prüfen</h4><p>Der Zielwert muss unter dem aktuellen P-Wert liegen.</p></div>`;return}let m=$("#f-met").value,dp=pin-pt,pl=q*dp/1000,mm=m==="Fe"?55.845:26.9815,mb=pl*ra*mm/30.9738*(1+sa/100),kg=mb/(sh/100),l=kg/den,lh=l/h,ml=l*1000/q,c=kg*pr,kind=ra<1.2||ra>3?"warn":"ok",txt=ra<1.2?"Niedriger Ansatz. Erreichbarkeit des Zielwerts prüfen.":ra>3?"Hoher Ansatz. Optimierungspotenzial und Nebenreaktionen prüfen.":"Häufig verwendeter orientierender Arbeitsbereich; anlagenbezogen validieren.";$("#out").innerHTML=`<section class="res"><small>Erforderlicher Produktbedarf</small><strong>${de(l,2)} l/d</strong><p>${de(kg,2)} kg/d · ${de(lh,2)} l/h</p></section><div class="grid">${met("Zu entfernendes P",de(dp,3)+" mg/l")}${met("P-Fracht",de(pl,3)+" kg P/d")}${met("Metallbedarf",de(mb,3)+" kg "+m+"/d")}${met("Spezifische Dosierung",de(ml,2)+" ml/m³")}${met("Kosten pro Tag",eur(c))}${met("Kosten pro Monat",eur(c*30))}${met("Kosten pro Jahr",eur(c*365))}${met("Metall/P",de(ra,2)+" mol/mol")}</div><div class="hint ${kind}"><h4>Molverhältnis</h4><p>${txt}</p></div><div class="hint"><h4>Rechenweg</h4><p>ΔP = ${de(pin,3)} − ${de(pt,3)} = ${de(dp,3)} mg/l.<br>P-Fracht = ${de(q,2)} × ${de(dp,3)} ÷ 1.000 = ${de(pl,3)} kg P/d.<br>Metallbedarf inkl. ${de(sa,1)} % Zuschlag = ${de(mb,3)} kg ${m}/d.</p></div>`}
-$("#search").oninput=e=>{S.q=e.target.value;draw()};$("#clear").onclick=()=>{$("#search").value="";S.q="";draw()};$("#favOnly").onclick=()=>{S.fo=!S.fo;S.cat="Alle";$("#favOnly").textContent=S.fo?"Alle Rechner":"★ Favoriten";draw()};if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"));draw();
-</script></body></html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f4c5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Abwasser Rechner">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Abwasser Rechner v0.3</title>
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Abwassertechnik</p>
+      <h1>Abwasser Rechner</h1>
+      <p class="subtitle">Nachvollziehbare Berechnungen direkt im Browser – ohne Cloud und ohne Anmeldung.</p>
+      <span class="version">Version 0.3 · Chemie &amp; Schlammentwässerung</span>
+    </div>
+    <div class="header-actions">
+      <button id="installButton" class="button primary hidden" type="button">App installieren</button>
+      <button id="favoriteFilter" class="button secondary" type="button">★ Favoriten</button>
+    </div>
+  </header>
+
+  <section class="toolbar" aria-label="Rechner filtern">
+    <input id="searchInput" type="search" placeholder="Rechner suchen, z. B. Polymer, Fällmittel oder TS">
+    <button id="clearSearch" class="button secondary" type="button">Suche löschen</button>
+    <button class="button secondary" type="button" onclick="window.print()">Drucken</button>
+  </section>
+
+  <nav id="categoryChips" class="chips" aria-label="Kategorien"></nav>
+
+  <main class="main-grid">
+    <section class="panel catalog-panel">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Werkzeuge</p><h2>Rechner</h2></div>
+        <span id="calculatorCount" class="count"></span>
+      </div>
+      <div id="calculatorCards" class="card-grid"></div>
+    </section>
+
+    <aside id="workspace" class="panel workspace">
+      <div class="empty-state">
+        <h2>Rechner auswählen</h2>
+        <p>Wähle links ein Werkzeug. Eingaben und Ergebnisse bleiben lokal auf deinem Gerät.</p>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
+  </footer>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
