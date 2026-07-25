@@ -1,14 +1,18 @@
-Abwasser Rechner PWA
+ABWASSER RECHNER VERSION 0.2
 
-Zum Testen am Computer:
-- Ordner über einen lokalen Webserver öffnen, z. B.:
-  python3 -m http.server 8080
-- Danach im Browser http://localhost:8080 öffnen.
+Neu:
+- Fällmittelrechner für Eisen(III)-chlorid, Eisen(III)-chloridsulfat,
+  Polyaluminiumchlorid, Aluminiumsulfat und benutzerdefinierte Produkte
+- Metall- und Produktbedarf, l/h, ml/m³ sowie Kosten
+- editierbare Produktdaten
+- Favoriten und Versionsanzeige
 
-Auf dem iPhone:
-- Die Seite über Safari aufrufen.
-- Teilen -> Zum Home-Bildschirm.
-- Danach startet sie wie eine App und funktioniert nach dem ersten Laden offline.
+GitHub:
+1. ZIP entpacken.
+2. Im Repository Add file > Upload files öffnen.
+3. Alle Dateien aus diesem Ordner hochladen und vorhandene Dateien ersetzen.
+4. Commit message: Version 0.2 - Faellmittelrechner
+5. Commit changes.
+6. GitHub Pages einige Minuten aktualisieren lassen.
 
-Wichtig:
-Eine PWA funktioniert nicht zuverlässig, wenn index.html nur direkt aus der Dateien-App geöffnet wird.
+Die Produktvorgaben sind nur Beispielwerte und vor realer Anwendung mit dem Produktdatenblatt abzugleichen.
