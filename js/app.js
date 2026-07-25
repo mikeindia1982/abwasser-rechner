@@ -1,11 +1,11 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.6";
-const STORAGE_FAVORITES="abwasser-favorites-v06";
-const STORAGE_MENU="abwasser-menu-v06";
-const STORAGE_PLANTS="abwasser-plants-v06";
-const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v06";
+const VERSION="0.7";
+const STORAGE_FAVORITES="abwasser-favorites-v07";
+const STORAGE_MENU="abwasser-menu-v07";
+const STORAGE_PLANTS="abwasser-plants-v07";
+const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v07";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -18,6 +18,113 @@ const categoryMeta={
   "Wirtschaftlichkeit":{icon:"€",description:"Kosten, Vergleiche und Einsparpotenziale"}
 };
 
+
+const europeanCallingCodes=[
+  ["+355","Albanien"],["+376","Andorra"],["+374","Armenien"],["+994","Aserbaidschan"],
+  ["+32","Belgien"],["+387","Bosnien und Herzegowina"],["+359","Bulgarien"],["+45","Dänemark"],
+  ["+49","Deutschland"],["+372","Estland"],["+298","Färöer"],["+358","Finnland"],
+  ["+33","Frankreich"],["+995","Georgien"],["+30","Griechenland"],["+44","Großbritannien"],
+  ["+353","Irland"],["+354","Island"],["+39","Italien / Vatikanstadt"],["+383","Kosovo"],
+  ["+385","Kroatien"],["+357","Zypern"],["+371","Lettland"],["+423","Liechtenstein"],
+  ["+370","Litauen"],["+352","Luxemburg"],["+356","Malta"],["+373","Moldau"],
+  ["+377","Monaco"],["+382","Montenegro"],["+31","Niederlande"],["+389","Nordmazedonien"],
+  ["+47","Norwegen"],["+43","Österreich"],["+48","Polen"],["+351","Portugal"],
+  ["+40","Rumänien"],["+7","Russland"],["+378","San Marino"],["+381","Serbien"],
+  ["+421","Slowakei"],["+386","Slowenien"],["+34","Spanien"],["+46","Schweden"],
+  ["+41","Schweiz"],["+420","Tschechien"],["+90","Türkei"],["+380","Ukraine"],
+  ["+36","Ungarn"],["+375","Belarus"]
+];
+
+function phoneParts(value="",defaultCode="+49"){
+  const normalized=String(value||"").trim();
+  const match=europeanCallingCodes
+    .map(([code])=>code)
+    .sort((a,b)=>b.length-a.length)
+    .find(code=>normalized.startsWith(code));
+  return match
+    ? {code:match,number:normalized.slice(match.length).trim()}
+    : {code:defaultCode,number:normalized};
+}
+function phoneField(prefix,label,value="",defaultCode="+49"){
+  const parts=phoneParts(value,defaultCode);
+  return `<label class="field-label phone-field">${label}
+    <span class="phone-input-group">
+      <select name="${prefix}.code" aria-label="${label} Ländervorwahl">
+        ${europeanCallingCodes.map(([code,country])=>`<option value="${code}" ${parts.code===code?"selected":""}>${country} (${code})</option>`).join("")}
+      </select>
+      <input name="${prefix}.number" type="tel" inputmode="tel" value="${esc(parts.number)}" placeholder="Ortsvorwahl und Rufnummer">
+    </span>
+  </label>`;
+}
+function combinePhone(formData,prefix){
+  const code=(formData.get(`${prefix}.code`)||"").trim();
+  const number=(formData.get(`${prefix}.number`)||"").trim().replace(/\s+/g," ");
+  return number?`${code} ${number}`:"";
+}
+function isoLocalToDate(value){
+  if(!value)return null;
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?null:d;
+}
+function pad2(n){return String(n).padStart(2,"0")}
+function icsDate(date){
+  return `${date.getUTCFullYear()}${pad2(date.getUTCMonth()+1)}${pad2(date.getUTCDate())}T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}${pad2(date.getUTCSeconds())}Z`;
+}
+function escapeIcs(value=""){
+  return String(value).replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");
+}
+function visitOutlookUrl(plant,visit){
+  const start=isoLocalToDate(visit.start);
+  const end=isoLocalToDate(visit.end);
+  const params=new URLSearchParams({
+    path:"/calendar/action/compose",
+    rru:"addevent",
+    subject:visit.title||`Besuch ${plant.master.name||"Kläranlage"}`,
+    startdt:start?start.toISOString():"",
+    enddt:end?end.toISOString():"",
+    location:[plant.address.street,plant.address.postalCode,plant.address.city].filter(Boolean).join(", "),
+    body:[visit.purpose,visit.notes,visit.contact?`Ansprechpartner: ${visit.contact}`:""].filter(Boolean).join("\n\n")
+  });
+  return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+function exportVisitIcs(plant,visit){
+  const start=isoLocalToDate(visit.start);
+  const end=isoLocalToDate(visit.end);
+  if(!start||!end)return alert("Bitte Start- und Endzeit vollständig hinterlegen.");
+  const uid=`${visit.id}@abwasser-rechner`;
+  const location=[plant.address.street,plant.address.postalCode,plant.address.city,plant.address.country].filter(Boolean).join(", ");
+  const description=[
+    visit.purpose,
+    visit.contact?`Ansprechpartner: ${visit.contact}`:"",
+    visit.notes,
+    plant.operator?.name?`Betreiber: ${plant.operator.name}`:""
+  ].filter(Boolean).join("\n");
+  const ics=[
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Abwasser Rechner//DE",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${icsDate(new Date())}`,
+    `DTSTART:${icsDate(start)}`,
+    `DTEND:${icsDate(end)}`,
+    `SUMMARY:${escapeIcs(visit.title||`Besuch ${plant.master.name||"Kläranlage"}`)}`,
+    `LOCATION:${escapeIcs(location)}`,
+    `DESCRIPTION:${escapeIcs(description)}`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+  const safe=(plant.master.name||"klaeranlage").toLowerCase().replace(/[^a-z0-9äöüß]+/gi,"-").replace(/^-|-$/g,"");
+  const blob=new Blob([ics],{type:"text/calendar;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`${safe||"klaeranlage"}-besuch.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 const defaultLimits=[
   {key:"pOut",label:"Ablauf Pges",unit:"mg/l",direction:"max",target:0.8,warning:1.0,legal:2.0},
   {key:"nh4Out",label:"Ablauf NH₄-N",unit:"mg/l",direction:"max",target:2.0,warning:4.0,legal:10.0},
@@ -40,6 +147,7 @@ const emptyPlant=()=>({
   access:{parking:"",gate:"",accessCode:"",openingHours:"",registration:"",ppe:"",truckAccess:"",deliveryNotes:"",siteNotes:""},
   operator:{name:"",legalForm:"",customerNumber:"",street:"",postalCode:"",city:"",phone:"",email:"",website:""},
   contacts:[],
+  visits:[],
   parameters:{
     flow:"",pIn:"",pOut:"",pTarget:"",nh4Out:"",basinVolume:"",mlss:"",svi:"",
     sludgeAge:"",sludgeFlow:"",sludgeTs:"",cakeTs:"",retention:"",polymer:"",
@@ -78,9 +186,12 @@ function savePlants(){
   renderPlantSelector();
 }
 function activePlant(){return plants.find(p=>p.id===activePlantId)||null}
-function fmt(value,digits=1){
+function fmt(value,digits=3){
   const num=Number(String(value).replace(",","."));
-  return Number.isFinite(num)?num.toLocaleString("de-DE",{maximumFractionDigits:digits}):"–";
+  return Number.isFinite(num)?num.toLocaleString("de-DE",{
+    minimumFractionDigits:0,
+    maximumFractionDigits:digits
+  }):"–";
 }
 function esc(value=""){
   return String(value).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
@@ -112,6 +223,13 @@ function mapsButtons(plant){
     <a class="button secondary" href="${urls.show}" target="_blank" rel="noopener">Standort in Google Maps</a>
     <a class="button secondary" href="${urls.street}" target="_blank" rel="noopener">Street View prüfen</a>
   </div>`;
+}
+
+function enableDecimalInputs(root=document){
+  root.querySelectorAll('input[type="number"]').forEach(input=>{
+    input.step="0.001";
+    input.inputMode="decimal";
+  });
 }
 function persistMenu(){localStorage.setItem(STORAGE_MENU,JSON.stringify([...state.openCategories]))}
 function filtered(){
@@ -323,7 +441,8 @@ function renderPlants(){
   });
 }
 function field(name,label,value="",type="text",placeholder=""){
-  return `<label class="field-label">${label}<input name="${name}" type="${type}" value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
+  const numericAttributes=type==="number" ? ` step="0.001" inputmode="decimal"` : "";
+  return `<label class="field-label">${label}<input name="${name}" type="${type}"${numericAttributes} value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
 }
 function selectField(name,label,value,options){
   return `<label class="field-label">${label}<select name="${name}">${options.map(([v,l])=>`<option value="${v}" ${v===value?"selected":""}>${l}</option>`).join("")}</select></label>`;
@@ -374,7 +493,7 @@ function showPlantForm(id=null){
       ${field("operator.street","Straße und Hausnummer",p.operator.street)}
       ${field("operator.postalCode","Postleitzahl",p.operator.postalCode)}
       ${field("operator.city","Ort",p.operator.city)}
-      ${field("operator.phone","Telefon",p.operator.phone,"tel")}
+      ${phoneField("operator.phoneParts","Telefon",p.operator.phone||"")}
       ${field("operator.email","Zentrale E-Mail",p.operator.email,"email")}
       ${field("operator.website","Internetseite",p.operator.website,"url")}
     </div></section>
@@ -406,6 +525,7 @@ function showPlantForm(id=null){
     <div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelPlant">Abbrechen</button><button type="submit" class="button primary">Anlage speichern</button></div>
   </form>`;
 
+  enableDecimalInputs(appView);
   let contacts=structuredClone(p.contacts||[]);
   const editor=$("#contactsEditor");
   const renderContacts=()=>{
@@ -415,8 +535,8 @@ function showPlantForm(id=null){
         ${field(`contact.${i}.name`,"Name",c.name||"")}
         ${field(`contact.${i}.role`,"Funktion",c.role||"")}
         ${field(`contact.${i}.department`,"Bereich",c.department||"")}
-        ${field(`contact.${i}.phone`,"Telefon",c.phone||"","tel")}
-        ${field(`contact.${i}.mobile`,"Mobil",c.mobile||"","tel")}
+        ${phoneField(`contact.${i}.phoneParts`,"Telefon",c.phone||"")}
+        ${phoneField(`contact.${i}.mobileParts`,"Mobil",c.mobile||"")}
         ${field(`contact.${i}.email`,"E-Mail",c.email||"","email")}
         ${selectField(`contact.${i}.preferred`,"Bevorzugter Kontakt",c.preferred||"email",[["email","E-Mail"],["phone","Telefon"],["mobile","Mobil"]])}
         ${field(`contact.${i}.notes`,"Bemerkung",c.notes||"")}
@@ -433,14 +553,18 @@ function showPlantForm(id=null){
     result.access=result.access||{};
     for(const [key,value] of fd.entries()){
       if(key.startsWith("contact."))continue;
+      if(key.startsWith("operator.phoneParts."))continue;
       const [section,prop]=key.split(".");
       result[section][prop]=value;
     }
+    result.operator.phone=combinePhone(fd,"operator.phoneParts");
     result.contacts=contacts.map((c,i)=>{
       const obj={};
-      for(const prop of ["name","role","department","phone","mobile","email","preferred","notes"]){
+      for(const prop of ["name","role","department","email","preferred","notes"]){
         obj[prop]=fd.get(`contact.${i}.${prop}`)||"";
       }
+      obj.phone=combinePhone(fd,`contact.${i}.phoneParts`);
+      obj.mobile=combinePhone(fd,`contact.${i}.mobileParts`);
       return obj;
     });
     result.updatedAt=new Date().toISOString();
@@ -477,6 +601,83 @@ function renderTrafficSummary(plant){
     <div class="traffic-total"><span class="traffic-light red"></span><strong>${tally.red}</strong><small>prüfen</small></div>
     <div class="traffic-total"><span class="traffic-light gray"></span><strong>${tally.gray}</strong><small>ohne Wert</small></div>
   </div>`;
+}
+
+function visitStatusLabel(status){
+  return status==="done"?"Erledigt":status==="cancelled"?"Abgesagt":"Geplant";
+}
+function visitStatusClass(status){
+  return status==="done"?"green":status==="cancelled"?"gray":"blue";
+}
+function formatDateTime(value){
+  const d=isoLocalToDate(value);
+  return d?d.toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}):"–";
+}
+function showVisitForm(visitId=null){
+  const plant=activePlant();if(!plant)return;
+  const existing=(plant.visits||[]).find(v=>v.id===visitId);
+  const now=new Date();
+  now.setMinutes(Math.ceil(now.getMinutes()/15)*15,0,0);
+  const end=new Date(now.getTime()+60*60*1000);
+  const localValue=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const visit=existing?structuredClone(existing):{
+    id:crypto.randomUUID(),
+    title:`Besuch ${plant.master.name||"Kläranlage"}`,
+    start:localValue(now),end:localValue(end),purpose:"",contact:plant.contacts?.[0]?.name||"",
+    status:"planned",notes:""
+  };
+  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Besuchstermin`);
+  appView.innerHTML=`<form id="visitForm" class="record-form">
+    <section class="page-header"><div><p class="eyebrow">Besuchstermin</p><h1>${existing?"Termin bearbeiten":"Neuen Termin anlegen"}</h1>
+    <p class="subtitle">${esc(plant.master.name||"Unbenannte Anlage")}</p></div></section>
+    <section class="form-section"><div class="form-grid">
+      ${field("title","Termintitel",visit.title)}
+      ${selectField("status","Status",visit.status,[["planned","Geplant"],["done","Erledigt"],["cancelled","Abgesagt"]])}
+      ${field("start","Beginn",visit.start,"datetime-local")}
+      ${field("end","Ende",visit.end,"datetime-local")}
+      ${field("purpose","Anlass / Zweck",visit.purpose)}
+      <label class="field-label">Ansprechpartner<select name="contact">
+        <option value="">Kein Ansprechpartner</option>
+        ${(plant.contacts||[]).map(c=>`<option value="${esc(c.name)}" ${visit.contact===c.name?"selected":""}>${esc(c.name)}${c.role?` – ${esc(c.role)}`:""}</option>`).join("")}
+      </select></label>
+      <label class="field-label span-2">Notizen<textarea name="notes">${esc(visit.notes||"")}</textarea></label>
+    </div></section>
+    <div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelVisit">Abbrechen</button><button type="submit" class="button primary">Termin speichern</button></div>
+  </form>`;
+  $("#cancelVisit").onclick=showPlantDashboard;
+  $("#visitForm").onsubmit=e=>{
+    e.preventDefault();
+    const fd=new FormData(e.currentTarget);
+    const saved={id:visit.id};
+    for(const key of ["title","status","start","end","purpose","contact","notes"])saved[key]=fd.get(key)||"";
+    const start=isoLocalToDate(saved.start), end=isoLocalToDate(saved.end);
+    if(!start||!end||end<=start)return alert("Das Terminende muss nach dem Beginn liegen.");
+    plant.visits=plant.visits||[];
+    plant.visits=existing?plant.visits.map(v=>v.id===saved.id?saved:v):[...plant.visits,saved];
+    plant.visits.sort((a,b)=>String(a.start).localeCompare(String(b.start)));
+    plant.updatedAt=new Date().toISOString();savePlants();showPlantDashboard();
+  };
+}
+function renderVisits(plant){
+  const visits=[...(plant.visits||[])].sort((a,b)=>String(a.start).localeCompare(String(b.start)));
+  return `<section class="dashboard-section">
+    <div class="section-heading"><div><p class="eyebrow">Außendienst</p><h2>Besuchstermine</h2></div>
+      <button class="button primary" id="addVisit" type="button">Termin hinzufügen</button>
+    </div>
+    <div class="visits-list">${visits.length?visits.map(v=>`<article class="visit-card">
+      <div class="visit-date"><strong>${formatDateTime(v.start)}</strong><span>bis ${formatDateTime(v.end)}</span></div>
+      <div class="visit-main"><div class="visit-title-row"><h3>${esc(v.title||"Besuchstermin")}</h3><span class="status-chip ${visitStatusClass(v.status)}">${visitStatusLabel(v.status)}</span></div>
+        <p>${esc(v.purpose||"Kein Anlass hinterlegt")}</p>
+        <small>${v.contact?`Ansprechpartner: ${esc(v.contact)}`:"Kein Ansprechpartner hinterlegt"}</small>
+      </div>
+      <div class="visit-actions">
+        <button type="button" data-edit-visit="${v.id}">Bearbeiten</button>
+        <button type="button" data-ics-visit="${v.id}">Outlook / ICS</button>
+        <a href="${visitOutlookUrl(plant,v)}" target="_blank" rel="noopener">Outlook Web</a>
+        <button type="button" class="danger-link" data-delete-visit="${v.id}">Löschen</button>
+      </div>
+    </article>`).join(""):`<div class="empty-panel"><h3>Noch keine Besuchstermine</h3><p>Termine können lokal gespeichert und als Outlook-kompatible ICS-Datei exportiert werden.</p></div>`}</div>
+  </section>`;
 }
 function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
@@ -530,9 +731,20 @@ function showPlantDashboard(){
   <div class="kpi-grid">
     ${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}
   </div></section>
+  ${renderVisits(plant)}
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Berechnungen</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
-  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;bindDashboardActions();
+  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
+  $("#addVisit").onclick=()=>showVisitForm();
+  $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
+  $$("[data-ics-visit]").forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
+  $$("[data-delete-visit]").forEach(b=>b.onclick=()=>{
+    const v=(plant.visits||[]).find(x=>x.id===b.dataset.deleteVisit);
+    if(confirm(`Termin „${v?.title||"Besuch"}“ wirklich löschen?`)){
+      plant.visits=(plant.visits||[]).filter(x=>x.id!==b.dataset.deleteVisit);savePlants();showPlantDashboard();
+    }
+  });
+  bindDashboardActions();
 }
 function showLimits(){
   const plant=activePlant();if(!plant)return showPlantForm();
@@ -549,6 +761,7 @@ function showLimits(){
       ${field(`limit.${i}.legal`,"Genehmigungswert optional",l.legal??"","number")}
     `}
   </article>`).join("")}<div class="sticky-form-actions"><button type="button" class="button secondary" id="resetLimits">Standardwerte</button><button class="button primary" type="submit">Grenzen speichern</button></div></form>`;
+  enableDecimalInputs(appView);
   $("#resetLimits").onclick=()=>{plant.limits=structuredClone(defaultLimits);savePlants();showLimits()};
   $("#limitsForm").onsubmit=e=>{
     e.preventDefault();const fd=new FormData(e.currentTarget);
@@ -603,7 +816,7 @@ $("#importPlantInput").onchange=async e=>{
     const parsed=JSON.parse(await file.text());const imported=parsed.plant||parsed;
     if(!imported.master||!imported.address||!imported.operator)throw new Error("Ungültige Anlagenakte");
     imported.id=crypto.randomUUID();imported.createdAt=new Date().toISOString();imported.updatedAt=new Date().toISOString();
-    imported.limits=imported.limits||structuredClone(defaultLimits);imported.contacts=imported.contacts||[];imported.parameters=imported.parameters||{};imported.access=imported.access||{};
+    imported.limits=imported.limits||structuredClone(defaultLimits);imported.contacts=imported.contacts||[];imported.parameters=imported.parameters||{};imported.access=imported.access||{};imported.visits=imported.visits||[];
     plants.push(imported);activePlantId=imported.id;savePlants();showPlantDashboard();
   }catch(err){alert(`Import nicht möglich: ${err.message}`)}
   e.target.value="";

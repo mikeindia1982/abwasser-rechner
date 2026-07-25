@@ -1,42 +1,48 @@
-# Abwasser Rechner – Version 0.6
+# Abwasser Rechner – Version 0.7
 
-## Neu: Standort und Navigation
+## Telefonnummern mit europäischen Ländervorwahlen
 
-- eingebettete Google-Maps-Karte auf der Anlagenstartseite
-- Standortanzeige über Anlagenadresse oder GPS-Koordinaten
-- Schaltfläche „Navigation starten“
-- Schaltfläche „Standort in Google Maps“
-- Schaltfläche zur Prüfung von Street View
-- Nutzung ohne eigenen Google-Maps-API-Schlüssel
-- Kartendarstellung benötigt eine Internetverbindung
+Telefon- und Mobilnummern werden jetzt aus zwei Feldern zusammengesetzt:
 
-## Neu: Zufahrt und Besuch
+- Dropdown mit europäischen Ländern und Ländervorwahl
+- separates Feld für Ortsvorwahl und Rufnummer
 
-Je Anlage können jetzt zusätzlich gespeichert werden:
+Unterstützt werden unter anderem Deutschland, Österreich, Schweiz, alle EU-Staaten sowie weitere europäische Staaten und Kleinstaaten.
 
-- Parkmöglichkeit
-- Tor beziehungsweise Zufahrt
-- Zugangscode oder Schlüsselhinweis
-- Öffnungs- und Besuchszeiten
-- Anmeldung beziehungsweise Pförtner
-- erforderliche persönliche Schutzausrüstung
-- LKW-Zufahrt
-- Lieferhinweise
-- Besonderheiten vor Ort
+## Besuchstermine je Kläranlage
 
-Die wichtigsten Angaben werden direkt neben der Karte angezeigt.
+Je Anlage können jetzt Besuchstermine gespeichert werden mit:
 
-## Hinweise
+- Termintitel
+- Beginn und Ende
+- Status: geplant, erledigt oder abgesagt
+- Anlass beziehungsweise Zweck
+- Ansprechpartner
+- Notizen
 
-Google Maps wird über öffentliche Maps-Links geöffnet. Die eingebettete Karte benötigt eine aktive Internetverbindung. Ohne Internet bleiben Anlagenakte, Rechner und lokal gespeicherte Daten weiterhin nutzbar.
+Die Termine werden chronologisch auf der Anlagenstartseite angezeigt.
+
+## Outlook-Anbindung
+
+Für jeden Besuchstermin stehen zwei Wege bereit:
+
+1. **Outlook / ICS**
+   - lädt eine standardisierte `.ics`-Kalenderdatei herunter
+   - kann in Microsoft Outlook, Apple Kalender und vielen anderen Kalenderprogrammen geöffnet werden
+
+2. **Outlook Web**
+   - öffnet einen vorausgefüllten Termin direkt in Outlook im Browser
+   - Titel, Zeit, Anlagenadresse, Ansprechpartner und Notizen werden übernommen
+
+Die App erhält keinen direkten Zugriff auf das Outlook-Konto. Der Termin wird erst nach Bestätigung durch den Nutzer gespeichert.
 
 ## GitHub aktualisieren
 
-1. ZIP-Datei entpacken.
+1. ZIP entpacken.
 2. Alle Dateien und den Ordner `js` in das Repository hochladen.
 3. Vorhandene Dateien ersetzen.
 4. Commit-Nachricht:
 
-   `Version 0.6 - Google Maps und Anfahrtsdaten`
+   `Version 0.7 - Telefonvorwahlen und Besuchstermine`
 
-5. Nach der Veröffentlichung muss oben links `Version 0.6` stehen.
+Nach der Veröffentlichung muss oben links `Version 0.7` stehen.
