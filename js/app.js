@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.6.1";
+const VERSION="0.8.6.3";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -182,8 +182,13 @@ const defaultLimits=[
   {key:"polymer",label:"Polymerverbrauch",unit:"kg WS/t TS",direction:"max",target:8,warning:11,legal:null}
 ];
 
+function makeId(){
+  return globalThis.crypto?.randomUUID?.()||`id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+}
+
 const emptyPlant=()=>({
-  id:crypto.randomUUID(),
+  schemaVersion:3,
+  id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
   master:{
@@ -210,6 +215,33 @@ const emptyPlant=()=>({
   limits:structuredClone(defaultLimits)
 });
 
+function normalizePlant(value={}){
+  const base=emptyPlant();
+  const source=value&&typeof value==="object"?value:{};
+  const normalized={
+    ...base,
+    ...source,
+    schemaVersion:3,
+    id:source.id||base.id,
+    master:{...base.master,...(source.master||{})},
+    address:{...base.address,...(source.address||{})},
+    access:{...base.access,...(source.access||{})},
+    operator:{...base.operator,...(source.operator||{})},
+    parameters:{...base.parameters,...(source.parameters||{})},
+    sludgeDewatering:dewateringDefaults(source.sludgeDewatering||{}),
+    dosingSystems:Array.isArray(source.dosingSystems)?source.dosingSystems.map(dosingDefaults):[],
+    tankSystems:Array.isArray(source.tankSystems)?source.tankSystems.map(tankDefaults):[],
+    contacts:Array.isArray(source.contacts)?source.contacts:[],
+    visits:Array.isArray(source.visits)?source.visits:[],
+    limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
+  };
+  normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
+  const legacy=parseLegacyGps(normalized.address.gps||"");
+  normalized.address.latitude=normalized.address.latitude||legacy.latitude;
+  normalized.address.longitude=normalized.address.longitude||legacy.longitude;
+  return normalized;
+}
+
 let plants=loadPlants();
 let activePlantId=localStorage.getItem(STORAGE_ACTIVE_PLANT)||plants[0]?.id||"";
 if(activePlantId&&!plants.some(p=>p.id===activePlantId))activePlantId=plants[0]?.id||"";
@@ -231,7 +263,7 @@ const appView=$("#applicationView");
 function loadPlants(){
   try{
     const parsed=JSON.parse(localStorage.getItem(STORAGE_PLANTS)||"[]");
-    return Array.isArray(parsed)?parsed:[];
+    return Array.isArray(parsed)?parsed.map(normalizePlant):[];
   }catch{return []}
 }
 function savePlants(){
@@ -747,10 +779,10 @@ function dewateringDefaults(value={}){
   return {enabled:false,status:"active",process:"screw-press",manufacturer:"",model:"",year:"",unitCount:"1",operationMode:"batch",throughputM3h:"",inletTsPercent:"",outletTsPercent:"",polymerKgPerTds:"",operatingHours:"",sludgeQuantity:"",polymerStation:false,feedPump:false,conveyor:false,container:false,filtrateRouting:"",notes:"",...value};
 }
 function dosingDefaults(value={}){
-  return {id:crypto.randomUUID(),name:"",purpose:"polymer",status:"active",location:"",tankType:"storage-tank",tankManufacturer:"",tankModel:"",tankYear:"",tankVolume:"",tankMaterial:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",stationManufacturer:"",stationModel:"",stationYear:"",pumpType:"diaphragm",pumpCount:"1",capacityLh:"",maxPressureBar:"",controlMode:"flow-proportional",standbyPump:false,automaticChangeover:false,calibrationDevice:false,flushConnection:false,pressureHoldingValve:false,overflowValve:false,pulsationDamper:false,productName:"",activeIngredient:"",concentrationPercent:"",densityKgL:"",hazardous:false,safetyDataSheetAvailable:false,consumption:"",flowMeter:false,levelSensor:false,dryRunProtection:false,pressureMonitoring:false,leakageSensor:false,plcConnected:false,remoteAlarm:false,controlledValue:"",notes:"",...value};
+  return {id:makeId(),name:"",purpose:"polymer",status:"active",location:"",tankType:"storage-tank",tankManufacturer:"",tankModel:"",tankYear:"",tankVolume:"",tankMaterial:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",stationManufacturer:"",stationModel:"",stationYear:"",pumpType:"diaphragm",pumpCount:"1",capacityLh:"",maxPressureBar:"",controlMode:"flow-proportional",standbyPump:false,automaticChangeover:false,calibrationDevice:false,flushConnection:false,pressureHoldingValve:false,overflowValve:false,pulsationDamper:false,productName:"",activeIngredient:"",concentrationPercent:"",densityKgL:"",hazardous:false,safetyDataSheetAvailable:false,consumption:"",flowMeter:false,levelSensor:false,dryRunProtection:false,pressureMonitoring:false,leakageSensor:false,plcConnected:false,remoteAlarm:false,controlledValue:"",notes:"",...value};
 }
 function tankDefaults(value={}){
-  return {id:crypto.randomUUID(),name:"",status:"active",location:"",type:"storage-tank",manufacturer:"",model:"",year:"",volume:"",material:"",medium:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",notes:"",...value};
+  return {id:makeId(),name:"",status:"active",location:"",type:"storage-tank",manufacturer:"",model:"",year:"",volume:"",material:"",medium:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",notes:"",...value};
 }
 function statusText(status){return status==="active"?"In Betrieb":status==="reserve"?"Reserve":status==="planned"?"Geplant":"Außer Betrieb"}
 function dewateringProcessText(value){return ({"screw-press":"Schneckenpresse","belt-press":"Siebbandpresse","filter-press":"Kammerfilterpresse",centrifuge:"Zentrifuge",mobile:"Mobile Entwässerung",dryingBed:"Trockenbeet",other:"Sonstiges"})[value]||"Nicht festgelegt"}
@@ -889,6 +921,12 @@ function showPlantForm(id=null){
     <div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelPlant">Abbrechen</button><button type="submit" class="button primary">Anlage speichern</button></div>
   </form>`;
 
+  const plantForm=$("#plantForm");
+  if(!plantForm){
+    console.error("Anlagenformular konnte nicht initialisiert werden");
+    alert("Das Anlagenformular konnte nicht geladen werden. Bitte die App vollständig neu starten.");
+    return;
+  }
   enableDecimalInputs(appView);
   const numberInput=appView.querySelector('[name="master.internalNumber"]');
   if(numberInput)numberInput.readOnly=true;
@@ -922,6 +960,19 @@ function showPlantForm(id=null){
   dewateringEnabled.onchange=syncDewateringVisibility;syncDewateringVisibility();
   let contacts=structuredClone(p.contacts||[]);
   const editor=$("#contactsEditor");
+  const syncContactsFromForm=()=>{
+    contacts=contacts.map((current,i)=>({
+      ...current,
+      name:plantForm.elements.namedItem(`contact.${i}.name`)?.value||"",
+      role:plantForm.elements.namedItem(`contact.${i}.role`)?.value||"",
+      department:plantForm.elements.namedItem(`contact.${i}.department`)?.value||"",
+      email:plantForm.elements.namedItem(`contact.${i}.email`)?.value||"",
+      preferred:plantForm.elements.namedItem(`contact.${i}.preferred`)?.value||"email",
+      notes:plantForm.elements.namedItem(`contact.${i}.notes`)?.value||"",
+      phone:[plantForm.elements.namedItem(`contact.${i}.phoneParts.code`)?.value||"",plantForm.elements.namedItem(`contact.${i}.phoneParts.number`)?.value||""].filter(Boolean).join(" ").trim(),
+      mobile:[plantForm.elements.namedItem(`contact.${i}.mobileParts.code`)?.value||"",plantForm.elements.namedItem(`contact.${i}.mobileParts.number`)?.value||""].filter(Boolean).join(" ").trim()
+    }));
+  };
   const renderContacts=()=>{
     editor.innerHTML=contacts.length?contacts.map((c,i)=>`<article class="contact-editor-card">
       <div class="contact-editor-head"><strong>Ansprechpartner ${i+1}</strong><button type="button" data-remove-contact="${i}">Entfernen</button></div>
@@ -935,12 +986,11 @@ function showPlantForm(id=null){
         ${selectField(`contact.${i}.preferred`,"Bevorzugter Kontakt",c.preferred||"email",[["email","E-Mail"],["phone","Telefon"],["mobile","Mobil"]])}
         ${field(`contact.${i}.notes`,"Bemerkung",c.notes||"")}
       </div></article>`).join(""):`<p class="empty-inline">Noch kein Ansprechpartner hinterlegt.</p>`;
-    $$("[data-remove-contact]").forEach(b=>b.onclick=()=>{contacts.splice(Number(b.dataset.removeContact),1);renderContacts()});
+    $$("[data-remove-contact]").forEach(b=>b.onclick=()=>{syncContactsFromForm();contacts.splice(Number(b.dataset.removeContact),1);renderContacts()});
   };
   renderContacts();
-  $("#addContact").onclick=()=>{contacts.push({name:"",role:"",department:"",phone:"",mobile:"",email:"",preferred:"email",notes:""});renderContacts()};
+  $("#addContact").onclick=()=>{syncContactsFromForm();contacts.push({name:"",role:"",department:"",phone:"",mobile:"",email:"",preferred:"email",notes:""});renderContacts()};
 
-  const plantForm=$("#plantForm");
   const locationStatus=$("#locationCaptureStatus");
   const locationPreview=$("#locationPreview");
   const locationButton=$("#capturePlantLocation");
@@ -980,6 +1030,7 @@ function showPlantForm(id=null){
     if(nameInput&&!nameInput.value.trim()&&city)nameInput.value=`Kläranlage ${city}`;
   };
   locationButton.onclick=()=>{
+    if(!window.isSecureContext){setLocationStatus("Die Standortermittlung ist nur über HTTPS oder localhost verfügbar. Bitte die bereitgestellte Web-App öffnen, nicht die HTML-Datei direkt.","error");return;}
     if(!navigator.geolocation){setLocationStatus("Dieses Gerät oder dieser Browser unterstützt keine Standortermittlung.","error");return;}
     locationButton.disabled=true;
     locationButton.textContent="Standort wird ermittelt …";
@@ -1024,8 +1075,9 @@ function showPlantForm(id=null){
     alert(`Bitte das Feld „${label}“ prüfen. Dezimalwerte können mit Punkt oder Komma eingegeben werden.`);
     event.target.focus();
   },true);
-  $("#plantForm").onsubmit=e=>{
+  plantForm.onsubmit=e=>{
     e.preventDefault();
+    syncDosingSystemsFromForm();
     const fd=new FormData(e.currentTarget);
     const result=existing?structuredClone(existing):p;
     result.access=result.access||{};
@@ -1050,8 +1102,16 @@ function showPlantForm(id=null){
     result.address.accuracy=p.address.accuracy||String(result.address.accuracy||"").replace(/[^0-9.,]/g,"");
     result.address.capturedAt=p.address.capturedAt||result.address.capturedAt||"";
     result.address.geocodedAt=p.address.geocodedAt||result.address.geocodedAt||"";
-    result.sludgeDewatering=dewateringDefaults(result.sludgeDewatering||p.sludgeDewatering||{});
-    result.dosingSystems=Array.isArray(result.dosingSystems)?result.dosingSystems.map(dosingDefaults):[];
+    const dewatering=dewateringDefaults(result.sludgeDewatering||p.sludgeDewatering||{});
+    dewatering.enabled=fd.has("sludgeDewatering.enabled");
+    for(const key of Object.keys(dewatering)){
+      if(key==="enabled")continue;
+      const fieldName=`sludgeDewatering.${key}`;
+      if(typeof dewatering[key]==="boolean")dewatering[key]=fd.has(fieldName);
+      else if(fd.has(fieldName))dewatering[key]=fd.get(fieldName)||"";
+    }
+    result.sludgeDewatering=dewatering;
+    result.dosingSystems=structuredClone(dosingSystems).map(dosingDefaults);
     result.tankSystems=Array.isArray(result.tankSystems)?result.tankSystems.map(tankDefaults):[];
     result.operator.phone=combinePhone(fd,"operator.phoneParts");
     result.contacts=contacts.map((c,i)=>{
@@ -1374,6 +1434,6 @@ $("#importPlantInput").onchange=async e=>{
 let deferredPrompt=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("#installButton").classList.remove("hidden")});
 $("#installButton").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installButton").classList.add("hidden")};
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js",{updateViaCache:"none"}));
 
 renderPlantSelector();renderCategoryMenu();showHome();
