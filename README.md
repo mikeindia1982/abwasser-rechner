@@ -1,30 +1,29 @@
-# Abwasser Rechner – Version 0.8.1 Navigation
+# Abwasser Rechner – Version 0.8 (Anlagenakte)
 
-Diese Version baut direkt auf Version 0.8 (Anlagenakte) auf und ändert ausschließlich die Navigation.
+Diese Version basiert direkt auf der stabilen Version 0.7. Die lokale Speicherlogik und die bisherigen Storage-Schlüssel bleiben unverändert.
 
-## Neues linkes Menü
+## Änderungen
 
-- Einzelne Rechner werden nicht mehr untereinander im Seitenmenü aufgelistet.
-- Die Seitenleiste zeigt kompakte Hauptbereiche: Anlagen, Rechner sowie vorbereitete Bereiche für Auswertung und Dokumentation.
-- Unter „Rechnerkategorien“ werden nur die Fachkategorien mit Kurzbeschreibung und Anzahl der Rechner angezeigt.
-- Ein Klick auf eine Kategorie öffnet die vorhandenen Rechner als Karten im Hauptbereich.
-- „Alle“ zeigt den vollständigen Rechnerkatalog.
-- Suche und Favoriten bleiben erhalten.
-- Auf Mobilgeräten schließt das Menü nach einer Auswahl automatisch.
+- Hauptverfahren als Dropdown
+- zusätzliche Verfahrensstufen als Mehrfachauswahl
+- Freitext für Sonderverfahren
+- Ausbaugröße und tatsächliche Belastung in EW
+- deutsche Tausendertrennpunkte in der Anlagenübersicht
+- automatische Auslastungsanzeige
+- getrennte GPS-Felder für Breitengrad und Längengrad
+- automatische Anlagennummer nach dem Muster `ANL-0001`
+- anklickbare E-Mail-Adressen und Telefonnummern
+- Termine getrennt in nächste Termine und chronologische Historie
+- vollständige Terminnotizen in der Anlagenhistorie
 
-## Bewusst unverändert
+## Bewusst nicht enthalten
 
-- sämtliche Berechnungsfunktionen
-- Anlagenakte aus Version 0.8
-- lokaler Speicher und Storage-Keys
-- Import und Export
-- Anlagenparameter und Termine
+Die Datenmigration, neue Storage-Schlüssel sowie Import und Export werden erst in Version 0.8.1 umgesetzt.
 
-## GitHub-Update
+## Installation
 
-1. ZIP entpacken.
-2. Alle vorhandenen Dateien im Repository durch die Dateien dieses Pakets ersetzen.
-3. Commit-Nachricht: `Version 0.8.1 - Navigation überarbeitet`
-4. Nach Veröffentlichung prüfen, ob links oben „Version 0.8.1“ steht.
+Alle Dateien einschließlich des Ordners `js` in das GitHub-Repository hochladen und vorhandene Dateien ersetzen.
 
-Bei einer zwischengespeicherten älteren Oberfläche Browserseite neu laden oder die PWA vollständig schließen und erneut öffnen.
+Commit-Nachricht:
+
+`Version 0.8 - Anlagenakte erweitert`
