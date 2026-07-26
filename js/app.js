@@ -1,12 +1,14 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.6.3";
+const VERSION="0.8.7";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
 const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v07";
 const STORAGE_RECENT="abwasser-recent-v082";
+const STORAGE_PROFILE="abwasser-employee-profile-v087";
+const STORAGE_BACKUP="abwasser-plants-backup-v087";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -187,7 +189,7 @@ function makeId(){
 }
 
 const emptyPlant=()=>({
-  schemaVersion:3,
+  schemaVersion:4,
   id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
@@ -221,7 +223,7 @@ function normalizePlant(value={}){
   const normalized={
     ...base,
     ...source,
-    schemaVersion:3,
+    schemaVersion:4,
     id:source.id||base.id,
     master:{...base.master,...(source.master||{})},
     address:{...base.address,...(source.address||{})},
@@ -241,6 +243,37 @@ function normalizePlant(value={}){
   normalized.address.longitude=normalized.address.longitude||legacy.longitude;
   return normalized;
 }
+
+
+const defaultEmployeeProfile=()=>({
+  schemaVersion:1,firstName:"",lastName:"",jobTitle:"Vertriebsingenieur",company:"VTA",department:"Außendienst",
+  employeeNumber:"",region:"",branch:"",email:"",mobile:"",phone:"",website:"",street:"",postalCode:"",city:"",country:"Deutschland",notes:""
+});
+function normalizeEmployeeProfile(value={}){return {...defaultEmployeeProfile(),...(value&&typeof value==="object"?value:{})};}
+function loadEmployeeProfile(){try{return normalizeEmployeeProfile(JSON.parse(localStorage.getItem(STORAGE_PROFILE)||"{}"));}catch{return defaultEmployeeProfile();}}
+let employeeProfile=loadEmployeeProfile();
+function saveEmployeeProfile(){
+  try{const payload=JSON.stringify(employeeProfile);localStorage.setItem(STORAGE_PROFILE,payload);if(localStorage.getItem(STORAGE_PROFILE)!==payload)throw new Error("Speicherprüfung fehlgeschlagen");updateProfileButton();return true;}
+  catch(error){console.error(error);alert("Das Mitarbeiterprofil konnte nicht gespeichert werden.");return false;}
+}
+function employeeDisplayName(){return [employeeProfile.firstName,employeeProfile.lastName].filter(Boolean).join(" ")||"Profil";}
+function updateProfileButton(){
+  const name=document.querySelector("#profileButtonName"),avatar=document.querySelector("#profileAvatar");
+  if(name)name.textContent=employeeDisplayName();
+  if(avatar)avatar.textContent=(employeeProfile.firstName?.[0]||employeeProfile.lastName?.[0]||"👤").toUpperCase();
+}
+function escapeVCard(value=""){return String(value).replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/;/g,"\\;").replace(/,/g,"\\,");}
+function employeeVCard(){
+  const p=employeeProfile;const full=[p.firstName,p.lastName].filter(Boolean).join(" ");
+  return ["BEGIN:VCARD","VERSION:3.0",`N:${escapeVCard(p.lastName)};${escapeVCard(p.firstName)};;;`,`FN:${escapeVCard(full)}`,
+    p.company?`ORG:${escapeVCard(p.company)}`:"",p.jobTitle?`TITLE:${escapeVCard(p.jobTitle)}`:"",p.mobile?`TEL;TYPE=CELL:${escapeVCard(p.mobile)}`:"",
+    p.phone?`TEL;TYPE=WORK:${escapeVCard(p.phone)}`:"",p.email?`EMAIL;TYPE=INTERNET,WORK:${escapeVCard(p.email)}`:"",p.website?`URL:${escapeVCard(p.website)}`:"",
+    (p.street||p.city)?`ADR;TYPE=WORK:;;${escapeVCard(p.street)};${escapeVCard(p.city)};;${escapeVCard(p.postalCode)};${escapeVCard(p.country)}`:"","END:VCARD"].filter(Boolean).join("\r\n");
+}
+function qrSvg(text,size=220){
+  try{const qr=new window.QRCodeGenerator(0,window.QRErrorCorrectLevel.M);qr.addData(text);qr.make();const n=qr.getModuleCount(),quiet=4,cell=size/(n+quiet*2);let rects="";for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(qr.isDark(r,c))rects+=`<rect x="${((c+quiet)*cell).toFixed(2)}" y="${((r+quiet)*cell).toFixed(2)}" width="${(cell+.15).toFixed(2)}" height="${(cell+.15).toFixed(2)}"/>`;return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR-Code mit Kontaktdaten"><rect width="100%" height="100%" fill="white"/><g fill="black">${rects}</g></svg>`;}catch(error){console.error(error);return `<div class="qr-error">QR-Code konnte nicht erzeugt werden.</div>`;}
+}
+function downloadVCard(){const blob=new Blob([employeeVCard()],{type:"text/vcard;charset=utf-8"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`${employeeDisplayName().replace(/[^a-z0-9äöüß]+/gi,"-").toLowerCase()||"kontakt"}.vcf`;a.click();URL.revokeObjectURL(url);}
 
 let plants=loadPlants();
 let activePlantId=localStorage.getItem(STORAGE_ACTIVE_PLANT)||plants[0]?.id||"";
@@ -269,6 +302,8 @@ function loadPlants(){
 function savePlants(){
   try{
     const payload=JSON.stringify(plants);
+    const previous=localStorage.getItem(STORAGE_PLANTS);
+    if(previous)localStorage.setItem(STORAGE_BACKUP,previous);
     localStorage.setItem(STORAGE_PLANTS,payload);
     if(localStorage.getItem(STORAGE_PLANTS)!==payload)throw new Error("Speicherprüfung fehlgeschlagen");
     if(activePlantId)localStorage.setItem(STORAGE_ACTIVE_PLANT,activePlantId);
@@ -494,7 +529,7 @@ function setView(view){
   state.view=view;
   $("#dashboard").classList.toggle("hidden",view!=="dashboard");
   $("#calculatorView").classList.toggle("hidden",view!=="calculators");
-  appView.classList.toggle("hidden",!["plants","plantForm","plantDashboard","limits","traffic"].includes(view));
+  appView.classList.toggle("hidden",!["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm"].includes(view));
   $("#dashboardNav").classList.toggle("active",view==="dashboard");
   $("#printButton").classList.toggle("hidden",view!=="calculators"||!state.selected);
   updatePrimaryNavigation();
@@ -1388,6 +1423,25 @@ function showTraffic(){
   <div class="info-box"><strong>Hinweis:</strong> Die Ampel ist eine betriebliche Orientierung. Genehmigungswerte, Messunsicherheiten, Messstellen, Temperatur, Verfahren und weitere Randbedingungen sind separat zu berücksichtigen.</div>`;
   $("#configureLimits").onclick=showLimits;
 }
+
+function showProfile(){
+  setView("profile");setBreadcrumb("Mitarbeiterprofil");
+  const p=employeeProfile,full=employeeDisplayName();
+  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Außendienst</p><h1>Mitarbeiterprofil</h1><p class="subtitle">Persönliche Kontaktdaten, digitale Visitenkarte und lokale Datensicherung.</p></div><button class="button primary" id="editEmployeeProfile">Profil bearbeiten</button></section>
+  <section class="employee-profile-layout"><article class="employee-card"><div class="employee-card-head"><div class="employee-large-avatar">${esc((p.firstName?.[0]||p.lastName?.[0]||"P").toUpperCase())}</div><div><h2>${esc(full)}</h2><p>${esc(p.jobTitle||"Funktion nicht hinterlegt")}</p><strong>${esc(p.company||"")}</strong></div></div>
+  <dl class="employee-contact-list"><div><dt>Mobil</dt><dd>${telLink(p.mobile)}</dd></div><div><dt>Telefon</dt><dd>${telLink(p.phone)}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(p.email)}</dd></div><div><dt>Region</dt><dd>${esc(p.region||"–")}</dd></div><div><dt>Niederlassung</dt><dd>${esc(p.branch||"–")}</dd></div><div><dt>Personalnummer</dt><dd>${esc(p.employeeNumber||"–")}</dd></div></dl></article>
+  <article class="qr-profile-card"><p class="eyebrow">Digitale Visitenkarte</p><h2>Kontakt-QR-Code</h2><div class="qr-code">${qrSvg(employeeVCard())}</div><p>Der QR-Code enthält eine vCard und kann mit der Smartphone-Kamera gescannt werden.</p><button class="button secondary" id="downloadVCard">Kontaktdatei herunterladen</button></article></section>
+  <section class="profile-dashboard-grid"><article class="cockpit-panel"><div class="panel-title"><div><p class="eyebrow">Arbeitsübersicht</p><h2>Mein Dashboard</h2></div></div><div class="cockpit-metrics"><div><strong>${plants.length}</strong><span>Anlagen lokal</span></div><div><strong>${upcomingVisits(99).length}</strong><span>Kommende Termine</span></div><div><strong>${plants.reduce((n,x)=>n+(x.visits||[]).filter(v=>v.status!=="done"&&v.status!=="cancelled").length,0)}</strong><span>Offene Besuche</span></div></div></article>
+  <article class="cockpit-panel"><div class="panel-title"><div><p class="eyebrow">Datenschutz & Offline</p><h2>Lokale Datensicherung</h2></div></div><p>Profil und Anlagen liegen ausschließlich in diesem Browser. Exportiere regelmäßig eine Sicherungsdatei.</p><div class="profile-backup-actions"><button class="button secondary" id="exportFullBackup">Gesamtsicherung exportieren</button><label class="button secondary file-label-inline">Sicherung importieren<input id="importFullBackup" type="file" accept=".json,application/json"></label></div><p class="muted-small">Beim Import werden vorhandene Daten erst nach Bestätigung ersetzt.</p></article></section>`;
+  $("#editEmployeeProfile").onclick=showProfileForm;$("#downloadVCard").onclick=downloadVCard;$("#exportFullBackup").onclick=()=>downloadJson(`abwasser-rechner-sicherung-${new Date().toISOString().slice(0,10)}.json`,{schema:"abwasser-rechner-backup-v1",version:VERSION,exportedAt:new Date().toISOString(),employeeProfile,plants,activePlantId});
+  $("#importFullBackup").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.plants)||!data.employeeProfile)throw new Error("Keine gültige Gesamtsicherung");if(!confirm("Vorhandene Profil- und Anlagendaten durch diese Sicherung ersetzen?"))return;plants=data.plants.map(normalizePlant);employeeProfile=normalizeEmployeeProfile(data.employeeProfile);activePlantId=data.activePlantId&&plants.some(x=>x.id===data.activePlantId)?data.activePlantId:plants[0]?.id||"";if(savePlants()&&saveEmployeeProfile())showProfile();}catch(err){alert(`Import nicht möglich: ${err.message}`)}finally{e.target.value="";}};
+}
+function showProfileForm(){
+  setView("profileForm");setBreadcrumb("Mitarbeiterprofil › Bearbeiten");const p=employeeProfile;
+  appView.innerHTML=`<form id="employeeProfileForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Außendienst</p><h1>Profil bearbeiten</h1><p class="subtitle">Diese Daten werden lokal gespeichert und für die digitale Visitenkarte verwendet.</p></div></section><section class="form-section"><div class="form-grid">${field("firstName","Vorname",p.firstName)}${field("lastName","Nachname",p.lastName)}${field("jobTitle","Funktion",p.jobTitle)}${field("company","Unternehmen",p.company)}${field("department","Abteilung",p.department)}${field("employeeNumber","Personalnummer",p.employeeNumber)}${field("region","Vertriebsgebiet / Region",p.region)}${field("branch","Niederlassung",p.branch)}${field("email","E-Mail",p.email,"email")}${phoneField("mobile","Mobiltelefon",p.mobile)}${phoneField("phone","Festnetz",p.phone)}${field("website","Webseite",p.website,"url")}${field("street","Straße und Hausnummer",p.street)}${field("postalCode","PLZ",p.postalCode)}${field("city","Ort",p.city)}${field("country","Land",p.country)}<label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(p.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelEmployeeProfile">Abbrechen</button><button type="submit" class="button primary">Profil speichern</button></div></form>`;
+  const form=$("#employeeProfileForm");$("#cancelEmployeeProfile").onclick=showProfile;form.onsubmit=e=>{e.preventDefault();const fd=new FormData(form),next=normalizeEmployeeProfile();for(const key of Object.keys(next)){if(key==="schemaVersion"||key==="mobile"||key==="phone")continue;if(fd.has(key))next[key]=String(fd.get(key)||"").trim();}next.mobile=combinePhone(fd,"mobile");next.phone=combinePhone(fd,"phone");employeeProfile=next;if(saveEmployeeProfile())showProfile();};
+}
+
 function openMobileSidebar(){$("#sidebar").classList.add("mobile-open");$("#sidebarBackdrop").classList.add("visible");document.body.classList.add("menu-open")}
 function closeMobileSidebar(){$("#sidebar").classList.remove("mobile-open");$("#sidebarBackdrop").classList.remove("visible");document.body.classList.remove("menu-open")}
 function downloadJson(filename,data){
@@ -1403,7 +1457,7 @@ $$('[data-primary-view]').forEach(button=>button.onclick=()=>{
 });
 const showAllButton=$("#showAllCalculators");if(showAllButton)showAllButton.onclick=()=>{showAllCalculators();closeMobileSidebar()};
 $("#homeButton").onclick=showHome;$("#dashboardNav").onclick=()=>{showHome();closeMobileSidebar()};
-$("#breadcrumbHome").onclick=showHome;$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
+$("#breadcrumbHome").onclick=showHome;$("#profileButton").onclick=showProfile;$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
 $("#activePlantSelect").onchange=e=>{activePlantId=e.target.value;savePlants();showPlantDashboard()};
 $("#managePlantsButton").onclick=()=>{showApplication("plants");closeMobileSidebar()};
 $("#newPlantButton").onclick=()=>{showPlantForm();closeMobileSidebar()};
@@ -1436,4 +1490,4 @@ window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPro
 $("#installButton").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installButton").classList.add("hidden")};
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js",{updateViaCache:"none"}));
 
-renderPlantSelector();renderCategoryMenu();showHome();
+renderPlantSelector();renderCategoryMenu();updateProfileButton();showHome();

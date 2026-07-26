@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>Abwasser Rechner v0.8.6.2</title>
+  <title>Abwasser Rechner v0.8.7</title>
 </head>
 <body>
 <div class="app-layout">
@@ -19,7 +19,7 @@
         <span class="brand-mark">AR</span>
         <span class="brand-copy">
           <strong>Abwasser Rechner</strong>
-          <small>Version 0.8.6.2</small>
+          <small>Version 0.8.7</small>
         </span>
       </button>
       <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
@@ -78,6 +78,7 @@
       </div>
       <div class="topbar-actions">
         <span id="activePlantBadge" class="active-plant-badge"></span>
+        <button id="profileButton" class="profile-button" type="button" aria-label="Mitarbeiterprofil öffnen"><span id="profileAvatar">👤</span><span id="profileButtonName">Profil</span></button>
         <button id="printButton" class="button secondary hidden" type="button">Drucken</button>
       </div>
     </header>
@@ -113,6 +114,7 @@
     </footer>
   </div>
 </div>
+<script src="js/qrcode-offline.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
