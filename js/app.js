@@ -1,11 +1,12 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8";
+const VERSION="0.8.2";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
 const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v07";
+const STORAGE_RECENT="abwasser-recent-v082";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -209,7 +210,8 @@ if(activePlantId&&!plants.some(p=>p.id===activePlantId))activePlantId=plants[0]?
 const state={
   view:"dashboard",category:null,query:"",selected:null,favoritesOnly:false,
   favorites:new Set(JSON.parse(localStorage.getItem(STORAGE_FAVORITES)||"[]")),
-  openCategories:new Set(JSON.parse(localStorage.getItem(STORAGE_MENU)||"[]"))
+  openCategories:new Set(JSON.parse(localStorage.getItem(STORAGE_MENU)||"[]")),
+  recent:JSON.parse(localStorage.getItem(STORAGE_RECENT)||"[]")
 };
 
 const categories=[...new Set(calculators.map(item=>item.category))];
@@ -335,28 +337,26 @@ function renderPlantSelector(){
   $("#activePlantBadge").textContent=plant?plant.master.name||"Unbenannte Anlage":"Keine Anlage ausgewählt";
 }
 function renderCategoryMenu(){
+  if(!menu)return updatePrimaryNavigation();
   menu.innerHTML=categories.map(category=>{
     const meta=categoryMeta[category]||{icon:"•",description:""};
-    const open=state.openCategories.has(category);
-    const items=calculators.filter(item=>item.category===category);
-    return `<section class="menu-group ${open?"open":""}">
-      <button class="menu-group-toggle ${state.category===category&&!state.favoritesOnly?"active":""}" type="button" data-category-toggle="${category}" aria-expanded="${open}">
-        <span class="menu-icon">${meta.icon}</span><span class="menu-label">${category}</span>
-        <span class="menu-count">${items.length}</span><span class="menu-chevron">›</span>
-      </button>
-      <div class="menu-items">
-        <button class="menu-all" type="button" data-category="${category}">Alle in ${category}</button>
-        ${items.map(item=>`<button class="menu-item ${state.selected===item.id?"active":""}" type="button" data-calculator="${item.id}">${item.name}</button>`).join("")}
-      </div>
-    </section>`;
+    const active=state.category===category&&!state.favoritesOnly;
+    return `<button class="category-nav-item ${active?"active":""}" type="button" data-category="${category}" title="${esc(meta.description||category)}">
+      <span class="category-nav-icon">${meta.icon}</span>
+      <span class="category-nav-copy"><strong>${category}</strong><small>${esc(meta.description||"")}</small></span>
+      <span class="category-nav-count">${categoryCount(category)}</span>
+    </button>`;
   }).join("");
-  $$("[data-category-toggle]").forEach(button=>button.onclick=()=>{
-    const category=button.dataset.categoryToggle;
-    state.openCategories.has(category)?state.openCategories.delete(category):state.openCategories.add(category);
-    persistMenu();renderCategoryMenu();
+  $$('[data-category]').forEach(button=>button.onclick=()=>{showCategory(button.dataset.category);closeMobileSidebar()});
+  updatePrimaryNavigation();
+}
+function updatePrimaryNavigation(){
+  $$('[data-primary-view]').forEach(button=>{
+    const target=button.dataset.primaryView;
+    const calculatorActive=target==="calculators"&&(state.view==="calculators"||state.view==="dashboard");
+    const plantActive=target==="plants"&&["plants","plantForm","plantDashboard","limits","traffic"].includes(state.view);
+    button.classList.toggle("active",calculatorActive||plantActive);
   });
-  $$("[data-category]").forEach(button=>button.onclick=()=>{showCategory(button.dataset.category);closeMobileSidebar()});
-  $$("[data-calculator]").forEach(button=>button.onclick=()=>{selectCalculator(button.dataset.calculator);closeMobileSidebar()});
 }
 function toggleFavorite(id){
   state.favorites.has(id)?state.favorites.delete(id):state.favorites.add(id);
@@ -388,6 +388,7 @@ function setView(view){
   appView.classList.toggle("hidden",!["plants","plantForm","plantDashboard","limits","traffic"].includes(view));
   $("#dashboardNav").classList.toggle("active",view==="dashboard");
   $("#printButton").classList.toggle("hidden",view!=="calculators"||!state.selected);
+  updatePrimaryNavigation();
 }
 function showHome(){
   state.category=null;state.query="";state.selected=null;state.favoritesOnly=false;
@@ -402,6 +403,14 @@ function showCategory(category){
   $("#catalogDescription").textContent=meta.description||"Verfügbare Rechner";
   workspace.innerHTML=`<div class="empty-state"><h2>Rechner auswählen</h2><p>Wähle ein Werkzeug aus der Kategorie ${category}.</p></div>`;
   setBreadcrumb(category);renderCards();renderCategoryMenu();
+}
+function showAllCalculators(){
+  state.category=null;state.favoritesOnly=false;state.selected=null;state.query="";
+  $("#searchInput").value="";$("#favoriteFilter").textContent="★ Favoriten";setView("calculators");
+  $("#catalogEyebrow").textContent="Werkzeuge";$("#catalogTitle").textContent="Alle Rechner";
+  $("#catalogDescription").textContent="Alle verfügbaren Rechner, gegliedert nach Fachgebiet.";
+  workspace.innerHTML=`<div class="empty-state"><h2>Rechner auswählen</h2><p>Wähle ein Werkzeug aus den Karten.</p></div>`;
+  setBreadcrumb("Alle Rechner");renderCards();renderCategoryMenu();
 }
 function showSearchResults(){
   state.category=null;state.favoritesOnly=false;state.selected=null;setView("calculators");
@@ -419,6 +428,8 @@ function showFavorites(){
 }
 function selectCalculator(id){
   const calculator=calculators.find(item=>item.id===id);if(!calculator)return;
+  state.recent=[id,...state.recent.filter(itemId=>itemId!==id)].slice(0,6);
+  localStorage.setItem(STORAGE_RECENT,JSON.stringify(state.recent));
   state.selected=id;state.category=calculator.category;state.favoritesOnly=false;setView("calculators");
   const meta=categoryMeta[calculator.category]||{};
   $("#catalogEyebrow").textContent="Kategorie";$("#catalogTitle").textContent=calculator.category;
@@ -446,48 +457,121 @@ function quickCard({icon,title,text,action,label,status}){
     ${status==="planned"?`<span class="planned-badge">Geplant</span>`:`<button type="button" class="dashboard-link" data-dashboard-action="${action}">${label||"Öffnen"} →</button>`}
   </article>`;
 }
+function greeting(){
+  const hour=new Date().getHours();
+  return hour<11?"Guten Morgen":hour<18?"Guten Tag":"Guten Abend";
+}
+function upcomingVisits(limit=4){
+  const now=Date.now();
+  return plants.flatMap(plant=>(plant.visits||[]).map(visit=>({plant,visit,date:isoLocalToDate(visit.start)})))
+    .filter(item=>item.date&&item.date.getTime()>=now&&item.visit.status!=="done"&&item.visit.status!=="cancelled")
+    .sort((a,b)=>a.date-b.date).slice(0,limit);
+}
+function dashboardTrafficTally(){
+  const tally={green:0,yellow:0,red:0,gray:0};
+  plants.forEach(plant=>{
+    const levels=evaluations(plant).map(item=>item.evaluation.level);
+    let level="gray";
+    if(levels.includes("red"))level="red";
+    else if(levels.includes("yellow"))level="yellow";
+    else if(levels.includes("green"))level="green";
+    tally[level]++;
+  });
+  return tally;
+}
+function renderPlantAnimation(){
+  return `<div class="plant-animation" aria-label="Animierte schematische Kläranlage aus der Vogelperspektive">
+    <img src="plant-hero-base.png" alt="Kläranlage aus der Vogelperspektive">
+    <div class="water-flow flow-a"></div><div class="water-flow flow-b"></div><div class="water-flow flow-c"></div>
+    <span class="clarifier-rotor rotor-a"></span><span class="clarifier-rotor rotor-b"></span><span class="clarifier-rotor rotor-c"></span>
+    <span class="aeration-bubbles bubbles-a"></span><span class="aeration-bubbles bubbles-b"></span>
+    <button class="animation-toggle" id="animationToggle" type="button">Ⅱ Animation pausieren</button>
+  </div>`;
+}
 function renderDashboard(){
   const plant=activePlant();
+  const recentList=state.recent.map(id=>calculators.find(item=>item.id===id)).filter(Boolean).slice(0,4);
   const favoriteList=calculators.filter(item=>state.favorites.has(item.id)).slice(0,4);
+  const visits=upcomingVisits(4);
+  const tally=dashboardTrafficTally();
+  const totalStatus=Math.max(plants.length,1);
+  const greenDeg=tally.green/totalStatus*360;
+  const yellowDeg=(tally.green+tally.yellow)/totalStatus*360;
+  const redDeg=(tally.green+tally.yellow+tally.red)/totalStatus*360;
+  const capacity=plant?.master?.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"Ausbaugröße nicht hinterlegt";
+  const plantType=plant?.master?.type==="industrial"?"Industrielle Kläranlage":plant?.master?.type==="mixed"?"Kommunale Anlage mit Industrieanteil":"Kommunale Kläranlage";
   $("#dashboard").innerHTML=`
-    <section class="hero-panel">
-      <div><p class="eyebrow">Startseite</p><h1>Werkzeuge für die Abwasserpraxis</h1>
-      <p class="subtitle">${plant?`Aktive Anlage: ${esc(plant.master.name||"Unbenannte Anlage")}`:"Lege zuerst eine Anlage an, um Stammdaten, Betreiber, Ansprechpartner und Betriebswerte zentral zu verwalten."}</p>
-      <div class="hero-actions">
-        <button type="button" class="button primary" data-dashboard-action="${plant?"plantDashboard":"plantForm"}">${plant?"Anlagenstartseite":"Neue Anlage anlegen"}</button>
-        <button type="button" class="button secondary" data-dashboard-action="plants">Anlagenübersicht</button>
-      </div></div>
-      <div class="hero-stat"><strong>${plants.length}</strong><span>gespeicherte Anlagen</span><small>Version ${VERSION}</small></div>
+    <section class="cockpit-heading">
+      <div><h1>${greeting()}.</h1><p>Hier ist dein Überblick für den heutigen Arbeitstag.</p></div>
+      <div class="cockpit-date"><span>${new Date().toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"long",year:"numeric"})}</span><strong>${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></div>
     </section>
 
-    ${plant?`<section class="dashboard-section">
-      <div class="section-heading"><div><p class="eyebrow">Aktive Anlage</p><h2>${esc(plant.master.name||"Unbenannte Anlage")}</h2></div><button class="text-button" data-dashboard-action="plantDashboard" type="button">Öffnen</button></div>
-      ${renderTrafficSummary(plant)}
-    </section>`:""}
-
-    <section class="dashboard-section">
-      <div class="section-heading"><div><p class="eyebrow">Direktzugriff</p><h2>Kategorien</h2></div></div>
-      <div class="dashboard-grid">${categories.map(category=>{
-        const meta=categoryMeta[category]||{icon:"•",description:""};
-        return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:`${categoryCount(category)} Rechner`});
-      }).join("")}</div>
+    <section class="plant-visual-card">
+      ${renderPlantAnimation()}
+      <div class="active-plant-overlay">
+        <div><p class="eyebrow">Aktive Anlage</p><h2>${esc(plant?.master?.name||"Noch keine Anlage ausgewählt")}</h2>
+          <span>${esc(plant?.master?.internalNumber||"")}</span><p>${plant?plantType:"Lege eine Anlagenakte an, um das Cockpit zu aktivieren."}</p><strong>${plant?capacity:""}</strong></div>
+        <div class="active-plant-buttons">
+          <button class="button primary" data-dashboard-action="${plant?"plantDashboard":"plantForm"}" type="button">${plant?"Anlage öffnen":"Anlage anlegen"}</button>
+          <button class="text-button" data-dashboard-action="plants" type="button">Anlage wechseln ↔</button>
+        </div>
+      </div>
     </section>
 
-    ${favoriteList.length?`<section class="dashboard-section">
-      <div class="section-heading"><div><p class="eyebrow">Persönlich</p><h2>Favoriten</h2></div><button class="text-button" data-dashboard-action="favorites" type="button">Alle anzeigen</button></div>
-      <div class="favorite-dashboard-grid">${favoriteList.map(item=>`<button type="button" class="favorite-dashboard-item" data-dashboard-calculator="${item.id}"><span>${item.category}</span><strong>${item.name}</strong><small>${item.short}</small></button>`).join("")}</div>
-    </section>`:""}
-  `;
+    <section class="quick-access-grid" aria-label="Schnellzugriff">
+      <button data-dashboard-action="allCalculators" type="button"><span>∑</span><strong>Rechner</strong><small>Berechnungen durchführen</small></button>
+      <button data-dashboard-action="${plant?"plantDashboard":"plantForm"}" type="button"><span>KA</span><strong>Anlagenakte</strong><small>Stammdaten bearbeiten</small></button>
+      <button data-dashboard-action="${plant?"plantDashboard":"plants"}" type="button"><span>▣</span><strong>Termine</strong><small>Besuche und Notizen</small></button>
+      <button data-dashboard-action="favorites" type="button"><span>★</span><strong>Favoriten</strong><small>Wichtige Rechner</small></button>
+      <button data-dashboard-action="search" type="button"><span>⌕</span><strong>Suche</strong><small>Werkzeuge schnell finden</small></button>
+    </section>
+
+    <section class="cockpit-columns">
+      <article class="cockpit-panel">
+        <div class="panel-title"><div><p class="eyebrow">Schnellzugriff</p><h2>${recentList.length?"Zuletzt verwendete Rechner":"Favorisierte Rechner"}</h2></div><button data-dashboard-action="allCalculators" type="button">Alle Rechner →</button></div>
+        <div class="compact-list">${(recentList.length?recentList:favoriteList).length?(recentList.length?recentList:favoriteList).map(item=>`<button data-dashboard-calculator="${item.id}" type="button"><span class="list-icon">${categoryMeta[item.category]?.icon||"∑"}</span><span><strong>${item.name}</strong><small>${item.category}</small></span><b>›</b></button>`).join(""):`<div class="dashboard-empty">Noch keine Rechner verwendet. Öffne einen Rechner über den Direktzugriff.</div>`}</div>
+      </article>
+
+      <article class="cockpit-panel">
+        <div class="panel-title"><div><p class="eyebrow">Kalender</p><h2>Nächste Termine</h2></div><button data-dashboard-action="${plant?"plantDashboard":"plants"}" type="button">Alle Termine →</button></div>
+        <div class="appointment-list">${visits.length?visits.map(({plant,visit,date})=>`<div><time>${date.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})}<strong>${date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></time><span><strong>${esc(plant.master.name||"Kläranlage")}</strong><small>${esc(visit.title||visit.purpose||"Besuchstermin")}</small></span></div>`).join(""):`<div class="dashboard-empty">Keine zukünftigen Termine hinterlegt.</div>`}</div>
+      </article>
+    </section>
+
+    <section class="cockpit-columns lower">
+      <article class="cockpit-panel status-panel">
+        <div class="panel-title"><div><p class="eyebrow">Überwachung</p><h2>Anlagenstatus</h2></div><button data-dashboard-action="plants" type="button">Alle Anlagen →</button></div>
+        <div class="status-overview"><div class="status-donut" style="--green:${greenDeg}deg;--yellow:${yellowDeg}deg;--red:${redDeg}deg"><span><strong>${plants.length}</strong><small>Anlagen</small></span></div>
+          <div class="status-legend"><span><i class="green"></i><strong>${tally.green}</strong> im Ziel</span><span><i class="yellow"></i><strong>${tally.yellow}</strong> beobachten</span><span><i class="red"></i><strong>${tally.red}</strong> prüfen</span><span><i class="gray"></i><strong>${tally.gray}</strong> ohne Daten</span></div></div>
+      </article>
+      <article class="cockpit-panel metrics-panel">
+        <div class="panel-title"><div><p class="eyebrow">Übersicht</p><h2>Kennzahlen</h2></div></div>
+        <div class="cockpit-metrics"><div><strong>${plants.length}</strong><span>Anlagen gespeichert</span></div><div><strong>${calculators.length}</strong><span>Rechner verfügbar</span></div><div><strong>${plants.reduce((n,p)=>n+(p.visits||[]).length,0)}</strong><span>Besuche dokumentiert</span></div><div><strong>${state.favorites.size}</strong><span>Favoriten gespeichert</span></div></div>
+      </article>
+    </section>
+
+    <section class="dashboard-section calculator-categories-home">
+      <div class="section-heading"><div><p class="eyebrow">Direktzugriff</p><h2>Rechnerkategorien</h2></div><button class="text-button" data-dashboard-action="allCalculators" type="button">Alle Rechner</button></div>
+      <div class="category-home-grid">${categories.map(category=>{const meta=categoryMeta[category]||{icon:"∑",description:""};return `<button type="button" data-dashboard-action="${category}"><span>${meta.icon}</span><strong>${category}</strong><small>${categoryCount(category)} Rechner</small></button>`}).join("")}</div>
+    </section>`;
   bindDashboardActions();
+  const animationToggle=$("#animationToggle");
+  if(animationToggle)animationToggle.onclick=()=>{
+    const visual=animationToggle.closest(".plant-animation");
+    const paused=visual.classList.toggle("paused");
+    animationToggle.textContent=paused?"▶ Animation starten":"Ⅱ Animation pausieren";
+  };
 }
 function bindDashboardActions(){
-  $$("[data-dashboard-action]").forEach(button=>button.onclick=()=>{
+  $$('[data-dashboard-action]').forEach(button=>button.onclick=()=>{
     const action=button.dataset.dashboardAction;
     if(action==="favorites")showFavorites();
+    else if(action==="allCalculators")showAllCalculators();
+    else if(action==="search"){showAllCalculators();$("#searchInput").focus();}
     else if(["plants","plantForm","plantDashboard","limits","traffic"].includes(action))showApplication(action);
     else showCategory(action);
   });
-  $$("[data-dashboard-calculator]").forEach(button=>button.onclick=()=>selectCalculator(button.dataset.dashboardCalculator));
+  $$('[data-dashboard-calculator]').forEach(button=>button.onclick=()=>selectCalculator(button.dataset.dashboardCalculator));
 }
 function showApplication(view){
   if(view==="plantDashboard")return showPlantDashboard();
@@ -913,6 +997,13 @@ function downloadJson(filename,data){
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
 }
 
+$$('[data-primary-view]').forEach(button=>button.onclick=()=>{
+  const target=button.dataset.primaryView;
+  if(target==="plants")showApplication("plants");
+  else if(target==="calculators")showAllCalculators();
+  closeMobileSidebar();
+});
+const showAllButton=$("#showAllCalculators");if(showAllButton)showAllButton.onclick=()=>{showAllCalculators();closeMobileSidebar()};
 $("#homeButton").onclick=showHome;$("#dashboardNav").onclick=()=>{showHome();closeMobileSidebar()};
 $("#breadcrumbHome").onclick=showHome;$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
 $("#activePlantSelect").onchange=e=>{activePlantId=e.target.value;savePlants();showPlantDashboard()};

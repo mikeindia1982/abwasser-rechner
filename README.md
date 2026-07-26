@@ -1,29 +1,27 @@
-# Abwasser Rechner – Version 0.8 (Anlagenakte)
+# Abwasser Rechner – Version 0.8.2
 
-Diese Version basiert direkt auf der stabilen Version 0.7. Die lokale Speicherlogik und die bisherigen Storage-Schlüssel bleiben unverändert.
+## Neue Cockpit-Startseite
 
-## Änderungen
+- überarbeitete Startseite im Dashboard-Design
+- animierte Kläranlage aus der Vogelperspektive
+- pausierbare Animation
+- aktive Anlage direkt in der Grafik
+- Schnellzugriff auf Rechner, Anlagenakte, Termine, Favoriten und Suche
+- zuletzt verwendete Rechner
+- nächste Termine über alle Anlagen
+- Anlagenstatus und Kennzahlen
+- Rechnerkategorien ausschließlich auf der Startseite
 
-- Hauptverfahren als Dropdown
-- zusätzliche Verfahrensstufen als Mehrfachauswahl
-- Freitext für Sonderverfahren
-- Ausbaugröße und tatsächliche Belastung in EW
-- deutsche Tausendertrennpunkte in der Anlagenübersicht
-- automatische Auslastungsanzeige
-- getrennte GPS-Felder für Breitengrad und Längengrad
-- automatische Anlagennummer nach dem Muster `ANL-0001`
-- anklickbare E-Mail-Adressen und Telefonnummern
-- Termine getrennt in nächste Termine und chronologische Historie
-- vollständige Terminnotizen in der Anlagenhistorie
+## Navigation
 
-## Bewusst nicht enthalten
+Die Rechnerkategorien wurden aus dem linken Menü entfernt. Das Menü bleibt für dauerhafte Hauptbereiche reserviert und ist damit für zukünftige Rubriken vorbereitet.
 
-Die Datenmigration, neue Storage-Schlüssel sowie Import und Export werden erst in Version 0.8.1 umgesetzt.
+## Datenhaltung
 
-## Installation
+Die vorhandene Speicherlogik und alle Storage-Keys bleiben unverändert. Anlagen aus Version 0.8.1 werden weiterhin verwendet.
 
-Alle Dateien einschließlich des Ordners `js` in das GitHub-Repository hochladen und vorhandene Dateien ersetzen.
+## Update
 
-Commit-Nachricht:
+Alle Dateien einschließlich `js`, `styles.css`, `service-worker.js` und `plant-hero-base.png` in das GitHub-Repository hochladen und bestehende Dateien ersetzen.
 
-`Version 0.8 - Anlagenakte erweitert`
+Commit: `Version 0.8.2 - Cockpit Startseite`
