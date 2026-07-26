@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.5";
+const VERSION="0.8.6";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -195,6 +195,12 @@ const emptyPlant=()=>({
   operator:{name:"",legalForm:"",customerNumber:"",street:"",postalCode:"",city:"",phone:"",email:"",website:""},
   contacts:[],
   visits:[],
+  sludgeDewatering:{
+    enabled:false,status:"active",process:"screw-press",manufacturer:"",model:"",year:"",unitCount:"1",operationMode:"batch",
+    throughputM3h:"",inletTsPercent:"",outletTsPercent:"",polymerKgPerTds:"",operatingHours:"",sludgeQuantity:"",
+    polymerStation:false,feedPump:false,conveyor:false,container:false,filtrateRouting:"",notes:""
+  },
+  dosingSystems:[],
   parameters:{
     flow:"",pIn:"",pOut:"",pTarget:"",nh4Out:"",basinVolume:"",mlss:"",svi:"",
     sludgeAge:"",sludgeFlow:"",sludgeTs:"",cakeTs:"",retention:"",polymer:"",
@@ -287,9 +293,9 @@ function procedureConfig(plant){
   return {
     main,
     primary:stages.has("primary-clarification"),
-    precipitation:["pre-precipitation","simultaneous-precipitation","post-precipitation"].some(x=>stages.has(x)),
+    precipitation:["pre-precipitation","simultaneous-precipitation","post-precipitation"].some(x=>stages.has(x))||(plant?.dosingSystems||[]).some(x=>x.purpose==="precipitant"),
     digestion:stages.has("sludge-digestion"),
-    dewatering:stages.has("sludge-dewatering"),
+    dewatering:stages.has("sludge-dewatering")||Boolean(plant?.sludgeDewatering?.enabled),
     filtration:["sand-filtration","cloth-filtration","disc-filtration","microfiltration","ultrafiltration","activated-carbon","ozonation","uv"].some(x=>stages.has(x))
   };
 }
@@ -722,6 +728,27 @@ function field(name,label,value="",type="text",placeholder=""){
 function selectField(name,label,value,options){
   return `<label class="field-label">${label}<select name="${name}">${options.map(([v,l])=>`<option value="${v}" ${v===value?"selected":""}>${l}</option>`).join("")}</select></label>`;
 }
+
+function checkboxField(name,label,checked=false){
+  return `<label class="check-field"><input name="${name}" type="checkbox" ${checked?"checked":""}><span>${label}</span></label>`;
+}
+function dewateringDefaults(value={}){
+  return {enabled:false,status:"active",process:"screw-press",manufacturer:"",model:"",year:"",unitCount:"1",operationMode:"batch",throughputM3h:"",inletTsPercent:"",outletTsPercent:"",polymerKgPerTds:"",operatingHours:"",sludgeQuantity:"",polymerStation:false,feedPump:false,conveyor:false,container:false,filtrateRouting:"",notes:"",...value};
+}
+function dosingDefaults(value={}){
+  return {id:crypto.randomUUID(),name:"",purpose:"polymer",status:"active",location:"",tankType:"storage-tank",tankManufacturer:"",tankModel:"",tankYear:"",tankVolume:"",tankMaterial:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",stationManufacturer:"",stationModel:"",stationYear:"",pumpType:"diaphragm",pumpCount:"1",capacityLh:"",maxPressureBar:"",controlMode:"flow-proportional",standbyPump:false,automaticChangeover:false,calibrationDevice:false,flushConnection:false,pressureHoldingValve:false,overflowValve:false,pulsationDamper:false,productName:"",activeIngredient:"",concentrationPercent:"",densityKgL:"",hazardous:false,safetyDataSheetAvailable:false,consumption:"",flowMeter:false,levelSensor:false,dryRunProtection:false,pressureMonitoring:false,leakageSensor:false,plcConnected:false,remoteAlarm:false,controlledValue:"",notes:"",...value};
+}
+function statusText(status){return status==="active"?"In Betrieb":status==="reserve"?"Reserve":status==="planned"?"Geplant":"Außer Betrieb"}
+function dewateringProcessText(value){return ({"screw-press":"Schneckenpresse","belt-press":"Siebbandpresse","filter-press":"Kammerfilterpresse",centrifuge:"Zentrifuge",mobile:"Mobile Entwässerung",dryingBed:"Trockenbeet",other:"Sonstiges"})[value]||"Nicht festgelegt"}
+function dosingPurposeText(value){return ({polymer:"Polymer",precipitant:"Fällmittel",carbon:"Kohlenstoffquelle",neutralization:"Neutralisationsmittel",defoamer:"Entschäumer",other:"Sonstiges"})[value]||"Dosierung"}
+function renderTechnicalAssets(plant){
+  const d=dewateringDefaults(plant.sludgeDewatering||{}), systems=Array.isArray(plant.dosingSystems)?plant.dosingSystems:[];
+  return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Maschinentechnik</p><h2>Schlammentwässerung und Dosiertechnik</h2></div><button class="text-button" id="editTechnicalAssets">Technik bearbeiten</button></div>
+  <div class="technical-assets-grid">
+    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">▦</span><div><h3>Schlammentwässerung</h3><span class="status-chip ${d.enabled?'green':'gray'}">${d.enabled?statusText(d.status):'Nicht vorhanden'}</span></div></div>${d.enabled?`<dl><div><dt>Verfahren</dt><dd>${esc(dewateringProcessText(d.process))}</dd></div><div><dt>Fabrikat</dt><dd>${esc([d.manufacturer,d.model].filter(Boolean).join(' ')||'–')}</dd></div><div><dt>Baujahr</dt><dd>${esc(d.year||'–')}</dd></div><div><dt>Durchsatz</dt><dd>${d.throughputM3h?`${esc(d.throughputM3h)} m³/h`:'–'}</dd></div><div><dt>Austrags-TS</dt><dd>${d.outletTsPercent?`${esc(d.outletTsPercent)} %`:'–'}</dd></div></dl>`:'<p>Für diese Anlage ist noch keine Schlammentwässerung erfasst.</p>'}</article>
+    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">CH</span><div><h3>Dosiertechnik</h3><span class="status-chip ${systems.length?'blue':'gray'}">${systems.length} ${systems.length===1?'Anlage':'Anlagen'}</span></div></div>${systems.length?`<div class="dosing-summary-list">${systems.map(x=>`<div><strong>${esc(x.name||dosingPurposeText(x.purpose))}</strong><span>${esc(dosingPurposeText(x.purpose))} · ${esc(statusText(x.status))}</span><small>${esc(x.productName||'Medium nicht hinterlegt')}${x.tankVolume?` · Tank ${esc(x.tankVolume)} l`:''}</small></div>`).join('')}</div>`:'<p>Noch keine Tank- oder Dosieranlage erfasst.</p>'}</article>
+  </div></section>`;
+}
 function showPlantForm(id=null){
   setView("plantForm");setBreadcrumb(id?"Anlage bearbeiten":"Neue Anlage");
   const existing=id?plants.find(p=>p.id===id):null;
@@ -729,6 +756,8 @@ function showPlantForm(id=null){
   p.master.mainProcess=p.master.mainProcess||"activated-sludge";
   p.master.processStages=Array.isArray(p.master.processStages)?p.master.processStages:[];
   p.master.processOther=p.master.processOther||p.master.process||"";
+  p.sludgeDewatering=dewateringDefaults(p.sludgeDewatering||{});
+  p.dosingSystems=Array.isArray(p.dosingSystems)?p.dosingSystems.map(dosingDefaults):[];
   if(!p.master.internalNumber)p.master.internalNumber=nextInternalNumber();
   const legacyGps=parseLegacyGps(p.address.gps||"");
   p.address.latitude=p.address.latitude||legacyGps.latitude;
@@ -799,6 +828,25 @@ function showPlantForm(id=null){
       <div id="contactsEditor" class="contacts-editor"></div>
     </section>
 
+    <section class="form-section technical-form-section"><div class="section-heading"><div><p class="eyebrow">Schlammbehandlung</p><h2>Schlammentwässerung</h2><p class="form-note">Maschine, Leistung und zugehörige Peripherie in der Anlagenakte dokumentieren.</p></div></div>
+      <div class="toggle-panel">${checkboxField("sludgeDewatering.enabled","Schlammentwässerung vorhanden",p.sludgeDewatering.enabled)}</div>
+      <div class="form-grid" id="dewateringFields">
+        ${selectField("sludgeDewatering.status","Betriebsstatus",p.sludgeDewatering.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}
+        ${selectField("sludgeDewatering.process","Verfahren",p.sludgeDewatering.process,[["screw-press","Schneckenpresse"],["belt-press","Siebbandpresse"],["filter-press","Kammerfilterpresse"],["centrifuge","Zentrifuge"],["mobile","Mobile Entwässerung"],["dryingBed","Trockenbeet"],["other","Sonstiges"]])}
+        ${field("sludgeDewatering.manufacturer","Hersteller",p.sludgeDewatering.manufacturer)} ${field("sludgeDewatering.model","Typ / Modell",p.sludgeDewatering.model)}
+        ${field("sludgeDewatering.year","Baujahr",p.sludgeDewatering.year,"number")} ${field("sludgeDewatering.unitCount","Anzahl Aggregate",p.sludgeDewatering.unitCount,"number")}
+        ${selectField("sludgeDewatering.operationMode","Betriebsweise",p.sludgeDewatering.operationMode,[["continuous","Kontinuierlich"],["batch","Chargenweise"],["mobile","Mobil / extern"]])}
+        ${field("sludgeDewatering.throughputM3h","Schlammdurchsatz [m³/h]",p.sludgeDewatering.throughputM3h,"number")}
+        ${field("sludgeDewatering.inletTsPercent","Zulauf-TS [%]",p.sludgeDewatering.inletTsPercent,"number")} ${field("sludgeDewatering.outletTsPercent","Austrags-TS [%]",p.sludgeDewatering.outletTsPercent,"number")}
+        ${field("sludgeDewatering.polymerKgPerTds","Polymer [kg WS/t TS]",p.sludgeDewatering.polymerKgPerTds,"number")} ${field("sludgeDewatering.operatingHours","Betriebsstunden [h/a]",p.sludgeDewatering.operatingHours,"number")}
+        ${field("sludgeDewatering.sludgeQuantity","Schlammmenge [t/a oder m³/a]",p.sludgeDewatering.sludgeQuantity)} ${field("sludgeDewatering.filtrateRouting","Filtrat-/Zentratführung",p.sludgeDewatering.filtrateRouting)}
+        <div class="span-2 check-grid">${checkboxField("sludgeDewatering.polymerStation","Polymerstation",p.sludgeDewatering.polymerStation)}${checkboxField("sludgeDewatering.feedPump","Beschickungspumpe",p.sludgeDewatering.feedPump)}${checkboxField("sludgeDewatering.conveyor","Fördertechnik",p.sludgeDewatering.conveyor)}${checkboxField("sludgeDewatering.container","Schlammcontainer",p.sludgeDewatering.container)}</div>
+        <label class="field-label span-2">Bemerkungen<textarea name="sludgeDewatering.notes">${esc(p.sludgeDewatering.notes)}</textarea></label>
+      </div>
+    </section>
+
+    <section class="form-section technical-form-section"><div class="section-heading"><div><p class="eyebrow">Chemikalienlagerung und Dosierung</p><h2>Dosiertechnik</h2><p class="form-note">Mehrere Tank- und Dosieranlagen können separat erfasst und einem Einsatzzweck zugeordnet werden.</p></div><button type="button" class="button secondary" id="addDosingSystem">Dosieranlage hinzufügen</button></div><div id="dosingSystemsEditor" class="dosing-editor"></div></section>
+
     <section class="form-section"><h2>Zentrale Betriebsparameter</h2><p class="form-note">Diese Werte bilden die gemeinsame Datenbasis für Ampeln und später die automatische Übernahme in Rechner.</p><div class="form-grid">
       ${field("parameters.flow","Volumenstrom m³/d",p.parameters.flow,"number")}
       ${field("parameters.pIn","Pges Zulauf mg/l",p.parameters.pIn,"number")}
@@ -825,6 +873,21 @@ function showPlantForm(id=null){
   enableDecimalInputs(appView);
   const numberInput=appView.querySelector('[name="master.internalNumber"]');
   if(numberInput)numberInput.readOnly=true;
+  let dosingSystems=structuredClone(p.dosingSystems||[]).map(dosingDefaults);
+  const dosingEditor=$("#dosingSystemsEditor");
+  const renderDosingSystems=()=>{
+    dosingEditor.innerHTML=dosingSystems.length?dosingSystems.map((d,i)=>`<article class="dosing-editor-card"><div class="contact-editor-head"><strong>${esc(d.name||`Dosieranlage ${i+1}`)}</strong><button type="button" data-remove-dosing="${i}">Entfernen</button></div>
+      <div class="dosing-block"><h3>Zuordnung und Status</h3><div class="form-grid">${field(`dosing.${i}.name`,"Bezeichnung",d.name)}${selectField(`dosing.${i}.purpose`,"Verwendungszweck",d.purpose,[["polymer","Polymer"],["precipitant","Fällmittel"],["carbon","Kohlenstoffquelle"],["neutralization","Neutralisationsmittel"],["defoamer","Entschäumer"],["other","Sonstiges"]])}${selectField(`dosing.${i}.status`,"Betriebsstatus",d.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}${field(`dosing.${i}.location`,"Standort / Einbauort",d.location)}</div></div>
+      <div class="dosing-block"><h3>Tankanlage</h3><div class="form-grid">${selectField(`dosing.${i}.tankType`,"Tankart",d.tankType,[["storage-tank","Lagertank"],["day-tank","Tagestank"],["ibc","IBC"],["double-wall","Doppelwandtank"],["other","Sonstiges"]])}${field(`dosing.${i}.tankVolume`,"Volumen [l]",d.tankVolume,"number")}${field(`dosing.${i}.tankManufacturer`,"Hersteller",d.tankManufacturer)}${field(`dosing.${i}.tankModel`,"Typ",d.tankModel)}${field(`dosing.${i}.tankYear`,"Baujahr",d.tankYear,"number")}${field(`dosing.${i}.tankMaterial`,"Material",d.tankMaterial)}<div class="span-2 check-grid">${checkboxField(`dosing.${i}.doubleWalled`,"Doppelwandig",d.doubleWalled)}${checkboxField(`dosing.${i}.bundPresent`,"Auffangwanne",d.bundPresent)}${checkboxField(`dosing.${i}.levelMonitoring`,"Füllstandsüberwachung",d.levelMonitoring)}${checkboxField(`dosing.${i}.leakageMonitoring`,"Leckageüberwachung",d.leakageMonitoring)}</div>${field(`dosing.${i}.lastInspection`,"Letzte Prüfung",d.lastInspection,"date")}${field(`dosing.${i}.nextInspection`,"Nächste Prüfung",d.nextInspection,"date")}</div></div>
+      <div class="dosing-block"><h3>Dosierstation</h3><div class="form-grid">${field(`dosing.${i}.stationManufacturer`,"Hersteller",d.stationManufacturer)}${field(`dosing.${i}.stationModel`,"Typ",d.stationModel)}${field(`dosing.${i}.stationYear`,"Baujahr",d.stationYear,"number")}${selectField(`dosing.${i}.pumpType`,"Pumpenart",d.pumpType,[["diaphragm","Membrandosierpumpe"],["hose","Schlauchpumpe"],["progressive-cavity","Exzenterschneckenpumpe"],["piston","Kolbenpumpe"],["other","Sonstige"]])}${field(`dosing.${i}.pumpCount`,"Anzahl Dosierpumpen",d.pumpCount,"number")}${field(`dosing.${i}.capacityLh`,"Förderleistung [l/h]",d.capacityLh,"number")}${field(`dosing.${i}.maxPressureBar`,"Maximaldruck [bar]",d.maxPressureBar,"number")}${selectField(`dosing.${i}.controlMode`,"Betriebsweise",d.controlMode,[["constant","Konstant"],["flow-proportional","Durchflussproportional"],["measured-value","Messwertgeführt"],["manual","Manuell"]])}<div class="span-2 check-grid">${checkboxField(`dosing.${i}.standbyPump`,"Reservepumpe",d.standbyPump)}${checkboxField(`dosing.${i}.automaticChangeover`,"Automatische Umschaltung",d.automaticChangeover)}${checkboxField(`dosing.${i}.calibrationDevice`,"Kalibriereinrichtung",d.calibrationDevice)}${checkboxField(`dosing.${i}.flushConnection`,"Spülanschluss",d.flushConnection)}${checkboxField(`dosing.${i}.pressureHoldingValve`,"Druckhalteventil",d.pressureHoldingValve)}${checkboxField(`dosing.${i}.overflowValve`,"Überströmventil",d.overflowValve)}${checkboxField(`dosing.${i}.pulsationDamper`,"Pulsationsdämpfer",d.pulsationDamper)}</div></div></div>
+      <div class="dosing-block"><h3>Medium und MSR-Technik</h3><div class="form-grid">${field(`dosing.${i}.productName`,"Produktname",d.productName)}${field(`dosing.${i}.activeIngredient`,"Wirkstoff",d.activeIngredient)}${field(`dosing.${i}.concentrationPercent`,"Konzentration [%]",d.concentrationPercent,"number")}${field(`dosing.${i}.densityKgL`,"Dichte [kg/l]",d.densityKgL,"number")}${field(`dosing.${i}.consumption`,"Verbrauch pro Tag / Woche / Monat",d.consumption)}${field(`dosing.${i}.controlledValue`,"Zugehöriger Messwert",d.controlledValue)}<div class="span-2 check-grid">${checkboxField(`dosing.${i}.hazardous`,"Gefahrstoff",d.hazardous)}${checkboxField(`dosing.${i}.safetyDataSheetAvailable`,"Sicherheitsdatenblatt vorhanden",d.safetyDataSheetAvailable)}${checkboxField(`dosing.${i}.flowMeter`,"Durchflussmesser",d.flowMeter)}${checkboxField(`dosing.${i}.levelSensor`,"Füllstandssonde",d.levelSensor)}${checkboxField(`dosing.${i}.dryRunProtection`,"Trockenlaufschutz",d.dryRunProtection)}${checkboxField(`dosing.${i}.pressureMonitoring`,"Drucküberwachung",d.pressureMonitoring)}${checkboxField(`dosing.${i}.leakageSensor`,"Leckagesensor",d.leakageSensor)}${checkboxField(`dosing.${i}.plcConnected`,"SPS-Anbindung",d.plcConnected)}${checkboxField(`dosing.${i}.remoteAlarm`,"Fern-/Störmeldung",d.remoteAlarm)}</div><label class="field-label span-2">Bemerkungen<textarea name="dosing.${i}.notes">${esc(d.notes)}</textarea></label></div></div></article>`).join(''):`<div class="empty-panel compact"><p>Noch keine Dosieranlage angelegt.</p></div>`;
+    $$('[data-remove-dosing]').forEach(b=>b.onclick=()=>{dosingSystems.splice(Number(b.dataset.removeDosing),1);renderDosingSystems();enableDecimalInputs(dosingEditor)});
+  };
+  renderDosingSystems();
+  $("#addDosingSystem").onclick=()=>{dosingSystems.push(dosingDefaults({name:`Dosieranlage ${dosingSystems.length+1}`}));renderDosingSystems();enableDecimalInputs(dosingEditor)};
+  const dewateringEnabled=plantForm.elements.namedItem("sludgeDewatering.enabled"),dewateringFields=$("#dewateringFields");
+  const syncDewateringVisibility=()=>{dewateringFields.classList.toggle("disabled-section",!dewateringEnabled.checked);dewateringFields.querySelectorAll("input,select,textarea").forEach(el=>el.disabled=!dewateringEnabled.checked)};
+  dewateringEnabled.onchange=syncDewateringVisibility;syncDewateringVisibility();
   let contacts=structuredClone(p.contacts||[]);
   const editor=$("#contactsEditor");
   const renderContacts=()=>{
@@ -929,7 +992,7 @@ function showPlantForm(id=null){
     const result=existing?structuredClone(existing):p;
     result.access=result.access||{};
     for(const [key,value] of fd.entries()){
-      if(key.startsWith("contact."))continue;
+      if(key.startsWith("contact.")||key.startsWith("dosing.")||key.startsWith("sludgeDewatering."))continue;
       if(key==="master.processStages")continue;
       if(key.startsWith("operator.phoneParts."))continue;
       const [section,prop]=key.split(".");
@@ -945,6 +1008,22 @@ function showPlantForm(id=null){
     result.address.accuracy=p.address.accuracy||String(result.address.accuracy||"").replace(/[^0-9.,]/g,"");
     result.address.capturedAt=p.address.capturedAt||result.address.capturedAt||"";
     result.address.geocodedAt=p.address.geocodedAt||result.address.geocodedAt||"";
+    result.sludgeDewatering=dewateringDefaults();
+    result.sludgeDewatering.enabled=fd.has("sludgeDewatering.enabled");
+    for(const key of Object.keys(result.sludgeDewatering)){
+      if(key==="enabled")continue;
+      if(typeof result.sludgeDewatering[key]==="boolean")result.sludgeDewatering[key]=fd.has(`sludgeDewatering.${key}`);
+      else result.sludgeDewatering[key]=fd.get(`sludgeDewatering.${key}`)||"";
+    }
+    result.dosingSystems=dosingSystems.map((d,i)=>{
+      const out=dosingDefaults({id:d.id});
+      for(const key of Object.keys(out)){
+        if(key==="id")continue;
+        if(typeof out[key]==="boolean")out[key]=fd.has(`dosing.${i}.${key}`);
+        else out[key]=fd.get(`dosing.${i}.${key}`)||"";
+      }
+      return out;
+    });
     result.operator.phone=combinePhone(fd,"operator.phoneParts");
     result.contacts=contacts.map((c,i)=>{
       const obj={};
@@ -1088,6 +1167,7 @@ function showPlantDashboard(){
     <div class="hero-actions"><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
   ${procedureCard(plant)}
+  ${renderTechnicalAssets(plant)}
   ${renderTrafficSummary(plant)}
   <section class="map-section">
     <div class="map-frame-wrap">
@@ -1140,7 +1220,7 @@ function showPlantDashboard(){
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Berechnungen</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
   bindProcedureCard(appView);
-  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
+  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editTechnicalAssets")?.addEventListener("click",()=>showPlantForm(plant.id));$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
   $("#addVisit").onclick=()=>showVisitForm();
   $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
   $$("[data-ics-visit]").forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
@@ -1183,6 +1263,7 @@ function showTraffic(){
   setView("traffic");setBreadcrumb("Ampelübersicht");
   const evals=evaluations(plant);
   appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Anlagenbewertung</p><h1>Ampelübersicht</h1><p class="subtitle">${esc(plant.master.name||"Unbenannte Anlage")} · Bewertung anhand der hinterlegten anlagenspezifischen Grenzen.</p></div><button class="button secondary" id="configureLimits">Grenzen konfigurieren</button></section>
+  ${renderTechnicalAssets(plant)}
   ${renderTrafficSummary(plant)}
   <div class="traffic-grid">${evals.map(item=>`<article class="traffic-card ${item.evaluation.level}">
     <div class="traffic-card-head"><span class="traffic-light ${item.evaluation.level}"></span><span>${item.label}</span></div>

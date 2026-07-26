@@ -234,3 +234,21 @@ input[readonly]{background:var(--surface-soft);cursor:not-allowed}
 @keyframes procedureFlow{to{stroke-dashoffset:-24}}@keyframes procedureRotor{to{transform:rotate(360deg)}}@keyframes procedureDose{to{stroke-dashoffset:-13}}@keyframes procedureBubble{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-24px);opacity:1}}
 @media(max-width:760px){.procedure-card{padding:14px}.procedure-card .section-heading{display:grid;gap:10px}.procedure-pause{width:100%}.procedure-visual svg{min-height:245px}.procedure-node text{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.proc-pipe,.proc-rotor,.proc-bubbles circle,.proc-dose-line{animation:none!important}.procedure-pause{display:none}}
+
+/* v0.8.6 – Schlammentwässerung und Dosiertechnik */
+.technical-form-section{border-left:4px solid var(--primary,#167c80)}
+.toggle-panel{padding:14px 16px;margin-bottom:16px;border-radius:14px;background:var(--surface-muted,#f4f7f7)}
+.check-field{display:flex;align-items:center;gap:10px;min-height:42px;font-weight:650;cursor:pointer}
+.check-field input{width:20px;height:20px;accent-color:var(--primary,#167c80)}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 18px;padding:12px;border:1px solid var(--border,#dce4e4);border-radius:12px;background:var(--surface-muted,#f7f9f9)}
+.disabled-section{opacity:.48;filter:grayscale(.2)}
+.dosing-editor{display:grid;gap:18px}
+.dosing-editor-card{border:1px solid var(--border,#dce4e4);border-radius:18px;padding:18px;background:var(--surface,#fff);box-shadow:0 8px 24px rgba(15,41,43,.05)}
+.dosing-block{padding-top:16px;margin-top:14px;border-top:1px solid var(--border,#e2e8e8)}
+.dosing-block h3{font-size:1rem;margin:0 0 12px}
+.technical-assets-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.technical-summary-card{border:1px solid var(--border,#dce4e4);border-radius:18px;padding:18px;background:var(--surface,#fff)}
+.technical-card-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:15px}.technical-card-head h3{margin:0 0 7px}.asset-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:var(--surface-muted,#edf5f5);font-weight:800;color:var(--primary,#167c80)}
+.technical-summary-card dl{display:grid;gap:8px;margin:0}.technical-summary-card dl div{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--border,#edf0f0);padding-bottom:7px}.technical-summary-card dt{color:var(--text-muted,#657273)}.technical-summary-card dd{margin:0;text-align:right;font-weight:650}
+.dosing-summary-list{display:grid;gap:10px}.dosing-summary-list>div{display:grid;gap:2px;padding:10px 0;border-bottom:1px solid var(--border,#edf0f0)}.dosing-summary-list span,.dosing-summary-list small{color:var(--text-muted,#657273)}
+@media(max-width:760px){.technical-assets-grid{grid-template-columns:1fr}.dosing-editor-card{padding:14px}.check-grid{grid-template-columns:1fr}}
