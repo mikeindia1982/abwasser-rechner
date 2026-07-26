@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.2";
+const VERSION="0.8.5";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -278,6 +278,66 @@ function multiSelectField(name,label,selectedValues,options){
   return `<fieldset class="field-label span-2 option-fieldset"><legend>${label}</legend>
     <div class="chip-grid">${options.map(([value,text])=>`<label class="check-chip"><input type="checkbox" name="${name}" value="${value}" ${selected.has(value)?"checked":""}><span>${text}</span></label>`).join("")}</div>
   </fieldset>`;
+}
+
+
+function procedureConfig(plant){
+  const main=plant?.master?.mainProcess||"activated-sludge";
+  const stages=new Set(Array.isArray(plant?.master?.processStages)?plant.master.processStages:[]);
+  return {
+    main,
+    primary:stages.has("primary-clarification"),
+    precipitation:["pre-precipitation","simultaneous-precipitation","post-precipitation"].some(x=>stages.has(x)),
+    digestion:stages.has("sludge-digestion"),
+    dewatering:stages.has("sludge-dewatering"),
+    filtration:["sand-filtration","cloth-filtration","disc-filtration","microfiltration","ultrafiltration","activated-carbon","ozonation","uv"].some(x=>stages.has(x))
+  };
+}
+function procedureSvg(plant,{interactive=true}={}){
+  const c=procedureConfig(plant);
+  const biological={
+    "sbr":["SBR-Becken","sbr"],
+    "mbr":["MBR / Membran","mbr"],
+    "trickling-filter":["Tropfkörper","trickling"],
+    "rotating-biological-contactor":["Scheibentauchkörper","rbc"],
+    "constructed-wetland":["Pflanzenkläranlage","wetland"],
+    "lagoon":["Abwasserteich","lagoon"]
+  }[c.main]||["Belebungsbecken","activated"];
+  const flow=[];
+  flow.push({id:"inlet",label:"Zulauf",kind:"inlet"});
+  if(c.primary)flow.push({id:"primary",label:"Vorklärung",kind:"clarifier"});
+  flow.push({id:"biology",label:biological[0],kind:biological[1]});
+  if(c.main!=="sbr"&&c.main!=="mbr"&&c.main!=="constructed-wetland"&&c.main!=="lagoon")flow.push({id:"secondary",label:"Nachklärung",kind:"clarifier"});
+  if(c.filtration)flow.push({id:"filtration",label:"Weitergehende Reinigung",kind:"filter"});
+  flow.push({id:"outlet",label:"Ablauf",kind:"outlet"});
+  const gap=150, start=70, y=118;
+  const width=Math.max(760,start*2+(flow.length-1)*gap);
+  const nodes=flow.map((n,i)=>{
+    const x=start+i*gap;
+    let shape='';
+    if(n.kind==='clarifier')shape=`<circle cx="${x}" cy="${y}" r="43" class="proc-water"/><g class="proc-rotor"><line x1="${x}" y1="${y}" x2="${x+36}" y2="${y}"/><circle cx="${x}" cy="${y}" r="5"/></g>`;
+    else if(n.kind==='trickling')shape=`<circle cx="${x}" cy="${y}" r="43" class="proc-media"/><g class="proc-rotor"><line x1="${x-34}" y1="${y}" x2="${x+34}" y2="${y}"/><circle cx="${x}" cy="${y}" r="5"/></g>`;
+    else if(n.kind==='outlet'||n.kind==='inlet')shape=`<rect x="${x-42}" y="${y-29}" width="84" height="58" rx="18" class="proc-${n.kind}"/>`;
+    else shape=`<rect x="${x-55}" y="${y-43}" width="110" height="86" rx="22" class="proc-water"/>${['activated','sbr','mbr'].includes(n.kind)?`<g class="proc-bubbles">${[-30,-10,12,31].map((dx,j)=>`<circle cx="${x+dx}" cy="${y+24-j%2*8}" r="3"/>`).join('')}</g>`:''}${n.kind==='mbr'?`<g class="proc-membrane"><line x1="${x-18}" y1="${y-25}" x2="${x-18}" y2="${y+25}"/><line x1="${x}" y1="${y-25}" x2="${x}" y2="${y+25}"/><line x1="${x+18}" y1="${y-25}" x2="${x+18}" y2="${y+25}"/></g>`:''}`;
+    return `<g class="procedure-node ${interactive?'is-interactive':''}" data-procedure-node="${n.id}" tabindex="${interactive?'0':'-1'}" role="${interactive?'button':'img'}" aria-label="${n.label}">${shape}<text x="${x}" y="${y+66}" text-anchor="middle">${n.label}</text></g>`;
+  }).join('');
+  const pipes=flow.slice(0,-1).map((_,i)=>{const x1=start+i*gap+55,x2=start+(i+1)*gap-55;return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="proc-pipe"/>`}).join('');
+  const extras=[];
+  if(c.precipitation){const x=start+Math.max(1,flow.findIndex(n=>n.id==='biology'))*gap;extras.push(`<g class="procedure-node ${interactive?'is-interactive':''}" data-procedure-node="precipitation" tabindex="${interactive?'0':'-1'}"><rect x="${x-38}" y="12" width="76" height="48" rx="15" class="proc-dose"/><path d="M ${x} 60 L ${x} 78" class="proc-dose-line"/><text x="${x}" y="4" text-anchor="middle">Fällung</text></g>`)}
+  if(c.digestion||c.dewatering){let x=start+Math.max(2,flow.length-2)*gap; if(c.digestion)extras.push(`<g class="procedure-node ${interactive?'is-interactive':''}" data-procedure-node="digestion" tabindex="${interactive?'0':'-1'}"><path d="M ${x-38} 244 L ${x-30} 194 Q ${x} 160 ${x+30} 194 L ${x+38} 244 Z" class="proc-sludge"/><text x="${x}" y="267" text-anchor="middle">Faulung</text></g>`); if(c.dewatering)extras.push(`<g class="procedure-node ${interactive?'is-interactive':''}" data-procedure-node="dewatering" tabindex="${interactive?'0':'-1'}"><rect x="${x+75}" y="194" width="100" height="58" rx="17" class="proc-sludge"/><text x="${x+125}" y="277" text-anchor="middle">Entwässerung</text></g>`)}
+  return `<div class="procedure-visual" style="--procedure-width:${width}px"><svg viewBox="0 0 ${width} 290" role="img" aria-label="Dynamisches Verfahrensschema">${pipes}${nodes}${extras.join('')}</svg></div>`;
+}
+function procedureCard(plant,{preview=false}={}){
+  return `<section class="procedure-card ${preview?'procedure-preview-card':''}"><div class="section-heading"><div><p class="eyebrow">Digitales Anlagenschema</p><h2>${preview?'Live-Vorschau':esc(processLabel(plant.master?.mainProcess))}</h2><p class="form-note">Die Darstellung wird automatisch aus Hauptverfahren und Verfahrensstufen aufgebaut.</p></div><button type="button" class="text-button procedure-pause">Animation pausieren</button></div>${procedureSvg(plant)}<div class="procedure-selection" aria-live="polite">Anlagenteil antippen, um ihn hervorzuheben.</div></section>`;
+}
+function bindProcedureCard(root=document){
+  root.querySelectorAll('.procedure-card').forEach(card=>{
+    card.querySelector('.procedure-pause')?.addEventListener('click',e=>{const paused=card.classList.toggle('paused');e.currentTarget.textContent=paused?'Animation starten':'Animation pausieren'});
+    card.querySelectorAll('[data-procedure-node]').forEach(node=>{
+      const activate=()=>{card.querySelectorAll('[data-procedure-node]').forEach(n=>n.classList.remove('selected'));node.classList.add('selected');const label=node.getAttribute('aria-label')||node.querySelector('text')?.textContent||'Anlagenteil';card.querySelector('.procedure-selection').textContent=`${label} ausgewählt`};
+      node.addEventListener('click',activate);node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate()}});
+    });
+  });
 }
 
 function locationQuery(plant){
@@ -689,6 +749,8 @@ function showPlantForm(id=null){
       <label class="field-label span-2">Weitere Besonderheiten der Anlage<textarea name="master.notes">${esc(p.master.notes)}</textarea></label>
     </div></section>
 
+    ${procedureCard(p,{preview:true})}
+
     <section class="form-section"><div class="section-heading"><div><h2>Anlagenadresse</h2><p class="form-note">Standort direkt vor Ort erfassen oder Adresse und Koordinaten manuell ergänzen.</p></div></div>
       <div class="location-capture-card">
         <div class="location-capture-copy"><span class="location-capture-icon" aria-hidden="true">⌖</span><div><strong>Standort automatisch übernehmen</strong><p>Das Smartphone ermittelt die GPS-Koordinaten. Bei Internetverbindung wird anschließend die Adresse ergänzt.</p></div></div>
@@ -1025,6 +1087,7 @@ function showPlantDashboard(){
     <p class="subtitle">${esc(plant.master.internalNumber||"")} · ${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmtInteger(plant.master.capacityPE)} EW Ausbaugröße`:""}${plant.master.actualPE?` · ${fmtInteger(plant.master.actualPE)} EW Belastung`:""}</p></div>
     <div class="hero-actions"><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
+  ${procedureCard(plant)}
   ${renderTrafficSummary(plant)}
   <section class="map-section">
     <div class="map-frame-wrap">
@@ -1076,6 +1139,7 @@ function showPlantDashboard(){
   ${renderVisits(plant)}
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Berechnungen</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
+  bindProcedureCard(appView);
   $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
   $("#addVisit").onclick=()=>showVisitForm();
   $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
