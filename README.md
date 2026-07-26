@@ -1,8 +1,8 @@
-# Abwasser-Rechner 0.8.6.1
+# Abwasser-Rechner 0.8.6.2
 
 Offline-fähige PWA für Abwassertechnik und anlagenbezogene Außendienstdaten.
 
-## Neu in 0.8.6.1
+## Neu in 0.8.6.2
 
 - Schlammentwässerung als eigener Bereich der Anlagenakte
 - Verfahren, Hersteller, Typ, Baujahr, Leistung, Betriebsdaten und Peripherie

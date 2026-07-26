@@ -201,6 +201,7 @@ const emptyPlant=()=>({
     polymerStation:false,feedPump:false,conveyor:false,container:false,filtrateRouting:"",notes:""
   },
   dosingSystems:[],
+  tankSystems:[],
   parameters:{
     flow:"",pIn:"",pOut:"",pTarget:"",nh4Out:"",basinVolume:"",mlss:"",svi:"",
     sludgeAge:"",sludgeFlow:"",sludgeTs:"",cakeTs:"",retention:"",polymer:"",
@@ -234,10 +235,19 @@ function loadPlants(){
   }catch{return []}
 }
 function savePlants(){
-  localStorage.setItem(STORAGE_PLANTS,JSON.stringify(plants));
-  if(activePlantId)localStorage.setItem(STORAGE_ACTIVE_PLANT,activePlantId);
-  else localStorage.removeItem(STORAGE_ACTIVE_PLANT);
-  renderPlantSelector();
+  try{
+    const payload=JSON.stringify(plants);
+    localStorage.setItem(STORAGE_PLANTS,payload);
+    if(localStorage.getItem(STORAGE_PLANTS)!==payload)throw new Error("Speicherprüfung fehlgeschlagen");
+    if(activePlantId)localStorage.setItem(STORAGE_ACTIVE_PLANT,activePlantId);
+    else localStorage.removeItem(STORAGE_ACTIVE_PLANT);
+    renderPlantSelector();
+    return true;
+  }catch(error){
+    console.error("Anlagendaten konnten nicht gespeichert werden",error);
+    alert("Die Anlagendaten konnten im Browser nicht gespeichert werden. Bitte freien Speicher prüfen und die Seite nicht schließen.");
+    return false;
+  }
 }
 function activePlant(){return plants.find(p=>p.id===activePlantId)||null}
 function fmt(value,digits=3){
@@ -723,7 +733,8 @@ function field(name,label,value="",type="text",placeholder=""){
     else if(name==="address.longitude")numericAttributes=' step="any" min="-180" max="180" inputmode="decimal"';
     else numericAttributes=' step="any" inputmode="decimal"';
   }
-  return `<label class="field-label">${label}<input name="${name}" type="${type}"${numericAttributes} value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
+  const effectiveType=(name==="address.latitude"||name==="address.longitude")?"text":type;
+  return `<label class="field-label">${label}<input name="${name}" type="${effectiveType}"${numericAttributes} value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
 }
 function selectField(name,label,value,options){
   return `<label class="field-label">${label}<select name="${name}">${options.map(([v,l])=>`<option value="${v}" ${v===value?"selected":""}>${l}</option>`).join("")}</select></label>`;
@@ -738,17 +749,24 @@ function dewateringDefaults(value={}){
 function dosingDefaults(value={}){
   return {id:crypto.randomUUID(),name:"",purpose:"polymer",status:"active",location:"",tankType:"storage-tank",tankManufacturer:"",tankModel:"",tankYear:"",tankVolume:"",tankMaterial:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",stationManufacturer:"",stationModel:"",stationYear:"",pumpType:"diaphragm",pumpCount:"1",capacityLh:"",maxPressureBar:"",controlMode:"flow-proportional",standbyPump:false,automaticChangeover:false,calibrationDevice:false,flushConnection:false,pressureHoldingValve:false,overflowValve:false,pulsationDamper:false,productName:"",activeIngredient:"",concentrationPercent:"",densityKgL:"",hazardous:false,safetyDataSheetAvailable:false,consumption:"",flowMeter:false,levelSensor:false,dryRunProtection:false,pressureMonitoring:false,leakageSensor:false,plcConnected:false,remoteAlarm:false,controlledValue:"",notes:"",...value};
 }
+function tankDefaults(value={}){
+  return {id:crypto.randomUUID(),name:"",status:"active",location:"",type:"storage-tank",manufacturer:"",model:"",year:"",volume:"",material:"",medium:"",doubleWalled:false,bundPresent:false,levelMonitoring:false,leakageMonitoring:false,lastInspection:"",nextInspection:"",notes:"",...value};
+}
 function statusText(status){return status==="active"?"In Betrieb":status==="reserve"?"Reserve":status==="planned"?"Geplant":"Außer Betrieb"}
 function dewateringProcessText(value){return ({"screw-press":"Schneckenpresse","belt-press":"Siebbandpresse","filter-press":"Kammerfilterpresse",centrifuge:"Zentrifuge",mobile:"Mobile Entwässerung",dryingBed:"Trockenbeet",other:"Sonstiges"})[value]||"Nicht festgelegt"}
 function dosingPurposeText(value){return ({polymer:"Polymer",precipitant:"Fällmittel",carbon:"Kohlenstoffquelle",neutralization:"Neutralisationsmittel",defoamer:"Entschäumer",other:"Sonstiges"})[value]||"Dosierung"}
 function renderTechnicalAssets(plant){
-  const d=dewateringDefaults(plant.sludgeDewatering||{}), systems=Array.isArray(plant.dosingSystems)?plant.dosingSystems:[];
-  return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Maschinentechnik</p><h2>Schlammentwässerung und Dosiertechnik</h2></div><button class="text-button" id="editTechnicalAssets">Technik bearbeiten</button></div>
-  <div class="technical-assets-grid">
-    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">▦</span><div><h3>Schlammentwässerung</h3><span class="status-chip ${d.enabled?'green':'gray'}">${d.enabled?statusText(d.status):'Nicht vorhanden'}</span></div></div>${d.enabled?`<dl><div><dt>Verfahren</dt><dd>${esc(dewateringProcessText(d.process))}</dd></div><div><dt>Fabrikat</dt><dd>${esc([d.manufacturer,d.model].filter(Boolean).join(' ')||'–')}</dd></div><div><dt>Baujahr</dt><dd>${esc(d.year||'–')}</dd></div><div><dt>Durchsatz</dt><dd>${d.throughputM3h?`${esc(d.throughputM3h)} m³/h`:'–'}</dd></div><div><dt>Austrags-TS</dt><dd>${d.outletTsPercent?`${esc(d.outletTsPercent)} %`:'–'}</dd></div></dl>`:'<p>Für diese Anlage ist noch keine Schlammentwässerung erfasst.</p>'}</article>
-    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">CH</span><div><h3>Dosiertechnik</h3><span class="status-chip ${systems.length?'blue':'gray'}">${systems.length} ${systems.length===1?'Anlage':'Anlagen'}</span></div></div>${systems.length?`<div class="dosing-summary-list">${systems.map(x=>`<div><strong>${esc(x.name||dosingPurposeText(x.purpose))}</strong><span>${esc(dosingPurposeText(x.purpose))} · ${esc(statusText(x.status))}</span><small>${esc(x.productName||'Medium nicht hinterlegt')}${x.tankVolume?` · Tank ${esc(x.tankVolume)} l`:''}</small></div>`).join('')}</div>`:'<p>Noch keine Tank- oder Dosieranlage erfasst.</p>'}</article>
+  const d=dewateringDefaults(plant.sludgeDewatering||{});
+  const systems=Array.isArray(plant.dosingSystems)?plant.dosingSystems:[];
+  const tanks=Array.isArray(plant.tankSystems)?plant.tankSystems:[];
+  return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Technische Anlagenbereiche</p><h2>Technik separat verwalten</h2><p class="form-note">Schlammentwässerung, Dosierstationen und Tankanlagen besitzen jeweils eine eigene Bearbeitungsmaske.</p></div></div>
+  <div class="technical-assets-grid three-columns">
+    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">▦</span><div><h3>Schlammentwässerung</h3><span class="status-chip ${d.enabled?'green':'gray'}">${d.enabled?statusText(d.status):'Nicht vorhanden'}</span></div></div>${d.enabled?`<dl><div><dt>Verfahren</dt><dd>${esc(dewateringProcessText(d.process))}</dd></div><div><dt>Fabrikat</dt><dd>${esc([d.manufacturer,d.model].filter(Boolean).join(' ')||'–')}</dd></div><div><dt>Baujahr</dt><dd>${esc(d.year||'–')}</dd></div></dl>`:'<p>Noch nicht erfasst.</p>'}<button type="button" class="button secondary asset-edit-button" id="editDewatering">Schlammentwässerung bearbeiten</button></article>
+    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">DS</span><div><h3>Dosiertechnik</h3><span class="status-chip ${systems.length?'blue':'gray'}">${systems.length} ${systems.length===1?'Station':'Stationen'}</span></div></div>${systems.length?`<div class="dosing-summary-list">${systems.map(x=>`<div><strong>${esc(x.name||dosingPurposeText(x.purpose))}</strong><span>${esc(dosingPurposeText(x.purpose))} · ${esc(statusText(x.status))}</span><small>${esc(x.productName||'Medium nicht hinterlegt')}</small></div>`).join('')}</div>`:'<p>Noch keine Dosierstation erfasst.</p>'}<button type="button" class="button secondary asset-edit-button" id="editDosing">Dosiertechnik bearbeiten</button></article>
+    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">TA</span><div><h3>Tankanlagen</h3><span class="status-chip ${tanks.length?'blue':'gray'}">${tanks.length} ${tanks.length===1?'Tank':'Tanks'}</span></div></div>${tanks.length?`<div class="dosing-summary-list">${tanks.map(x=>`<div><strong>${esc(x.name||'Tankanlage')}</strong><span>${esc(x.medium||'Medium nicht hinterlegt')} · ${esc(statusText(x.status))}</span><small>${x.volume?`${esc(x.volume)} l`: 'Volumen nicht hinterlegt'}${x.year?` · Baujahr ${esc(x.year)}`:''}</small></div>`).join('')}</div>`:'<p>Noch keine Tankanlage erfasst.</p>'}<button type="button" class="button secondary asset-edit-button" id="editTanks">Tankanlagen bearbeiten</button></article>
   </div></section>`;
 }
+
 function showPlantForm(id=null){
   setView("plantForm");setBreadcrumb(id?"Anlage bearbeiten":"Neue Anlage");
   const existing=id?plants.find(p=>p.id===id):null;
@@ -758,6 +776,7 @@ function showPlantForm(id=null){
   p.master.processOther=p.master.processOther||p.master.process||"";
   p.sludgeDewatering=dewateringDefaults(p.sludgeDewatering||{});
   p.dosingSystems=Array.isArray(p.dosingSystems)?p.dosingSystems.map(dosingDefaults):[];
+  p.tankSystems=Array.isArray(p.tankSystems)?p.tankSystems.map(tankDefaults):[];
   if(!p.master.internalNumber)p.master.internalNumber=nextInternalNumber();
   const legacyGps=parseLegacyGps(p.address.gps||"");
   p.address.latitude=p.address.latitude||legacyGps.latitude;
@@ -1007,12 +1026,11 @@ function showPlantForm(id=null){
   },true);
   $("#plantForm").onsubmit=e=>{
     e.preventDefault();
-    syncDosingSystemsFromForm();
     const fd=new FormData(e.currentTarget);
     const result=existing?structuredClone(existing):p;
     result.access=result.access||{};
     for(const [key,value] of fd.entries()){
-      if(key.startsWith("contact.")||key.startsWith("dosing.")||key.startsWith("sludgeDewatering."))continue;
+      if(key.startsWith("contact.")||key.startsWith("dosing.")||key.startsWith("sludgeDewatering.")||key.startsWith("tank."))continue;
       if(key==="master.processStages")continue;
       if(key.startsWith("operator.phoneParts."))continue;
       const [section,prop]=key.split(".");
@@ -1020,30 +1038,21 @@ function showPlantForm(id=null){
     }
     result.master.processStages=fd.getAll("master.processStages");
     result.master.process=result.master.processOther||processLabel(result.master.mainProcess);
-    const latitude=Number(String(result.address.latitude||"").replace(",","."));
-    const longitude=Number(String(result.address.longitude||"").replace(",","."));
-    if(result.address.latitude!==""&&(!Number.isFinite(latitude)||latitude<-90||latitude>90))return alert("Der Breitengrad muss zwischen -90 und +90 liegen.");
-    if(result.address.longitude!==""&&(!Number.isFinite(longitude)||longitude<-180||longitude>180))return alert("Der Längengrad muss zwischen -180 und +180 liegen.");
-    result.address.gps=result.address.latitude&&result.address.longitude?`${result.address.latitude}, ${result.address.longitude}`:result.address.gps||"";
+    const latitudeRaw=String(formInput("address.latitude")?.value||"").trim().replace(",",".");
+    const longitudeRaw=String(formInput("address.longitude")?.value||"").trim().replace(",",".");
+    const latitude=latitudeRaw===""?null:Number(latitudeRaw);
+    const longitude=longitudeRaw===""?null:Number(longitudeRaw);
+    if(latitude!==null&&(!Number.isFinite(latitude)||latitude<-90||latitude>90))return alert("Der Breitengrad muss zwischen -90 und +90 liegen.");
+    if(longitude!==null&&(!Number.isFinite(longitude)||longitude<-180||longitude>180))return alert("Der Längengrad muss zwischen -180 und +180 liegen.");
+    result.address.latitude=latitudeRaw;
+    result.address.longitude=longitudeRaw;
+    result.address.gps=latitudeRaw&&longitudeRaw?`${latitudeRaw}, ${longitudeRaw}`:result.address.gps||"";
     result.address.accuracy=p.address.accuracy||String(result.address.accuracy||"").replace(/[^0-9.,]/g,"");
     result.address.capturedAt=p.address.capturedAt||result.address.capturedAt||"";
     result.address.geocodedAt=p.address.geocodedAt||result.address.geocodedAt||"";
-    result.sludgeDewatering=dewateringDefaults();
-    result.sludgeDewatering.enabled=fd.has("sludgeDewatering.enabled");
-    for(const key of Object.keys(result.sludgeDewatering)){
-      if(key==="enabled")continue;
-      if(typeof result.sludgeDewatering[key]==="boolean")result.sludgeDewatering[key]=fd.has(`sludgeDewatering.${key}`);
-      else result.sludgeDewatering[key]=fd.get(`sludgeDewatering.${key}`)||"";
-    }
-    result.dosingSystems=dosingSystems.map((d,i)=>{
-      const out=dosingDefaults({id:d.id});
-      for(const key of Object.keys(out)){
-        if(key==="id")continue;
-        if(typeof out[key]==="boolean")out[key]=fd.has(`dosing.${i}.${key}`);
-        else out[key]=fd.get(`dosing.${i}.${key}`)||"";
-      }
-      return out;
-    });
+    result.sludgeDewatering=dewateringDefaults(result.sludgeDewatering||p.sludgeDewatering||{});
+    result.dosingSystems=Array.isArray(result.dosingSystems)?result.dosingSystems.map(dosingDefaults):[];
+    result.tankSystems=Array.isArray(result.tankSystems)?result.tankSystems.map(tankDefaults):[];
     result.operator.phone=combinePhone(fd,"operator.phoneParts");
     result.contacts=contacts.map((c,i)=>{
       const obj={};
@@ -1056,7 +1065,7 @@ function showPlantForm(id=null){
     });
     result.updatedAt=new Date().toISOString();
     if(existing)plants=plants.map(x=>x.id===result.id?result:x);else plants.push(result);
-    activePlantId=result.id;savePlants();showPlantDashboard();
+    activePlantId=result.id;if(savePlants())showPlantDashboard();
   };
 }
 function getEvaluation(limit,value){
@@ -1176,6 +1185,32 @@ function renderVisits(plant){
     <div class="visits-list">${history.length?renderVisitCards(plant,history):`<div class="empty-panel compact"><p>Noch keine vergangenen oder erledigten Termine.</p></div>`}</div>
   </section>`;
 }
+function showDewateringForm(){
+  const plant=activePlant();if(!plant)return showPlantForm();
+  const d=dewateringDefaults(plant.sludgeDewatering||{});
+  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Schlammentwässerung`);
+  appView.innerHTML=`<form id="dewateringForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Technikakte</p><h1>Schlammentwässerung</h1><p class="subtitle">${esc(plant.master.name||"")}</p></div></section><section class="form-section"><div class="toggle-panel">${checkboxField("enabled","Schlammentwässerung vorhanden",d.enabled)}</div><div class="form-grid" id="standaloneDewateringFields">${selectField("status","Betriebsstatus",d.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}${selectField("process","Verfahren",d.process,[["screw-press","Schneckenpresse"],["belt-press","Siebbandpresse"],["filter-press","Kammerfilterpresse"],["centrifuge","Zentrifuge"],["mobile","Mobile Entwässerung"],["dryingBed","Trockenbeet"],["other","Sonstiges"]])}${field("manufacturer","Hersteller",d.manufacturer)}${field("model","Typ / Modell",d.model)}${field("year","Baujahr",d.year,"number")}${field("unitCount","Anzahl Aggregate",d.unitCount,"number")}${selectField("operationMode","Betriebsweise",d.operationMode,[["continuous","Kontinuierlich"],["batch","Chargenweise"],["mobile","Mobil / extern"]])}${field("throughputM3h","Schlammdurchsatz [m³/h]",d.throughputM3h,"number")}${field("inletTsPercent","Zulauf-TS [%]",d.inletTsPercent,"number")}${field("outletTsPercent","Austrags-TS [%]",d.outletTsPercent,"number")}${field("polymerKgPerTds","Polymer [kg WS/t TS]",d.polymerKgPerTds,"number")}${field("operatingHours","Betriebsstunden [h/a]",d.operatingHours,"number")}${field("sludgeQuantity","Schlammmenge",d.sludgeQuantity)}${field("filtrateRouting","Filtrat-/Zentratführung",d.filtrateRouting)}<div class="span-2 check-grid">${checkboxField("polymerStation","Polymerstation",d.polymerStation)}${checkboxField("feedPump","Beschickungspumpe",d.feedPump)}${checkboxField("conveyor","Fördertechnik",d.conveyor)}${checkboxField("container","Schlammcontainer",d.container)}</div><label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(d.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelTechnical">Abbrechen</button><button type="submit" class="button primary">Speichern</button></div></form>`;
+  enableDecimalInputs(appView);$("#cancelTechnical").onclick=showPlantDashboard;
+  $("#dewateringForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),out=dewateringDefaults();for(const k of Object.keys(out))out[k]=typeof out[k]==="boolean"?fd.has(k):(fd.get(k)||"");plant.sludgeDewatering=out;plant.updatedAt=new Date().toISOString();if(savePlants())showPlantDashboard();};
+}
+function showDosingForm(){
+  const plant=activePlant();if(!plant)return showPlantForm();let items=(plant.dosingSystems||[]).map(dosingDefaults);
+  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Dosiertechnik`);
+  appView.innerHTML=`<form id="dosingForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Technikakte</p><h1>Dosiertechnik</h1><p class="subtitle">Dosierstationen unabhängig von Tankanlagen verwalten.</p></div><button type="button" class="button secondary" id="addStandaloneDosing">Dosierstation hinzufügen</button></section><div id="standaloneDosingEditor" class="dosing-editor"></div><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelTechnical">Abbrechen</button><button type="submit" class="button primary">Speichern</button></div></form>`;
+  const form=$("#dosingForm"),editor=$("#standaloneDosingEditor");
+  const sync=()=>{items=items.map((cur,i)=>{const out=dosingDefaults({id:cur.id});for(const k of Object.keys(out)){if(k==="id")continue;const el=form.elements.namedItem(`d.${i}.${k}`);if(el)out[k]=typeof out[k]==="boolean"?el.checked:el.value;else out[k]=cur[k];}return out;});};
+  const render=()=>{editor.innerHTML=items.length?items.map((d,i)=>`<section class="form-section"><div class="section-heading"><h2>${esc(d.name||`Dosierstation ${i+1}`)}</h2><button type="button" class="danger-link" data-remove-dose="${i}">Entfernen</button></div><div class="form-grid">${field(`d.${i}.name`,`Bezeichnung`,d.name)}${selectField(`d.${i}.purpose`,`Verwendungszweck`,d.purpose,[["polymer","Polymer"],["precipitant","Fällmittel"],["carbon","Kohlenstoffquelle"],["neutralization","Neutralisationsmittel"],["defoamer","Entschäumer"],["other","Sonstiges"]])}${selectField(`d.${i}.status`,`Betriebsstatus`,d.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}${field(`d.${i}.location`,`Einbauort`,d.location)}${field(`d.${i}.stationManufacturer`,`Hersteller`,d.stationManufacturer)}${field(`d.${i}.stationModel`,`Typ`,d.stationModel)}${field(`d.${i}.stationYear`,`Baujahr`,d.stationYear,"number")}${selectField(`d.${i}.pumpType`,`Pumpenart`,d.pumpType,[["diaphragm","Membrandosierpumpe"],["hose","Schlauchpumpe"],["progressive-cavity","Exzenterschneckenpumpe"],["piston","Kolbenpumpe"],["other","Sonstige"]])}${field(`d.${i}.pumpCount`,`Anzahl Pumpen`,d.pumpCount,"number")}${field(`d.${i}.capacityLh`,`Förderleistung [l/h]`,d.capacityLh,"number")}${field(`d.${i}.maxPressureBar`,`Maximaldruck [bar]`,d.maxPressureBar,"number")}${selectField(`d.${i}.controlMode`,`Betriebsweise`,d.controlMode,[["constant","Konstant"],["flow-proportional","Durchflussproportional"],["measured-value","Messwertgeführt"],["manual","Manuell"]])}${field(`d.${i}.productName`,`Produktname`,d.productName)}${field(`d.${i}.activeIngredient`,`Wirkstoff`,d.activeIngredient)}${field(`d.${i}.concentrationPercent`,`Konzentration [%]`,d.concentrationPercent,"number")}${field(`d.${i}.consumption`,`Verbrauch`,d.consumption)}<div class="span-2 check-grid">${checkboxField(`d.${i}.standbyPump`,`Reservepumpe`,d.standbyPump)}${checkboxField(`d.${i}.automaticChangeover`,`Automatische Umschaltung`,d.automaticChangeover)}${checkboxField(`d.${i}.flowMeter`,`Durchflussmesser`,d.flowMeter)}${checkboxField(`d.${i}.dryRunProtection`,`Trockenlaufschutz`,d.dryRunProtection)}${checkboxField(`d.${i}.plcConnected`,`SPS-Anbindung`,d.plcConnected)}${checkboxField(`d.${i}.remoteAlarm`,`Fern-/Störmeldung`,d.remoteAlarm)}</div><label class="field-label span-2">Bemerkungen<textarea name="d.${i}.notes">${esc(d.notes)}</textarea></label></div></section>`).join(""):`<div class="empty-panel"><p>Noch keine Dosierstation angelegt.</p></div>`;editor.querySelectorAll('[data-remove-dose]').forEach(b=>b.onclick=()=>{sync();items.splice(Number(b.dataset.removeDose),1);render();});enableDecimalInputs(editor);};
+  render();$("#addStandaloneDosing").onclick=()=>{sync();items.push(dosingDefaults({name:`Dosierstation ${items.length+1}`}));render();};$("#cancelTechnical").onclick=showPlantDashboard;form.onsubmit=e=>{e.preventDefault();sync();plant.dosingSystems=items;plant.updatedAt=new Date().toISOString();if(savePlants())showPlantDashboard();};
+}
+function showTankForm(){
+  const plant=activePlant();if(!plant)return showPlantForm();let items=(plant.tankSystems||[]).map(tankDefaults);
+  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Tankanlagen`);
+  appView.innerHTML=`<form id="tankForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Technikakte</p><h1>Tankanlagen</h1><p class="subtitle">Lager-, Tages- und IBC-Tanks separat dokumentieren.</p></div><button type="button" class="button secondary" id="addTank">Tankanlage hinzufügen</button></section><div id="tankEditor" class="dosing-editor"></div><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelTechnical">Abbrechen</button><button type="submit" class="button primary">Speichern</button></div></form>`;
+  const form=$("#tankForm"),editor=$("#tankEditor");
+  const sync=()=>{items=items.map((cur,i)=>{const out=tankDefaults({id:cur.id});for(const k of Object.keys(out)){if(k==="id")continue;const el=form.elements.namedItem(`t.${i}.${k}`);if(el)out[k]=typeof out[k]==="boolean"?el.checked:el.value;else out[k]=cur[k];}return out;});};
+  const render=()=>{editor.innerHTML=items.length?items.map((t,i)=>`<section class="form-section"><div class="section-heading"><h2>${esc(t.name||`Tankanlage ${i+1}`)}</h2><button type="button" class="danger-link" data-remove-tank="${i}">Entfernen</button></div><div class="form-grid">${field(`t.${i}.name`,`Bezeichnung`,t.name)}${selectField(`t.${i}.status`,`Betriebsstatus`,t.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}${field(`t.${i}.location`,`Standort`,t.location)}${selectField(`t.${i}.type`,`Tankart`,t.type,[["storage-tank","Lagertank"],["day-tank","Tagestank"],["ibc","IBC"],["double-wall","Doppelwandtank"],["other","Sonstiges"]])}${field(`t.${i}.manufacturer`,`Hersteller`,t.manufacturer)}${field(`t.${i}.model`,`Typ`,t.model)}${field(`t.${i}.year`,`Baujahr`,t.year,"number")}${field(`t.${i}.volume`,`Volumen [l]`,t.volume,"number")}${field(`t.${i}.material`,`Material`,t.material)}${field(`t.${i}.medium`,`Medium / Produkt`,t.medium)}${field(`t.${i}.lastInspection`,`Letzte Prüfung`,t.lastInspection,"date")}${field(`t.${i}.nextInspection`,`Nächste Prüfung`,t.nextInspection,"date")}<div class="span-2 check-grid">${checkboxField(`t.${i}.doubleWalled`,`Doppelwandig`,t.doubleWalled)}${checkboxField(`t.${i}.bundPresent`,`Auffangwanne`,t.bundPresent)}${checkboxField(`t.${i}.levelMonitoring`,`Füllstandsüberwachung`,t.levelMonitoring)}${checkboxField(`t.${i}.leakageMonitoring`,`Leckageüberwachung`,t.leakageMonitoring)}</div><label class="field-label span-2">Bemerkungen<textarea name="t.${i}.notes">${esc(t.notes)}</textarea></label></div></section>`).join(""):`<div class="empty-panel"><p>Noch keine Tankanlage angelegt.</p></div>`;editor.querySelectorAll('[data-remove-tank]').forEach(b=>b.onclick=()=>{sync();items.splice(Number(b.dataset.removeTank),1);render();});enableDecimalInputs(editor);};
+  render();$("#addTank").onclick=()=>{sync();items.push(tankDefaults({name:`Tankanlage ${items.length+1}`}));render();};$("#cancelTechnical").onclick=showPlantDashboard;form.onsubmit=e=>{e.preventDefault();sync();plant.tankSystems=items;plant.updatedAt=new Date().toISOString();if(savePlants())showPlantDashboard();};
+}
 function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1240,7 +1275,7 @@ function showPlantDashboard(){
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Berechnungen</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
   bindProcedureCard(appView);
-  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editTechnicalAssets")?.addEventListener("click",()=>showPlantForm(plant.id));$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
+  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
   $("#addVisit").onclick=()=>showVisitForm();
   $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
   $$("[data-ics-visit]").forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
