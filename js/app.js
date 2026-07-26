@@ -313,7 +313,8 @@ function mapsButtons(plant){
 
 function enableDecimalInputs(root=document){
   root.querySelectorAll('input[type="number"]').forEach(input=>{
-    input.step="0.001";
+    // Explizit gesetzte Schrittweiten (z. B. GPS mit step="any") nicht überschreiben.
+    if(!input.hasAttribute("step"))input.step="0.001";
     input.inputMode="decimal";
   });
 }
@@ -650,7 +651,12 @@ function renderPlants(){
   });
 }
 function field(name,label,value="",type="text",placeholder=""){
-  const numericAttributes=type==="number" ? ` step="0.001" inputmode="decimal"` : "";
+  let numericAttributes="";
+  if(type==="number"){
+    if(name==="address.latitude")numericAttributes=' step="any" min="-90" max="90" inputmode="decimal"';
+    else if(name==="address.longitude")numericAttributes=' step="any" min="-180" max="180" inputmode="decimal"';
+    else numericAttributes=' step="0.001" inputmode="decimal"';
+  }
   return `<label class="field-label">${label}<input name="${name}" type="${type}"${numericAttributes} value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
 }
 function selectField(name,label,value,options){

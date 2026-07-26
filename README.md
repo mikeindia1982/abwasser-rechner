@@ -11,3 +11,11 @@
 - verständliche Hinweise bei verweigerter Berechtigung, fehlendem GPS oder Zeitüberschreitung
 
 Die bestehende lokale Datenhaltung bleibt kompatibel. Neue Standortmetadaten werden ergänzend in der Anlagenadresse gespeichert.
+
+
+## Version 0.8.4.1 – Fehlerbehebung GPS-Speicherung
+
+- GPS-Koordinaten mit sechs Dezimalstellen können jetzt gespeichert werden.
+- Die HTML-Schrittweitenprüfung überschreibt die GPS-Felder nicht mehr.
+- Breitengrad und Längengrad besitzen passende Wertebereiche.
+- Service-Worker-Cache wurde angehoben, damit die korrigierte JavaScript-Datei geladen wird.
