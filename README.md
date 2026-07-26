@@ -17,3 +17,7 @@ Offline-fähige PWA für Abwassertechnik und anlagenbezogene Außendienstdaten.
 ## Installation
 
 Alle Dateien gemeinsam auf einen HTTPS-Webspace oder GitHub Pages hochladen. Nach einem Update die installierte PWA einmal vollständig schließen und neu öffnen.
+
+## Version 0.9.0
+
+Der digitale Anlagenpass zeigt den Bearbeitungs- und Vollständigkeitsgrad jeder Anlagenakte. Die Bewertung dient der Arbeitsvorbereitung und Dokumentationsqualität, nicht der technischen Leistungsbewertung.

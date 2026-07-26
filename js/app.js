@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.9";
+const VERSION="0.9.0";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -189,7 +189,7 @@ function makeId(){
 }
 
 const emptyPlant=()=>({
-  schemaVersion:5,
+  schemaVersion:7,
   id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
@@ -245,7 +245,7 @@ function normalizePlant(value={}){
   const normalized={
     ...base,
     ...source,
-    schemaVersion:6,
+    schemaVersion:7,
     id:source.id||base.id,
     master:{...base.master,...(source.master||{})},
     address:{...base.address,...(source.address||{})},
@@ -1424,6 +1424,62 @@ function renderPlantTimeline(plant){
   return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Entwicklung der Anlage</p><h2>Zeitleiste</h2></div></div><div class="plant-timeline">${entries.length?entries.slice(0,12).map(e=>`<article><div class="timeline-dot ${e.type}"></div><div><time>${formatDateTime(e.date)}</time><strong>${esc(e.title)}</strong><p>${esc(e.text)}</p></div></article>`).join(''):`<div class="empty-panel compact"><p>Noch keine Ereignisse vorhanden.</p></div>`}</div></section>`;
 }
 
+
+function hasValue(value){
+  if(Array.isArray(value))return value.length>0;
+  if(typeof value==="boolean")return value;
+  return String(value??"").trim()!=="";
+}
+function scoreFields(fields){
+  const total=fields.length||1;
+  const done=fields.filter(([value])=>hasValue(value)).length;
+  return {done,total,percent:Math.round(done/total*100),missing:fields.filter(([value])=>!hasValue(value)).map(([,label])=>label)};
+}
+function plantPassData(plant){
+  const completedVisits=(plant.visits||[]).filter(v=>v.modeStatus==="completed"||v.status==="done");
+  const visitPhotos=(plant.visits||[]).reduce((sum,v)=>sum+(v.photos?.length||0),0);
+  const technicalCount=(plant.sludgeDewatering?.enabled?1:0)+(plant.dosingSystems?.length||0)+(plant.tankSystems?.length||0);
+  const technicalDetails=[
+    [hasValue(plant.master.mainProcess)||hasValue(plant.master.process),"Hauptverfahren"],
+    [technicalCount>0,"Mindestens eine technische Komponente"],
+    [!plant.sludgeDewatering?.enabled||hasValue(plant.sludgeDewatering.manufacturer),"Hersteller Schlammentwässerung"],
+    [!(plant.dosingSystems||[]).length||(plant.dosingSystems||[]).every(x=>hasValue(x.name)&&hasValue(x.purpose)),"Bezeichnung und Zweck der Dosierstationen"],
+    [!(plant.tankSystems||[]).length||(plant.tankSystems||[]).every(x=>hasValue(x.name)&&hasValue(x.capacity)),"Bezeichnung und Volumen der Tankanlagen"]
+  ];
+  const sections=[
+    {key:"master",label:"Stammdaten",weight:24,score:scoreFields([[plant.master.name,"Anlagenname"],[plant.master.internalNumber,"Anlagennummer"],[plant.master.type,"Anlagentyp"],[plant.master.capacityPE,"Ausbaugröße"],[plant.master.actualPE,"tatsächliche Belastung"],[plant.master.mainProcess||plant.master.process,"Hauptverfahren"]])},
+    {key:"location",label:"Standort & Zugang",weight:16,score:scoreFields([[plant.address.street,"Straße"],[plant.address.postalCode,"Postleitzahl"],[plant.address.city,"Ort"],[plant.address.latitude||plant.address.gps,"GPS-Koordinaten"],[plant.access.parking,"Parkhinweis"],[plant.access.registration,"Anmeldung vor Ort"]])},
+    {key:"contacts",label:"Betreiber & Kontakte",weight:16,score:scoreFields([[plant.operator.name,"Betreiber"],[plant.operator.customerNumber,"Kundennummer"],[plant.operator.phone||plant.operator.email,"Kontakt Betreiber"],[plant.contacts?.[0]?.name,"Hauptansprechpartner"],[plant.contacts?.[0]?.mobile||plant.contacts?.[0]?.phone||plant.contacts?.[0]?.email,"Kontaktdaten Ansprechpartner"]])},
+    {key:"technology",label:"Technik",weight:22,score:scoreFields(technicalDetails)},
+    {key:"operations",label:"Betriebswerte",weight:12,score:scoreFields([[plant.parameters.flow,"Volumenstrom"],[plant.parameters.pOut,"Pges Ablauf"],[plant.parameters.nh4Out,"NH₄-N Ablauf"],[plant.parameters.svi,"SVI"],[plant.parameters.cakeTs,"Kuchen-TS"],[plant.parameters.polymer,"Polymerverbrauch"]])},
+    {key:"history",label:"Dokumentation",weight:10,score:scoreFields([[completedVisits.length,"abgeschlossener Besuch"],[visitPhotos,"Fotodokumentation"],[(plant.actions||[]).length,"Aufgabenhistorie"]])}
+  ];
+  const overall=Math.round(sections.reduce((sum,s)=>sum+s.score.percent*s.weight,0)/sections.reduce((sum,s)=>sum+s.weight,0));
+  const missing=sections.flatMap(s=>s.score.missing.map(item=>({section:s.label,item}))).slice(0,8);
+  const diagnostics=plantDiagnostics(plant);
+  return {overall,sections,missing,diagnostics,technicalCount,completedVisits:completedVisits.length,visitPhotos};
+}
+function passStatus(percent){
+  if(percent>=85)return {label:"sehr gut dokumentiert",tone:"green"};
+  if(percent>=65)return {label:"gut nutzbar",tone:"blue"};
+  if(percent>=40)return {label:"Ausbau empfohlen",tone:"yellow"};
+  return {label:"Grunddaten ergänzen",tone:"red"};
+}
+function renderDigitalPlantPass(plant){
+  const pass=plantPassData(plant),status=passStatus(pass.overall);
+  return `<section class="plant-pass">
+    <div class="section-heading"><div><p class="eyebrow">Digitaler Anlagenpass</p><h2>Dokumentationsstatus</h2><p class="form-note">Bewertet die Vollständigkeit der Anlagenakte, nicht die technische Leistung der Anlage.</p></div><button class="button secondary" id="completePlantPass" type="button">Fehlende Daten ergänzen</button></div>
+    <div class="plant-pass-layout">
+      <article class="pass-overall ${status.tone}"><div class="pass-ring" style="--pass:${pass.overall}"><span><strong>${pass.overall}%</strong><small>Gesamtstatus</small></span></div><div><span class="status-chip ${status.tone}">${status.label}</span><p>${pass.technicalCount} Technikkomponenten · ${pass.completedVisits} abgeschlossene Besuche · ${pass.visitPhotos} Fotos</p></div></article>
+      <div class="pass-sections">${pass.sections.map(s=>`<article class="pass-section"><div><strong>${s.label}</strong><span>${s.score.done}/${s.score.total}</span></div><div class="pass-bar"><i style="width:${s.score.percent}%"></i></div><small>${s.score.percent}% vollständig</small></article>`).join("")}</div>
+    </div>
+    <div class="pass-detail-grid">
+      <article class="pass-missing"><h3>Nächste sinnvolle Ergänzungen</h3>${pass.missing.length?`<ul>${pass.missing.map(x=>`<li><span>${esc(x.section)}</span><strong>${esc(x.item)}</strong></li>`).join("")}</ul>`:"<div class=\"empty-panel compact\"><p>Die wichtigsten Angaben sind vollständig.</p></div>"}</article>
+      <article class="pass-diagnostics"><h3>Wartung und Hinweise</h3>${pass.diagnostics.length?`<ul>${pass.diagnostics.slice(0,6).map(x=>`<li class="${x.level}"><span>${esc(x.component)}</span><strong>${esc(x.title)}</strong><small>${esc(x.text)}</small></li>`).join("")}</ul>`:"<div class=\"empty-panel compact\"><p>Aktuell keine automatischen Hinweise.</p></div>"}</article>
+    </div>
+  </section>`;
+}
+
 function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1435,6 +1491,7 @@ function showPlantDashboard(){
     <div class="hero-actions"><button class="button visit-start" id="startVisit" type="button">▶ Besuch starten</button><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
   ${renderTodayCockpit(plant)}
+  ${renderDigitalPlantPass(plant)}
   ${procedureCard(plant)}
   ${renderTechnicalAssets(plant)}
   ${renderTrafficSummary(plant)}
@@ -1494,6 +1551,7 @@ function showPlantDashboard(){
   $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
   $("#addVisit").onclick=()=>showVisitForm();
   $("#startVisitCockpit")?.addEventListener("click",()=>showVisitMode());
+  $("#completePlantPass")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:""}];if(savePlants())showPlantDashboard();});
   $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(savePlants())showPlantDashboard();});
   $$(`[data-delete-action]`).forEach(b=>b.onclick=()=>{if(!confirm("Aufgabe wirklich löschen?"))return;plant.actions=(plant.actions||[]).filter(a=>a.id!==b.dataset.deleteAction);if(savePlants())showPlantDashboard();});
