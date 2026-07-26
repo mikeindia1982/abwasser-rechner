@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.9.1a";
+const VERSION="0.9.1b";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -10,6 +10,7 @@ const STORAGE_RECENT="abwasser-recent-v082";
 const STORAGE_PROFILE="abwasser-employee-profile-v087";
 const STORAGE_BACKUP="abwasser-plants-backup-v087";
 const STORAGE_PLANT_PAGE="abwasser-plant-page-v091a";
+const STORAGE_GLOBAL_PAGE="abwasser-global-page-v091b";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -521,9 +522,14 @@ function renderCategoryMenu(){
 function updatePrimaryNavigation(){
   $$('[data-primary-view]').forEach(button=>{
     const target=button.dataset.primaryView;
-    const calculatorActive=target==="calculators"&&(state.view==="calculators"||state.view==="dashboard");
+    const calculatorActive=target==="calculators"&&state.view==="calculators";
     const plantActive=target==="plants"&&["plants","plantForm","plantDashboard","limits","traffic"].includes(state.view);
     button.classList.toggle("active",calculatorActive||plantActive);
+  });
+  $$('[data-global-view]').forEach(button=>{
+    const target=button.dataset.globalView;
+    const active=(target==="today"&&state.view==="dashboard")||state.view===`global-${target}`;
+    button.classList.toggle("active",active);
   });
 }
 function toggleFavorite(id){
@@ -553,8 +559,8 @@ function setView(view){
   state.view=view;
   $("#dashboard").classList.toggle("hidden",view!=="dashboard");
   $("#calculatorView").classList.toggle("hidden",view!=="calculators");
-  appView.classList.toggle("hidden",!["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm"].includes(view));
-  $("#dashboardNav").classList.toggle("active",view==="dashboard");
+  const applicationVisible=["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm"].includes(view)||view.startsWith("global-");
+  appView.classList.toggle("hidden",!applicationVisible);
   $("#printButton").classList.toggle("hidden",view!=="calculators"||!state.selected);
   updatePrimaryNavigation();
 }
@@ -782,6 +788,41 @@ function bindDashboardActions(){
   });
   $$('[data-dashboard-calculator]').forEach(button=>button.onclick=()=>selectCalculator(button.dataset.dashboardCalculator));
 }
+
+function globalPageHeader(eyebrow,title,subtitle=""){
+  return `<section class="page-header global-page-header"><div><p class="eyebrow">${esc(eyebrow)}</p><h1>${esc(title)}</h1>${subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:""}</div></section>`;
+}
+function renderGlobalPlaceholder(icon,title,text,next=""){
+  return `${globalPageHeader("Arbeitsbereich",title,text)}<section class="global-placeholder"><span class="global-placeholder-icon">${icon}</span><h2>${esc(title)}</h2><p>${esc(text)}</p>${next?`<small>${esc(next)}</small>`:""}</section>`;
+}
+function showGlobalPage(page){
+  const valid=new Set(["today","appointments","tasks-global","documents","products","projects","reports","backup","settings","system"]);
+  page=valid.has(page)?page:"today";localStorage.setItem(STORAGE_GLOBAL_PAGE,page);
+  if(page==="today")return showHome();
+  setView(`global-${page}`);
+  const titles={appointments:"Termine",'tasks-global':"Aufgaben",documents:"Dokumente",products:"Produkte",projects:"Optimierungsprojekte",reports:"Berichte",backup:"Backup",settings:"Einstellungen",system:"Info & System"};
+  setBreadcrumb(titles[page]||"Abwasser-Rechner");
+  if(page==="appointments"){
+    const items=upcomingVisits(50);
+    appView.innerHTML=`${globalPageHeader("Einsatzplanung","Termine","Anlagenübergreifende Besuchs- und Terminübersicht.")}<div class="appointment-global-list">${items.length?items.map(({plant,visit,date})=>`<article><time>${date.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric"})}<strong>${date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></time><div><h3>${esc(plant.master.name||"Kläranlage")}</h3><p>${esc(visit.title||visit.purpose||"Besuchstermin")}</p></div><button type="button" data-global-open-plant="${plant.id}">Anlage öffnen</button></article>`).join(""):`<div class="empty-panel"><h2>Keine Termine vorhanden</h2><p>Geplante Besuche erscheinen hier anlagenübergreifend.</p></div>`}</div>`;
+  }else if(page==="tasks-global"){
+    const tasks=plants.flatMap(plant=>(plant.actions||[]).filter(a=>a.status!=="done").map(action=>({plant,action}))).sort((a,b)=>(a.action.dueDate||"9999").localeCompare(b.action.dueDate||"9999"));
+    appView.innerHTML=`${globalPageHeader("Arbeitsliste","Aufgaben","Offene Aufgaben aus allen Anlagen.")}<div class="global-task-list">${tasks.length?tasks.map(({plant,action})=>`<article class="${action.priority==='high'?'high':''}"><div><span>${esc(plant.master.name||"Kläranlage")}</span><h3>${esc(action.title)}</h3><p>${action.dueDate?`Fällig: ${formatDate(action.dueDate)}`:"Ohne Fälligkeit"}</p></div><button type="button" data-global-open-plant="${plant.id}" data-global-plant-page="tasks">Öffnen</button></article>`).join(""):`<div class="empty-panel"><h2>Keine offenen Aufgaben</h2><p>Offene Punkte aus Besuchen und Anlagenakten werden hier gesammelt.</p></div>`}</div>`;
+  }else if(page==="backup"){
+    appView.innerHTML=`${globalPageHeader("Datensicherheit","Backup","Lokale Daten sichern oder eine Gesamtsicherung wiederherstellen.")}<section class="backup-center"><article><h2>Gesamtsicherung exportieren</h2><p>Exportiert Profil, Anlagen, Besuche und Aufgaben als JSON-Datei.</p><button class="button primary" id="globalExportBackup" type="button">Sicherung exportieren</button></article><article><h2>Sicherung importieren</h2><p>Ersetzt nach Bestätigung den aktuellen lokalen Datenbestand.</p><label class="button secondary file-label-inline">Sicherung auswählen<input id="globalImportBackup" type="file" accept=".json,application/json"></label></article></section>`;
+    $("#globalExportBackup").onclick=()=>downloadJson(`abwasser-rechner-sicherung-${new Date().toISOString().slice(0,10)}.json`,{schema:"abwasser-rechner-backup-v1",version:VERSION,exportedAt:new Date().toISOString(),employeeProfile,plants,activePlantId});
+    $("#globalImportBackup").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.plants)||!data.employeeProfile)throw new Error("Keine gültige Gesamtsicherung");if(!confirm("Vorhandene Profil- und Anlagendaten durch diese Sicherung ersetzen?"))return;plants=data.plants.map(normalizePlant);employeeProfile=normalizeEmployeeProfile(data.employeeProfile);activePlantId=data.activePlantId&&plants.some(x=>x.id===data.activePlantId)?data.activePlantId:plants[0]?.id||"";if(savePlants()&&saveEmployeeProfile()){renderPlantSelector();updateProfileButton();showGlobalPage("backup");}}catch(err){alert(`Import nicht möglich: ${err.message}`)}finally{e.target.value="";}};
+  }else if(page==="system"){
+    const visitCount=plants.reduce((n,p)=>n+(p.visits||[]).length,0),actionCount=plants.reduce((n,p)=>n+(p.actions||[]).length,0);
+    appView.innerHTML=`${globalPageHeader("Info & System","Abwasser-Rechner","Versions-, Datenschutz- und Systeminformationen.")}<div class="system-grid"><article><span>Version</span><strong>${VERSION}</strong><small>UX & Navigation Release · Beta</small></article><article><span>Datenbestand</span><strong>${plants.length} Anlagen</strong><small>${visitCount} Besuche · ${actionCount} Aufgaben</small></article><article><span>Offline-Modus</span><strong>${navigator.onLine?'Online / offlinefähig':'Offline'}</strong><small>Lokale Speicherung im Browser</small></article><article><span>Datenmodell</span><strong>Schema ${Math.max(0,...plants.map(p=>Number(p.schemaVersion)||0))||'–'}</strong><small>Keine Cloud-Synchronisation</small></article></div><div class="record-grid"><article class="record-card"><h2>Copyright</h2><p><strong>© 2026 Mirco Krause & Sebastian Steinkohl</strong></p><p>Alle Rechte vorbehalten.</p><p>Diese Software wurde für den professionellen Einsatz im technischen Außendienst der Wasser- und Abwassertechnik entwickelt.</p></article><article class="record-card"><h2>Datenschutz</h2><p>Anlagen-, Kontakt- und Profildaten werden lokal im Browser gespeichert. Eine Übertragung an Dritte oder Cloud-Synchronisation findet in dieser Version nicht statt.</p><p>Exporte erfolgen ausschließlich durch eine bewusste Benutzeraktion.</p></article></div><article class="release-notes"><h2>Release Notes 0.9.1b</h2><h3>Neu</h3><ul><li>Globale Seitenleiste mit Heute, Anlagen, Termine, Aufgaben, Dokumente, Produkte, Optimierungsprojekte und Berichte</li><li>Info & System, Backup und Einstellungen aus der Anlagenakte in das globale Menü verschoben</li><li>Anlagenübergreifende Aufgaben- und Terminübersicht</li></ul><h3>Verbessert</h3><ul><li>Klare Trennung zwischen appweiten Funktionen und der Navigation einer einzelnen Anlage</li><li>Reduzierte Anlagennavigation ohne systemfremde Inhalte</li><li>Vorbereitung für Dokumenten- und Produktbibliothek</li></ul></article>`;
+  }else if(page==="documents") appView.innerHTML=renderGlobalPlaceholder("📚","Dokumente","Zentrale Dokumentenbibliothek für Produktdatenblätter, Sicherheitsdatenblätter, Angebote und Auftragsunterlagen.","Die Offline-Dateiablage folgt im nächsten Dokumenten-Sprint.");
+  else if(page==="products") appView.innerHTML=renderGlobalPlaceholder("🧪","Produkte","Globale Produktbibliothek mit Einsatzorten, Dokumenten und Versionsständen.","Das Datenmodell wird im Produktbibliothek-Sprint ergänzt.");
+  else if(page==="projects") appView.innerHTML=renderGlobalPlaceholder("📈","Optimierungsprojekte","Anlagenübergreifende Pipeline für Analysen, Versuche, Angebote und Aufträge.","Die Projektlogik wird nach der Dokumenten- und Produktbasis umgesetzt.");
+  else if(page==="reports") appView.innerHTML=renderGlobalPlaceholder("📊","Berichte","Besuchsberichte, Jahresübersichten und technische Auswertungen.","Berichte werden schrittweise aus Anlagen-, Besuchs- und Projektdaten erzeugt.");
+  else if(page==="settings") appView.innerHTML=renderGlobalPlaceholder("⚙","Einstellungen","Appweite Einstellungen für Darstellung, Backup-Erinnerungen und zukünftige Benutzeroptionen.","Die lokale Benutzer- und PIN-Sperre ist als späterer Foundation-Baustein vorgesehen.");
+  $$('[data-global-open-plant]').forEach(b=>b.onclick=()=>{activePlantId=b.dataset.globalOpenPlant;savePlants();showPlantDashboard(b.dataset.globalPlantPage||"overview");});
+}
+
 function showApplication(view){
   if(view==="plantDashboard")return showPlantDashboard();
   if(view==="traffic")return showTraffic();
@@ -1490,7 +1531,7 @@ function plantHeader(plant){
   </section>`;
 }
 function plantPageNavigation(active){
-  const pages=[["overview","Übersicht"],["technology","Technik"],["visits","Einsätze"],["sales","Vertrieb"],["tasks","Aufgaben"],["record","Akte"],["system","Info & System"]];
+  const pages=[["overview","Übersicht"],["technology","Technik"],["visits","Einsätze"],["sales","Vertrieb"],["tasks","Aufgaben"],["record","Akte"]];
   return `<nav class="plant-subnav" aria-label="Bereiche der Anlagenakte">${pages.map(([id,label],i)=>`<button type="button" data-plant-page="${id}" class="${active===id?'active':''} ${i>3?'plant-subnav-more':''}">${label}</button>`).join('')}</nav>`;
 }
 function renderPlantOverviewPage(plant){
@@ -1534,12 +1575,12 @@ function renderPlantSystemPage(plant){
   <article class="release-notes"><h2>Release Notes 0.9.1a</h2><h3>Neu</h3><ul><li>Unterseiten für Übersicht, Technik, Einsätze, Vertrieb, Aufgaben und Akte</li><li>Persistente Anlagen-Navigation mit mobilem horizontalem Scrollen</li><li>Info-&-System-Bereich mit Copyright und Datenschutz</li></ul><h3>Verbessert</h3><ul><li>Deutlich kürzere Seiten und weniger Scrollen</li><li>Klare Trennung von Überblick, Bearbeitung und Historie</li><li>Vorbereitung für Dokumenten- und Produktbibliothek</li></ul></article></section>`;
 }
 function renderPlantPage(plant,page){
-  const renderers={overview:renderPlantOverviewPage,technology:renderPlantTechnologyPage,visits:renderPlantVisitsPage,sales:renderPlantSalesPage,tasks:renderPlantTasksPage,record:renderPlantRecordPage,system:renderPlantSystemPage};
+  const renderers={overview:renderPlantOverviewPage,technology:renderPlantTechnologyPage,visits:renderPlantVisitsPage,sales:renderPlantSalesPage,tasks:renderPlantTasksPage,record:renderPlantRecordPage};
   return (renderers[page]||renderers.overview)(plant);
 }
 function showPlantDashboard(page){
   const plant=activePlant();if(!plant)return showPlantForm();
-  const valid=new Set(["overview","technology","visits","sales","tasks","record","system"]);
+  const valid=new Set(["overview","technology","visits","sales","tasks","record"]);
   page=valid.has(page)?page:(valid.has(localStorage.getItem(STORAGE_PLANT_PAGE))?localStorage.getItem(STORAGE_PLANT_PAGE):"overview");
   localStorage.setItem(STORAGE_PLANT_PAGE,page);
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1637,9 +1678,10 @@ $$('[data-primary-view]').forEach(button=>button.onclick=()=>{
   else if(target==="calculators")showAllCalculators();
   closeMobileSidebar();
 });
+$$('[data-global-view]').forEach(button=>button.onclick=()=>{showGlobalPage(button.dataset.globalView);closeMobileSidebar();});
 const showAllButton=$("#showAllCalculators");if(showAllButton)showAllButton.onclick=()=>{showAllCalculators();closeMobileSidebar()};
-$("#homeButton").onclick=showHome;$("#dashboardNav").onclick=()=>{showHome();closeMobileSidebar()};
-$("#breadcrumbHome").onclick=showHome;$("#profileButton").onclick=showProfile;$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
+$("#homeButton").onclick=showHome;
+$("#breadcrumbHome").onclick=showHome;$("#profileButton").onclick=showProfile;$("#profileMenuButton").onclick=()=>{showProfile();closeMobileSidebar()};$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
 $("#activePlantSelect").onchange=e=>{activePlantId=e.target.value;savePlants();showPlantDashboard()};
 $("#managePlantsButton").onclick=()=>{showApplication("plants");closeMobileSidebar()};
 $("#newPlantButton").onclick=()=>{showPlantForm();closeMobileSidebar()};

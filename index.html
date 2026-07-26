@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>Abwasser Rechner v0.9.1a</title>
+  <title>Abwasser Rechner v0.9.1b</title>
 </head>
 <body>
 <div class="app-layout">
@@ -19,15 +19,23 @@
         <span class="brand-mark">AR</span>
         <span class="brand-copy">
           <strong>Abwasser Rechner</strong>
-          <small>Version 0.9.1a</small>
+          <small>Version 0.9.1b</small>
         </span>
       </button>
       <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
     </div>
 
-    <button id="dashboardNav" class="nav-home active" type="button">
-      <span class="nav-icon">⌂</span><span>Startseite</span>
-    </button>
+    <nav class="global-navigation" aria-label="Hauptbereiche">
+      <button class="global-nav-item active" type="button" data-global-view="today"><span>⌂</span><strong>Heute</strong></button>
+      <button class="global-nav-item" type="button" data-primary-view="plants"><span>KA</span><strong>Anlagen</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="appointments"><span>□</span><strong>Termine</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="tasks-global"><span>✓</span><strong>Aufgaben</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="documents"><span>📚</span><strong>Dokumente</strong><small>vorbereitet</small></button>
+      <button class="global-nav-item" type="button" data-global-view="products"><span>🧪</span><strong>Produkte</strong><small>vorbereitet</small></button>
+      <button class="global-nav-item" type="button" data-global-view="projects"><span>↗</span><strong>Optimierungsprojekte</strong><small>vorbereitet</small></button>
+      <button class="global-nav-item" type="button" data-primary-view="calculators"><span>∑</span><strong>Rechner</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="reports"><span>▥</span><strong>Berichte</strong><small>vorbereitet</small></button>
+    </nav>
 
     <section class="plant-context">
       <label for="activePlantSelect">Aktive Anlage</label>
@@ -43,23 +51,12 @@
       <button id="clearSearch" type="button" aria-label="Suche löschen">×</button>
     </div>
 
-    <nav class="primary-navigation" aria-label="Anwendungsbereiche">
-      <button class="primary-nav-item" type="button" data-primary-view="plants">
-        <span class="primary-nav-icon">KA</span><span class="primary-nav-copy"><strong>Anlagen</strong><small>Akten, Kontakte und Termine</small></span>
-      </button>
-      <button class="primary-nav-item active" type="button" data-primary-view="calculators">
-        <span class="primary-nav-icon">∑</span><span class="primary-nav-copy"><strong>Rechner</strong><small>Fachliche Werkzeuge</small></span>
-      </button>
-      <button class="primary-nav-item planned" type="button" disabled>
-        <span class="primary-nav-icon">↗</span><span class="primary-nav-copy"><strong>Auswertung</strong><small>Diagramme und Vergleiche</small></span><span class="nav-status">später</span>
-      </button>
-      <button class="primary-nav-item planned" type="button" disabled>
-        <span class="primary-nav-icon">D</span><span class="primary-nav-copy"><strong>Dokumentation</strong><small>Berichte und Protokolle</small></span><span class="nav-status">später</span>
-      </button>
-    </nav>
-
     <div class="sidebar-bottom">
-      <button id="favoriteFilter" class="side-action" type="button">★ Favoriten</button>
+      <button id="profileMenuButton" class="side-action" type="button">👤 Mitarbeiterprofil</button>
+      <button class="side-action" type="button" data-global-view="backup">💾 Backup</button>
+      <button class="side-action" type="button" data-global-view="settings">⚙ Einstellungen</button>
+      <button class="side-action" type="button" data-global-view="system">ℹ Info & System</button>
+      <button id="favoriteFilter" class="side-action" type="button">★ Rechner-Favoriten</button>
       <button id="exportPlantButton" class="side-action" type="button">Anlage exportieren</button>
       <label class="side-action file-label">Anlage importieren<input id="importPlantInput" type="file" accept=".json,application/json"></label>
       <button id="installButton" class="side-action hidden" type="button">App installieren</button>
