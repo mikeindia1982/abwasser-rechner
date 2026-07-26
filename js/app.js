@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.7";
+const VERSION="0.8.8";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -189,7 +189,7 @@ function makeId(){
 }
 
 const emptyPlant=()=>({
-  schemaVersion:4,
+  schemaVersion:5,
   id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
@@ -217,13 +217,35 @@ const emptyPlant=()=>({
   limits:structuredClone(defaultLimits)
 });
 
+const VISIT_CHECKLIST=[
+  ["contact","Ansprechpartner gesprochen"],
+  ["walkthrough","Rundgang durchgeführt"],
+  ["photos","Fotos aufgenommen"],
+  ["samples","Proben genommen"],
+  ["measurements","Messwerte erfasst"],
+  ["technology","Technik geprüft"],
+  ["dosing","Dosierung geprüft"],
+  ["dewatering","Schlammentwässerung geprüft"],
+  ["tasks","Aufgaben festgehalten"]
+];
+function normalizeVisit(value={}){
+  const source=value&&typeof value==="object"?value:{};
+  return {
+    id:source.id||makeId(),title:source.title||"Besuch",start:source.start||"",end:source.end||"",purpose:source.purpose||"",contact:source.contact||"",
+    status:source.status||"planned",notes:source.notes||"",modeStatus:source.modeStatus||"not-started",startedAt:source.startedAt||"",completedAt:source.completedAt||"",
+    checklist:{...Object.fromEntries(VISIT_CHECKLIST.map(([key])=>[key,false])),...(source.checklist||{})},
+    measurements:{flow:source.measurements?.flow||"",pOut:source.measurements?.pOut||"",nh4Out:source.measurements?.nh4Out||"",cakeTs:source.measurements?.cakeTs||"",polymer:source.measurements?.polymer||"",custom:source.measurements?.custom||""},
+    findings:Array.isArray(source.findings)?source.findings:[],photos:Array.isArray(source.photos)?source.photos:[],summary:source.summary||""
+  };
+}
+
 function normalizePlant(value={}){
   const base=emptyPlant();
   const source=value&&typeof value==="object"?value:{};
   const normalized={
     ...base,
     ...source,
-    schemaVersion:4,
+    schemaVersion:5,
     id:source.id||base.id,
     master:{...base.master,...(source.master||{})},
     address:{...base.address,...(source.address||{})},
@@ -234,7 +256,7 @@ function normalizePlant(value={}){
     dosingSystems:Array.isArray(source.dosingSystems)?source.dosingSystems.map(dosingDefaults):[],
     tankSystems:Array.isArray(source.tankSystems)?source.tankSystems.map(tankDefaults):[],
     contacts:Array.isArray(source.contacts)?source.contacts:[],
-    visits:Array.isArray(source.visits)?source.visits:[],
+    visits:Array.isArray(source.visits)?source.visits.map(normalizeVisit):[],
     limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
   };
   normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
@@ -1239,7 +1261,7 @@ function showVisitForm(visitId=null){
   $("#visitForm").onsubmit=e=>{
     e.preventDefault();
     const fd=new FormData(e.currentTarget);
-    const saved={id:visit.id};
+    const saved=normalizeVisit(existing?{...existing,id:visit.id}:{id:visit.id});
     for(const key of ["title","status","start","end","purpose","contact","notes"])saved[key]=fd.get(key)||"";
     const start=isoLocalToDate(saved.start), end=isoLocalToDate(saved.end);
     if(!start||!end||end<=start)return alert("Das Terminende muss nach dem Beginn liegen.");
@@ -1253,12 +1275,14 @@ function renderVisitCards(plant,visits){
   return visits.map(v=>`<article class="visit-card">
       <div class="visit-date"><strong>${formatDateTime(v.start)}</strong><span>bis ${formatDateTime(v.end)}</span></div>
       <div class="visit-main"><div class="visit-title-row"><h3>${esc(v.title||"Besuchstermin")}</h3><span class="status-chip ${visitStatusClass(v.status)}">${visitStatusLabel(v.status)}</span></div>
+        ${(()=>{const done=VISIT_CHECKLIST.filter(([key])=>v.checklist?.[key]).length;return `<div class="visit-progress"><span style="width:${Math.round(done/VISIT_CHECKLIST.length*100)}%"></span></div><small>${done} von ${VISIT_CHECKLIST.length} Besuchspunkten erledigt</small>`})()}
         <p><strong>Anlass:</strong> ${esc(v.purpose||"Nicht hinterlegt")}</p>
         ${v.notes?`<p class="visit-notes"><strong>Informationen und Notizen:</strong><br>${esc(v.notes)}</p>`:""}
         <small>${v.contact?`Ansprechpartner: ${esc(v.contact)}`:"Kein Ansprechpartner hinterlegt"}</small>
       </div>
       <div class="visit-actions">
-        <button type="button" data-edit-visit="${v.id}">Bearbeiten</button>
+        <button type="button" class="visit-open-button" data-open-visit="${v.id}">${v.modeStatus==="completed"?"Dokumentation öffnen":v.modeStatus==="active"?"Besuch fortsetzen":"Besuch öffnen"}</button>
+        <button type="button" data-edit-visit="${v.id}">Termin bearbeiten</button>
         <button type="button" data-ics-visit="${v.id}">Outlook / ICS</button>
         <a href="${visitOutlookUrl(plant,v)}" target="_blank" rel="noopener">Outlook Web</a>
         <button type="button" class="danger-link" data-delete-visit="${v.id}">Löschen</button>
@@ -1272,7 +1296,7 @@ function renderVisits(plant){
   const history=visits.filter(v=>(isoLocalToDate(v.start)?.getTime()||0)<now||v.status==="done").sort((a,b)=>String(b.start).localeCompare(String(a.start)));
   return `<section class="dashboard-section">
     <div class="section-heading"><div><p class="eyebrow">Außendienst</p><h2>Termine und Anlagenhistorie</h2></div>
-      <button class="button primary" id="addVisit" type="button">Termin hinzufügen</button>
+      <div class="section-actions"><button class="button visit-start" id="startVisitMain" type="button">▶ Besuch starten</button><button class="button secondary" id="addVisit" type="button">Termin hinzufügen</button></div>
     </div>
     <h3 class="visit-group-title">Nächste Termine</h3>
     <div class="visits-list">${upcoming.length?renderVisitCards(plant,upcoming):`<div class="empty-panel compact"><p>Keine zukünftigen Termine hinterlegt.</p></div>`}</div>
@@ -1280,6 +1304,44 @@ function renderVisits(plant){
     <div class="visits-list">${history.length?renderVisitCards(plant,history):`<div class="empty-panel compact"><p>Noch keine vergangenen oder erledigten Termine.</p></div>`}</div>
   </section>`;
 }
+function showVisitMode(visitId=null){
+  const plant=activePlant();if(!plant)return;
+  const now=new Date(),localValue=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  let visit=visitId?(plant.visits||[]).find(v=>v.id===visitId):null;
+  if(!visit){
+    visit=normalizeVisit({title:`Besuch ${plant.master.name||"Kläranlage"}`,start:localValue(now),end:localValue(new Date(now.getTime()+60*60*1000)),contact:plant.contacts?.[0]?.name||"",status:"planned",modeStatus:"active",startedAt:new Date().toISOString()});
+    plant.visits=[...(plant.visits||[]),visit];plant.updatedAt=new Date().toISOString();if(!savePlants())return;
+  }else{
+    visit=normalizeVisit(visit);if(visit.modeStatus==="not-started"){visit.modeStatus="active";visit.startedAt=visit.startedAt||new Date().toISOString();}
+    plant.visits=plant.visits.map(v=>v.id===visit.id?visit:v);savePlants();
+  }
+  const persist=()=>{plant.visits=plant.visits.map(v=>v.id===visit.id?visit:v);plant.updatedAt=new Date().toISOString();return savePlants();};
+  const render=()=>{
+    const done=VISIT_CHECKLIST.filter(([key])=>visit.checklist[key]).length;
+    setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Besuch`);
+    appView.innerHTML=`<section class="page-header visit-mode-header"><div><p class="eyebrow">Besuchsmodus</p><h1>${esc(plant.master.name||"Unbenannte Anlage")}</h1><p class="subtitle">${visit.modeStatus==="completed"?"Besuch abgeschlossen":`Gestartet ${formatDateTime(visit.startedAt)}`}</p></div><div class="visit-header-actions"><button class="button secondary" id="leaveVisit" type="button">Zur Anlagenakte</button><button class="button primary" id="finishVisit" type="button">${visit.modeStatus==="completed"?"Besuch wieder öffnen":"Besuch beenden"}</button></div></section>
+    <section class="visit-overview"><article><span>Fortschritt</span><strong>${done}/${VISIT_CHECKLIST.length}</strong><div class="visit-progress large"><span style="width:${Math.round(done/VISIT_CHECKLIST.length*100)}%"></span></div></article><article><span>Ansprechpartner</span><strong>${esc(visit.contact||"Nicht gewählt")}</strong></article><article><span>Beginn</span><strong>${formatDateTime(visit.startedAt||visit.start)}</strong></article></section>
+    <div class="visit-workspace">
+      <section class="visit-panel"><div class="section-heading"><div><p class="eyebrow">Rundgang</p><h2>Besuchscheckliste</h2></div></div><div class="visit-checklist">${VISIT_CHECKLIST.map(([key,label])=>`<label><input type="checkbox" data-check="${key}" ${visit.checklist[key]?"checked":""}><span>${label}</span></label>`).join("")}</div></section>
+      <section class="visit-panel"><div class="section-heading"><div><p class="eyebrow">Messwerte</p><h2>Vor-Ort-Werte</h2></div></div><div class="form-grid visit-measurements">${field("vm.flow","Volumenstrom [m³/d]",visit.measurements.flow,"number")}${field("vm.pOut","Pges Ablauf [mg/l]",visit.measurements.pOut,"number")}${field("vm.nh4Out","NH₄-N Ablauf [mg/l]",visit.measurements.nh4Out,"number")}${field("vm.cakeTs","Kuchen-TS [%]",visit.measurements.cakeTs,"number")}${field("vm.polymer","Polymer [kg WS/t TS]",visit.measurements.polymer,"number")}<label class="field-label">Weitere Messwerte<textarea name="vm.custom">${esc(visit.measurements.custom)}</textarea></label></div><button class="button secondary" id="saveMeasurements" type="button">Messwerte speichern</button></section>
+      <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Heute aufgefallen</p><h2>Auffälligkeiten und Aufgaben</h2></div></div><form id="findingForm" class="finding-entry"><select name="severity"><option value="info">Hinweis</option><option value="warning">Beobachten</option><option value="critical">Handlungsbedarf</option><option value="task">Aufgabe</option></select><input name="text" required placeholder="Beobachtung oder Aufgabe eintragen"><button class="button primary" type="submit">Hinzufügen</button></form><div class="finding-list">${visit.findings.length?visit.findings.map(f=>`<article class="finding-item ${esc(f.severity)}"><div><span>${f.severity==="critical"?"Handlungsbedarf":f.severity==="warning"?"Beobachten":f.severity==="task"?"Aufgabe":"Hinweis"}</span><p>${esc(f.text)}</p><small>${formatDateTime(f.createdAt)}</small></div><button type="button" data-remove-finding="${f.id}" aria-label="Eintrag löschen">×</button></article>`).join(""):`<p class="muted-small">Noch keine Auffälligkeiten dokumentiert.</p>`}</div></section>
+      <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Fotos</p><h2>Fotodokumentation</h2></div><label class="button secondary file-label-inline">Fotos hinzufügen<input id="visitPhotoInput" type="file" accept="image/*" capture="environment" multiple></label></div><p class="muted-small">Fotos werden ausschließlich lokal in dieser App gespeichert. Maximal 6 Fotos pro Besuch.</p><div class="visit-photo-grid">${visit.photos.length?visit.photos.map(ph=>`<figure><img src="${ph.dataUrl}" alt="Besuchsfoto"><figcaption>${esc(ph.name||"Foto")}<button type="button" data-remove-photo="${ph.id}">Löschen</button></figcaption></figure>`).join(""):`<div class="empty-panel compact"><p>Noch keine Fotos hinterlegt.</p></div>`}</div></section>
+      <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Zusammenfassung</p><h2>Besuchsnotiz</h2></div></div><textarea id="visitSummary" rows="6" placeholder="Gespräch, Empfehlungen, nächste Schritte …">${esc(visit.summary||visit.notes||"")}</textarea><button class="button secondary" id="saveVisitSummary" type="button">Notiz speichern</button></section>
+    </div>`;
+    enableDecimalInputs(appView);
+    $("#leaveVisit").onclick=showPlantDashboard;
+    $("#finishVisit").onclick=()=>{visit.modeStatus=visit.modeStatus==="completed"?"active":"completed";visit.status=visit.modeStatus==="completed"?"done":"planned";visit.completedAt=visit.modeStatus==="completed"?new Date().toISOString():"";if(persist())render();};
+    $$('[data-check]').forEach(el=>el.onchange=()=>{visit.checklist[el.dataset.check]=el.checked;persist();render();});
+    $("#saveMeasurements").onclick=()=>{for(const key of ["flow","pOut","nh4Out","cakeTs","polymer","custom"]){const el=appView.querySelector(`[name="vm.${key}"]`);visit.measurements[key]=el?.value||"";}visit.checklist.measurements=true;if(persist())render();};
+    $("#findingForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),text=String(fd.get("text")||"").trim();if(!text)return;visit.findings.unshift({id:makeId(),severity:fd.get("severity")||"info",text,createdAt:new Date().toISOString()});if(fd.get("severity")==="task")visit.checklist.tasks=true;if(persist())render();};
+    $$('[data-remove-finding]').forEach(b=>b.onclick=()=>{visit.findings=visit.findings.filter(f=>f.id!==b.dataset.removeFinding);if(persist())render();});
+    $("#saveVisitSummary").onclick=()=>{visit.summary=$("#visitSummary").value.trim();visit.notes=visit.summary;if(persist())alert("Besuchsnotiz gespeichert.");};
+    $("#visitPhotoInput").onchange=async e=>{const files=[...e.target.files].slice(0,Math.max(0,6-visit.photos.length));for(const file of files){if(file.size>1500000){alert(`${file.name}: Foto ist größer als 1,5 MB und wurde nicht gespeichert.`);continue;}const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});visit.photos.push({id:makeId(),name:file.name,createdAt:new Date().toISOString(),dataUrl});}if(files.length)visit.checklist.photos=true;if(persist())render();};
+    $$('[data-remove-photo]').forEach(b=>b.onclick=()=>{visit.photos=visit.photos.filter(ph=>ph.id!==b.dataset.removePhoto);if(!visit.photos.length)visit.checklist.photos=false;if(persist())render();});
+  };
+  render();
+}
+
 function showDewateringForm(){
   const plant=activePlant();if(!plant)return showPlantForm();
   const d=dewateringDefaults(plant.sludgeDewatering||{});
@@ -1314,7 +1376,7 @@ function showPlantDashboard(){
   appView.innerHTML=`<section class="plant-hero">
     <div><p class="eyebrow">Anlagenstartseite</p><h1>${esc(plant.master.name||"Unbenannte Anlage")}</h1>
     <p class="subtitle">${esc(plant.master.internalNumber||"")} · ${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmtInteger(plant.master.capacityPE)} EW Ausbaugröße`:""}${plant.master.actualPE?` · ${fmtInteger(plant.master.actualPE)} EW Belastung`:""}</p></div>
-    <div class="hero-actions"><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
+    <div class="hero-actions"><button class="button visit-start" id="startVisit" type="button">▶ Besuch starten</button><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
   ${procedureCard(plant)}
   ${renderTechnicalAssets(plant)}
@@ -1372,6 +1434,9 @@ function showPlantDashboard(){
   bindProcedureCard(appView);
   $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
   $("#addVisit").onclick=()=>showVisitForm();
+  $("#startVisit")?.addEventListener("click",()=>showVisitMode());
+  $("#startVisitMain")?.addEventListener("click",()=>showVisitMode());
+  $$('[data-open-visit]').forEach(b=>b.onclick=()=>showVisitMode(b.dataset.openVisit));
   $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
   $$("[data-ics-visit]").forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
   $$("[data-delete-visit]").forEach(b=>b.onclick=()=>{
