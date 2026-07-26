@@ -1,48 +1,29 @@
-# Abwasser Rechner – Version 0.7
+# Abwasser Rechner – Version 0.8 (Anlagenakte)
 
-## Telefonnummern mit europäischen Ländervorwahlen
+Diese Version basiert direkt auf der stabilen Version 0.7. Die lokale Speicherlogik und die bisherigen Storage-Schlüssel bleiben unverändert.
 
-Telefon- und Mobilnummern werden jetzt aus zwei Feldern zusammengesetzt:
+## Änderungen
 
-- Dropdown mit europäischen Ländern und Ländervorwahl
-- separates Feld für Ortsvorwahl und Rufnummer
+- Hauptverfahren als Dropdown
+- zusätzliche Verfahrensstufen als Mehrfachauswahl
+- Freitext für Sonderverfahren
+- Ausbaugröße und tatsächliche Belastung in EW
+- deutsche Tausendertrennpunkte in der Anlagenübersicht
+- automatische Auslastungsanzeige
+- getrennte GPS-Felder für Breitengrad und Längengrad
+- automatische Anlagennummer nach dem Muster `ANL-0001`
+- anklickbare E-Mail-Adressen und Telefonnummern
+- Termine getrennt in nächste Termine und chronologische Historie
+- vollständige Terminnotizen in der Anlagenhistorie
 
-Unterstützt werden unter anderem Deutschland, Österreich, Schweiz, alle EU-Staaten sowie weitere europäische Staaten und Kleinstaaten.
+## Bewusst nicht enthalten
 
-## Besuchstermine je Kläranlage
+Die Datenmigration, neue Storage-Schlüssel sowie Import und Export werden erst in Version 0.8.1 umgesetzt.
 
-Je Anlage können jetzt Besuchstermine gespeichert werden mit:
+## Installation
 
-- Termintitel
-- Beginn und Ende
-- Status: geplant, erledigt oder abgesagt
-- Anlass beziehungsweise Zweck
-- Ansprechpartner
-- Notizen
+Alle Dateien einschließlich des Ordners `js` in das GitHub-Repository hochladen und vorhandene Dateien ersetzen.
 
-Die Termine werden chronologisch auf der Anlagenstartseite angezeigt.
+Commit-Nachricht:
 
-## Outlook-Anbindung
-
-Für jeden Besuchstermin stehen zwei Wege bereit:
-
-1. **Outlook / ICS**
-   - lädt eine standardisierte `.ics`-Kalenderdatei herunter
-   - kann in Microsoft Outlook, Apple Kalender und vielen anderen Kalenderprogrammen geöffnet werden
-
-2. **Outlook Web**
-   - öffnet einen vorausgefüllten Termin direkt in Outlook im Browser
-   - Titel, Zeit, Anlagenadresse, Ansprechpartner und Notizen werden übernommen
-
-Die App erhält keinen direkten Zugriff auf das Outlook-Konto. Der Termin wird erst nach Bestätigung durch den Nutzer gespeichert.
-
-## GitHub aktualisieren
-
-1. ZIP entpacken.
-2. Alle Dateien und den Ordner `js` in das Repository hochladen.
-3. Vorhandene Dateien ersetzen.
-4. Commit-Nachricht:
-
-   `Version 0.7 - Telefonvorwahlen und Besuchstermine`
-
-Nach der Veröffentlichung muss oben links `Version 0.7` stehen.
+`Version 0.8 - Anlagenakte erweitert`

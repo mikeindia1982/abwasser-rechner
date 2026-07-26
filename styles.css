@@ -127,3 +127,17 @@ footer{text-align:center;color:var(--muted);font-size:.77rem;padding:16px clamp(
 .visit-actions{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:6px}.visit-actions button,.visit-actions a{border:0;border-radius:8px;padding:.55rem .65rem;background:#e5f0f0;color:var(--primary);font-weight:800;text-align:center;text-decoration:none;font-size:.78rem}.visit-actions .danger-link{background:#fff0ee;color:var(--danger)}
 @media(max-width:900px){.visit-card{grid-template-columns:1fr}.visit-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.phone-input-group{grid-template-columns:1fr}.visit-actions{grid-template-columns:1fr}}
+
+
+/* Version 0.8 – Erweiterte Anlagenakte */
+.option-fieldset{border:0;padding:0;margin:0}.option-fieldset legend{font-weight:800;margin-bottom:8px}
+.chip-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.check-chip{position:relative}.check-chip input{position:absolute;opacity:0;pointer-events:none}
+.check-chip span{display:block;border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 10px;font-size:.82rem;cursor:pointer}
+.check-chip input:checked+span{background:#e1efef;border-color:var(--primary);color:var(--primary);font-weight:800}
+.contact-link{color:var(--primary);font-weight:800;text-decoration:none}.contact-link:hover{text-decoration:underline}
+.visit-notes{white-space:pre-wrap;background:var(--surface-soft);padding:9px;border-radius:9px}
+.visit-group-title{margin:20px 0 9px}.empty-panel.compact{padding:14px}
+input[readonly]{background:var(--surface-soft);cursor:not-allowed}
+@media(max-width:900px){.chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.chip-grid{grid-template-columns:1fr}}
