@@ -1,187 +1,224 @@
-const PDFJS_VERSION = "5.7.284";
-const PDFJS_MODULE_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.mjs`;
-const PDFJS_WORKER_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.mjs`;
+const PDFJS_MODULE_URL = new URL('../vendor/pdfjs/pdf.min.mjs', import.meta.url).href;
+const PDFJS_WORKER_URL = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
 
 let pdfjsPromise;
 
-async function loadPdfJs() {
-  if (!pdfjsPromise) {
-    pdfjsPromise = import(PDFJS_MODULE_URL).then((pdfjsLib) => {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
-      return pdfjsLib;
+async function loadPdfJs(){
+  if(!pdfjsPromise){
+    pdfjsPromise=import(PDFJS_MODULE_URL).then(pdfjs=>{
+      pdfjs.GlobalWorkerOptions.workerSrc=PDFJS_WORKER_URL;
+      return pdfjs;
+    }).catch(error=>{
+      pdfjsPromise=undefined;
+      throw error;
     });
   }
   return pdfjsPromise;
 }
 
-export class PdfViewer {
-  constructor(host, options = {}) {
-    if (!host) throw new Error("PDF-Viewer: Zielcontainer fehlt.");
-    this.host = host;
-    this.options = options;
-    this.pdf = null;
-    this.pageNumber = 1;
-    this.scale = 1.2;
-    this.rotation = 0;
-    this.renderTask = null;
-    this.resizeObserver = null;
-    this.blob = null;
-    this.fileName = options.fileName || "dokument.pdf";
-    this.fitMode = "width";
-    this.renderShell();
+function clamp(value,min,max){
+  return Math.min(max,Math.max(min,value));
+}
+
+function safeFileName(value){
+  return String(value||'Dokument.pdf')
+    .replace(/[\\/:*?"<>|]+/g,'_')
+    .trim()||'Dokument.pdf';
+}
+
+export async function mountPdfViewer(container,blob,{fileName='Dokument.pdf'}={}){
+  if(!container) throw new Error('PDF-Viewer-Container fehlt.');
+  if(!(blob instanceof Blob)) throw new Error('Die PDF-Datei ist nicht verfügbar.');
+
+  container.classList.add('pdf-viewer');
+  container.innerHTML=`
+    <div class="pdf-viewer-toolbar" role="toolbar" aria-label="PDF-Werkzeuge">
+      <button type="button" data-pdf-prev aria-label="Vorherige Seite">‹</button>
+      <label class="pdf-page-control">
+        <span>Seite</span>
+        <input data-pdf-page type="number" min="1" value="1" inputmode="numeric">
+        <span data-pdf-pages>/ 1</span>
+      </label>
+      <button type="button" data-pdf-next aria-label="Nächste Seite">›</button>
+      <span class="pdf-toolbar-separator"></span>
+      <button type="button" data-pdf-zoom-out aria-label="Verkleinern">−</button>
+      <span data-pdf-zoom>100 %</span>
+      <button type="button" data-pdf-zoom-in aria-label="Vergrößern">+</button>
+      <button type="button" data-pdf-fit>An Breite</button>
+      <button type="button" data-pdf-rotate>Drehen</button>
+      <button type="button" data-pdf-fullscreen>Vollbild</button>
+      <button type="button" data-pdf-download>Original</button>
+    </div>
+    <div class="pdf-viewer-stage" data-pdf-stage>
+      <div class="pdf-viewer-message" data-pdf-message role="status">PDF wird geladen …</div>
+      <canvas data-pdf-canvas aria-label="PDF-Seite"></canvas>
+    </div>`;
+
+  const canvas=container.querySelector('[data-pdf-canvas]');
+  const stage=container.querySelector('[data-pdf-stage]');
+  const message=container.querySelector('[data-pdf-message]');
+  const pageInput=container.querySelector('[data-pdf-page]');
+  const pagesLabel=container.querySelector('[data-pdf-pages]');
+  const zoomLabel=container.querySelector('[data-pdf-zoom]');
+  const previousButton=container.querySelector('[data-pdf-prev]');
+  const nextButton=container.querySelector('[data-pdf-next]');
+  const ctx=canvas.getContext('2d',{alpha:false});
+
+  if(!ctx) throw new Error('Canvas-Kontext konnte nicht erstellt werden.');
+
+  let pdf=null;
+  let loadingTask=null;
+  let pageNumber=1;
+  let scale=1;
+  let rotation=0;
+  let renderTask=null;
+  let destroyed=false;
+  let resizeTimer=null;
+
+  function updateControls(){
+    const pageCount=pdf?.numPages||1;
+    pageInput.value=String(pageNumber);
+    pageInput.max=String(pageCount);
+    pagesLabel.textContent=`/ ${pageCount}`;
+    zoomLabel.textContent=`${Math.round(scale*100)} %`;
+    previousButton.disabled=pageNumber<=1;
+    nextButton.disabled=!pdf||pageNumber>=pageCount;
   }
 
-  renderShell() {
-    this.host.classList.add("pdfjs-viewer");
-    this.host.innerHTML = `
-      <div class="pdfjs-toolbar" role="toolbar" aria-label="PDF-Werkzeuge">
-        <button type="button" data-pdf-action="prev" title="Vorherige Seite">‹</button>
-        <label class="pdfjs-page-control"><span>Seite</span><input data-pdf-page type="number" min="1" value="1"><span data-pdf-pages>/ –</span></label>
-        <button type="button" data-pdf-action="next" title="Nächste Seite">›</button>
-        <span class="pdfjs-separator"></span>
-        <button type="button" data-pdf-action="zoom-out" title="Verkleinern">−</button>
-        <span data-pdf-zoom>100 %</span>
-        <button type="button" data-pdf-action="zoom-in" title="Vergrößern">+</button>
-        <button type="button" data-pdf-action="fit" title="An Breite anpassen">Breite</button>
-        <button type="button" data-pdf-action="rotate" title="Drehen">↻</button>
-        <span class="pdfjs-toolbar-spacer"></span>
-        <button type="button" data-pdf-action="download" title="Original exportieren">Export</button>
-        <button type="button" data-pdf-action="fullscreen" title="Vollbild">Vollbild</button>
-      </div>
-      <div class="pdfjs-stage" tabindex="0">
-        <div class="pdfjs-status" data-pdf-status>PDF wird geladen …</div>
-        <canvas data-pdf-canvas aria-label="PDF-Seite"></canvas>
-      </div>`;
+  async function renderPage(){
+    if(!pdf||destroyed) return;
 
-    this.canvas = this.host.querySelector("[data-pdf-canvas]");
-    this.stage = this.host.querySelector(".pdfjs-stage");
-    this.status = this.host.querySelector("[data-pdf-status]");
-    this.pageInput = this.host.querySelector("[data-pdf-page]");
-    this.pagesLabel = this.host.querySelector("[data-pdf-pages]");
-    this.zoomLabel = this.host.querySelector("[data-pdf-zoom]");
+    if(renderTask){
+      try{renderTask.cancel()}catch{}
+    }
 
-    this.host.querySelectorAll("[data-pdf-action]").forEach((button) => {
-      button.addEventListener("click", () => this.handleAction(button.dataset.pdfAction));
+    const page=await pdf.getPage(pageNumber);
+    if(destroyed) return;
+
+    const outputScale=Math.max(1,window.devicePixelRatio||1);
+    const viewport=page.getViewport({scale,rotation});
+
+    canvas.hidden=false;
+    canvas.width=Math.max(1,Math.floor(viewport.width*outputScale));
+    canvas.height=Math.max(1,Math.floor(viewport.height*outputScale));
+    canvas.style.width=`${Math.floor(viewport.width)}px`;
+    canvas.style.height=`${Math.floor(viewport.height)}px`;
+
+    updateControls();
+    message.hidden=true;
+
+    renderTask=page.render({
+      canvasContext:ctx,
+      viewport,
+      transform:outputScale===1?null:[outputScale,0,0,outputScale,0,0]
     });
-    this.pageInput.addEventListener("change", () => this.goToPage(Number(this.pageInput.value)));
-    this.stage.addEventListener("keydown", (event) => {
-      if (event.key === "ArrowLeft" || event.key === "PageUp") this.goToPage(this.pageNumber - 1);
-      if (event.key === "ArrowRight" || event.key === "PageDown") this.goToPage(this.pageNumber + 1);
-    });
-    this.resizeObserver = new ResizeObserver(() => {
-      if (this.pdf && this.fitMode === "width") this.renderPage();
-    });
-    this.resizeObserver.observe(this.stage);
-  }
 
-  async load(blob, fileName = this.fileName) {
-    if (!(blob instanceof Blob)) throw new TypeError("PDF-Viewer: Kein gültiger PDF-Blob.");
-    this.blob = blob;
-    this.fileName = fileName || this.fileName;
-    this.setStatus("PDF.js wird geladen …");
-    try {
-      const pdfjsLib = await loadPdfJs();
-      const data = new Uint8Array(await blob.arrayBuffer());
-      const loadingTask = pdfjsLib.getDocument({ data });
-      loadingTask.onProgress = ({ loaded, total }) => {
-        if (total) this.setStatus(`PDF wird geladen … ${Math.round((loaded / total) * 100)} %`);
-      };
-      this.pdf = await loadingTask.promise;
-      this.pageNumber = 1;
-      this.pagesLabel.textContent = `/ ${this.pdf.numPages}`;
-      this.pageInput.max = String(this.pdf.numPages);
-      await this.renderPage();
-    } catch (error) {
-      console.error("PDF.js Viewer", error);
-      this.setStatus(`PDF konnte nicht angezeigt werden: ${error?.message || String(error)}`, true);
-      throw error;
+    try{
+      await renderTask.promise;
+    }catch(error){
+      if(error?.name!=='RenderingCancelledException') throw error;
+    }finally{
+      renderTask=null;
+      page.cleanup?.();
     }
   }
 
-  async renderPage() {
-    if (!this.pdf) return;
-    if (this.renderTask) {
-      try { this.renderTask.cancel(); } catch (_) {}
-      this.renderTask = null;
-    }
-    const page = await this.pdf.getPage(this.pageNumber);
-    const baseViewport = page.getViewport({ scale: 1, rotation: this.rotation });
-    let cssScale = this.scale;
-    if (this.fitMode === "width") {
-      const available = Math.max(240, this.stage.clientWidth - 32);
-      cssScale = available / baseViewport.width;
-    }
-    const cssViewport = page.getViewport({ scale: cssScale, rotation: this.rotation });
-    const outputScale = Math.min(window.devicePixelRatio || 1, 2);
-    const renderViewport = page.getViewport({ scale: cssScale * outputScale, rotation: this.rotation });
-    const context = this.canvas.getContext("2d", { alpha: false });
-    this.canvas.width = Math.floor(renderViewport.width);
-    this.canvas.height = Math.floor(renderViewport.height);
-    this.canvas.style.width = `${Math.floor(cssViewport.width)}px`;
-    this.canvas.style.height = `${Math.floor(cssViewport.height)}px`;
-    this.setStatus("Seite wird gerendert …");
-    this.renderTask = page.render({ canvasContext: context, viewport: renderViewport });
-    try {
-      await this.renderTask.promise;
-      this.renderTask = null;
-      this.status.hidden = true;
-      this.canvas.hidden = false;
-      this.pageInput.value = String(this.pageNumber);
-      this.zoomLabel.textContent = this.fitMode === "width" ? "Breite" : `${Math.round(this.scale * 100)} %`;
-    } catch (error) {
-      if (error?.name !== "RenderingCancelledException") throw error;
-    }
+  async function fitWidth(){
+    if(!pdf||destroyed) return;
+    const page=await pdf.getPage(pageNumber);
+    const viewport=page.getViewport({scale:1,rotation});
+    const available=Math.max(280,stage.clientWidth-32);
+    scale=clamp(available/viewport.width,.25,4);
+    await renderPage();
   }
 
-  setStatus(message, isError = false) {
-    this.status.hidden = false;
-    this.status.textContent = message;
-    this.status.classList.toggle("is-error", isError);
-    if (isError) this.canvas.hidden = true;
+  function scheduleFitWidth(){
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(()=>{void fitWidth()},150);
   }
 
-  async goToPage(number) {
-    if (!this.pdf) return;
-    const target = Math.min(this.pdf.numPages, Math.max(1, Math.round(number || 1)));
-    if (target === this.pageNumber) return;
-    this.pageNumber = target;
-    await this.renderPage();
+  try{
+    const pdfjs=await loadPdfJs();
+    const data=new Uint8Array(await blob.arrayBuffer());
+    loadingTask=pdfjs.getDocument({data});
+    pdf=await loadingTask.promise;
+    updateControls();
+    await fitWidth();
+  }catch(error){
+    console.error('PDF.js-Viewer:',error);
+    message.hidden=false;
+    message.innerHTML='<strong>PDF konnte nicht angezeigt werden.</strong><br><span>Die lokale PDF.js-Bibliothek fehlt oder die Datei ist beschädigt.</span>';
+    canvas.hidden=true;
+    throw error;
   }
 
-  async handleAction(action) {
-    switch (action) {
-      case "prev": return this.goToPage(this.pageNumber - 1);
-      case "next": return this.goToPage(this.pageNumber + 1);
-      case "zoom-in": this.fitMode = "custom"; this.scale = Math.min(4, this.scale + 0.2); return this.renderPage();
-      case "zoom-out": this.fitMode = "custom"; this.scale = Math.max(0.3, this.scale - 0.2); return this.renderPage();
-      case "fit": this.fitMode = "width"; return this.renderPage();
-      case "rotate": this.rotation = (this.rotation + 90) % 360; return this.renderPage();
-      case "download": return this.download();
-      case "fullscreen": return this.toggleFullscreen();
+  previousButton.onclick=()=>{
+    if(pageNumber>1){
+      pageNumber--;
+      void renderPage();
     }
-  }
+  };
 
-  download() {
-    if (!this.blob) return;
-    const url = URL.createObjectURL(this.blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = this.fileName;
-    document.body.append(anchor);
+  nextButton.onclick=()=>{
+    if(pdf&&pageNumber<pdf.numPages){
+      pageNumber++;
+      void renderPage();
+    }
+  };
+
+  pageInput.onchange=()=>{
+    pageNumber=clamp(Number(pageInput.value)||1,1,pdf.numPages);
+    void renderPage();
+  };
+
+  container.querySelector('[data-pdf-zoom-out]').onclick=()=>{
+    scale=clamp(scale-.15,.25,4);
+    void renderPage();
+  };
+
+  container.querySelector('[data-pdf-zoom-in]').onclick=()=>{
+    scale=clamp(scale+.15,.25,4);
+    void renderPage();
+  };
+
+  container.querySelector('[data-pdf-fit]').onclick=()=>{void fitWidth()};
+
+  container.querySelector('[data-pdf-rotate]').onclick=()=>{
+    rotation=(rotation+90)%360;
+    void fitWidth();
+  };
+
+  container.querySelector('[data-pdf-fullscreen]').onclick=async()=>{
+    if(document.fullscreenElement){
+      await document.exitFullscreen();
+    }else{
+      await container.requestFullscreen?.();
+    }
+  };
+
+  container.querySelector('[data-pdf-download]').onclick=()=>{
+    const url=URL.createObjectURL(blob);
+    const anchor=document.createElement('a');
+    anchor.href=url;
+    anchor.download=safeFileName(fileName);
     anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
 
-  async toggleFullscreen() {
-    if (!document.fullscreenElement) await this.host.requestFullscreen?.();
-    else await document.exitFullscreen?.();
-  }
+  window.addEventListener('resize',scheduleFitWidth);
 
-  destroy() {
-    this.resizeObserver?.disconnect();
-    if (this.renderTask) try { this.renderTask.cancel(); } catch (_) {}
-    this.pdf?.destroy?.();
-    this.host.innerHTML = "";
-  }
+  return {
+    destroy(){
+      destroyed=true;
+      clearTimeout(resizeTimer);
+      window.removeEventListener('resize',scheduleFitWidth);
+      if(renderTask){
+        try{renderTask.cancel()}catch{}
+      }
+      try{loadingTask?.destroy?.()}catch{}
+      try{pdf?.destroy?.()}catch{}
+      container.innerHTML='';
+      container.classList.remove('pdf-viewer');
+    }
+  };
 }
