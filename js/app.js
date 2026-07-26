@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.6";
+const VERSION="0.8.6.1";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -721,7 +721,7 @@ function field(name,label,value="",type="text",placeholder=""){
   if(type==="number"){
     if(name==="address.latitude")numericAttributes=' step="any" min="-90" max="90" inputmode="decimal"';
     else if(name==="address.longitude")numericAttributes=' step="any" min="-180" max="180" inputmode="decimal"';
-    else numericAttributes=' step="0.001" inputmode="decimal"';
+    else numericAttributes=' step="any" inputmode="decimal"';
   }
   return `<label class="field-label">${label}<input name="${name}" type="${type}"${numericAttributes} value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
 }
@@ -875,16 +875,29 @@ function showPlantForm(id=null){
   if(numberInput)numberInput.readOnly=true;
   let dosingSystems=structuredClone(p.dosingSystems||[]).map(dosingDefaults);
   const dosingEditor=$("#dosingSystemsEditor");
+  const syncDosingSystemsFromForm=()=>{
+    dosingSystems=dosingSystems.map((current,i)=>{
+      const out=dosingDefaults({id:current.id});
+      for(const key of Object.keys(out)){
+        if(key==="id")continue;
+        const input=plantForm.elements.namedItem(`dosing.${i}.${key}`);
+        if(!input){out[key]=current[key];continue;}
+        out[key]=typeof out[key]==="boolean"?Boolean(input.checked):input.value;
+      }
+      return out;
+    });
+  };
   const renderDosingSystems=()=>{
     dosingEditor.innerHTML=dosingSystems.length?dosingSystems.map((d,i)=>`<article class="dosing-editor-card"><div class="contact-editor-head"><strong>${esc(d.name||`Dosieranlage ${i+1}`)}</strong><button type="button" data-remove-dosing="${i}">Entfernen</button></div>
       <div class="dosing-block"><h3>Zuordnung und Status</h3><div class="form-grid">${field(`dosing.${i}.name`,"Bezeichnung",d.name)}${selectField(`dosing.${i}.purpose`,"Verwendungszweck",d.purpose,[["polymer","Polymer"],["precipitant","Fällmittel"],["carbon","Kohlenstoffquelle"],["neutralization","Neutralisationsmittel"],["defoamer","Entschäumer"],["other","Sonstiges"]])}${selectField(`dosing.${i}.status`,"Betriebsstatus",d.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}${field(`dosing.${i}.location`,"Standort / Einbauort",d.location)}</div></div>
       <div class="dosing-block"><h3>Tankanlage</h3><div class="form-grid">${selectField(`dosing.${i}.tankType`,"Tankart",d.tankType,[["storage-tank","Lagertank"],["day-tank","Tagestank"],["ibc","IBC"],["double-wall","Doppelwandtank"],["other","Sonstiges"]])}${field(`dosing.${i}.tankVolume`,"Volumen [l]",d.tankVolume,"number")}${field(`dosing.${i}.tankManufacturer`,"Hersteller",d.tankManufacturer)}${field(`dosing.${i}.tankModel`,"Typ",d.tankModel)}${field(`dosing.${i}.tankYear`,"Baujahr",d.tankYear,"number")}${field(`dosing.${i}.tankMaterial`,"Material",d.tankMaterial)}<div class="span-2 check-grid">${checkboxField(`dosing.${i}.doubleWalled`,"Doppelwandig",d.doubleWalled)}${checkboxField(`dosing.${i}.bundPresent`,"Auffangwanne",d.bundPresent)}${checkboxField(`dosing.${i}.levelMonitoring`,"Füllstandsüberwachung",d.levelMonitoring)}${checkboxField(`dosing.${i}.leakageMonitoring`,"Leckageüberwachung",d.leakageMonitoring)}</div>${field(`dosing.${i}.lastInspection`,"Letzte Prüfung",d.lastInspection,"date")}${field(`dosing.${i}.nextInspection`,"Nächste Prüfung",d.nextInspection,"date")}</div></div>
       <div class="dosing-block"><h3>Dosierstation</h3><div class="form-grid">${field(`dosing.${i}.stationManufacturer`,"Hersteller",d.stationManufacturer)}${field(`dosing.${i}.stationModel`,"Typ",d.stationModel)}${field(`dosing.${i}.stationYear`,"Baujahr",d.stationYear,"number")}${selectField(`dosing.${i}.pumpType`,"Pumpenart",d.pumpType,[["diaphragm","Membrandosierpumpe"],["hose","Schlauchpumpe"],["progressive-cavity","Exzenterschneckenpumpe"],["piston","Kolbenpumpe"],["other","Sonstige"]])}${field(`dosing.${i}.pumpCount`,"Anzahl Dosierpumpen",d.pumpCount,"number")}${field(`dosing.${i}.capacityLh`,"Förderleistung [l/h]",d.capacityLh,"number")}${field(`dosing.${i}.maxPressureBar`,"Maximaldruck [bar]",d.maxPressureBar,"number")}${selectField(`dosing.${i}.controlMode`,"Betriebsweise",d.controlMode,[["constant","Konstant"],["flow-proportional","Durchflussproportional"],["measured-value","Messwertgeführt"],["manual","Manuell"]])}<div class="span-2 check-grid">${checkboxField(`dosing.${i}.standbyPump`,"Reservepumpe",d.standbyPump)}${checkboxField(`dosing.${i}.automaticChangeover`,"Automatische Umschaltung",d.automaticChangeover)}${checkboxField(`dosing.${i}.calibrationDevice`,"Kalibriereinrichtung",d.calibrationDevice)}${checkboxField(`dosing.${i}.flushConnection`,"Spülanschluss",d.flushConnection)}${checkboxField(`dosing.${i}.pressureHoldingValve`,"Druckhalteventil",d.pressureHoldingValve)}${checkboxField(`dosing.${i}.overflowValve`,"Überströmventil",d.overflowValve)}${checkboxField(`dosing.${i}.pulsationDamper`,"Pulsationsdämpfer",d.pulsationDamper)}</div></div></div>
       <div class="dosing-block"><h3>Medium und MSR-Technik</h3><div class="form-grid">${field(`dosing.${i}.productName`,"Produktname",d.productName)}${field(`dosing.${i}.activeIngredient`,"Wirkstoff",d.activeIngredient)}${field(`dosing.${i}.concentrationPercent`,"Konzentration [%]",d.concentrationPercent,"number")}${field(`dosing.${i}.densityKgL`,"Dichte [kg/l]",d.densityKgL,"number")}${field(`dosing.${i}.consumption`,"Verbrauch pro Tag / Woche / Monat",d.consumption)}${field(`dosing.${i}.controlledValue`,"Zugehöriger Messwert",d.controlledValue)}<div class="span-2 check-grid">${checkboxField(`dosing.${i}.hazardous`,"Gefahrstoff",d.hazardous)}${checkboxField(`dosing.${i}.safetyDataSheetAvailable`,"Sicherheitsdatenblatt vorhanden",d.safetyDataSheetAvailable)}${checkboxField(`dosing.${i}.flowMeter`,"Durchflussmesser",d.flowMeter)}${checkboxField(`dosing.${i}.levelSensor`,"Füllstandssonde",d.levelSensor)}${checkboxField(`dosing.${i}.dryRunProtection`,"Trockenlaufschutz",d.dryRunProtection)}${checkboxField(`dosing.${i}.pressureMonitoring`,"Drucküberwachung",d.pressureMonitoring)}${checkboxField(`dosing.${i}.leakageSensor`,"Leckagesensor",d.leakageSensor)}${checkboxField(`dosing.${i}.plcConnected`,"SPS-Anbindung",d.plcConnected)}${checkboxField(`dosing.${i}.remoteAlarm`,"Fern-/Störmeldung",d.remoteAlarm)}</div><label class="field-label span-2">Bemerkungen<textarea name="dosing.${i}.notes">${esc(d.notes)}</textarea></label></div></div></article>`).join(''):`<div class="empty-panel compact"><p>Noch keine Dosieranlage angelegt.</p></div>`;
-    $$('[data-remove-dosing]').forEach(b=>b.onclick=()=>{dosingSystems.splice(Number(b.dataset.removeDosing),1);renderDosingSystems();enableDecimalInputs(dosingEditor)});
+    $$('[data-remove-dosing]').forEach(b=>b.onclick=()=>{syncDosingSystemsFromForm();dosingSystems.splice(Number(b.dataset.removeDosing),1);renderDosingSystems();enableDecimalInputs(dosingEditor)});
+    enableDecimalInputs(dosingEditor);
   };
   renderDosingSystems();
-  $("#addDosingSystem").onclick=()=>{dosingSystems.push(dosingDefaults({name:`Dosieranlage ${dosingSystems.length+1}`}));renderDosingSystems();enableDecimalInputs(dosingEditor)};
+  $("#addDosingSystem").onclick=()=>{syncDosingSystemsFromForm();dosingSystems.push(dosingDefaults({name:`Dosieranlage ${dosingSystems.length+1}`}));renderDosingSystems()};
   const dewateringEnabled=plantForm.elements.namedItem("sludgeDewatering.enabled"),dewateringFields=$("#dewateringFields");
   const syncDewateringVisibility=()=>{dewateringFields.classList.toggle("disabled-section",!dewateringEnabled.checked);dewateringFields.querySelectorAll("input,select,textarea").forEach(el=>el.disabled=!dewateringEnabled.checked)};
   dewateringEnabled.onchange=syncDewateringVisibility;syncDewateringVisibility();
@@ -986,8 +999,15 @@ function showPlantForm(id=null){
   ["address.latitude","address.longitude"].forEach(name=>formInput(name)?.addEventListener("input",renderLocationPreview));
   renderLocationPreview();
   $("#cancelPlant").onclick=()=>existing?showPlantDashboard():showApplication("plants");
+  plantForm.addEventListener("invalid",event=>{
+    event.preventDefault();
+    const label=event.target.closest("label")?.childNodes?.[0]?.textContent?.trim()||"Eingabefeld";
+    alert(`Bitte das Feld „${label}“ prüfen. Dezimalwerte können mit Punkt oder Komma eingegeben werden.`);
+    event.target.focus();
+  },true);
   $("#plantForm").onsubmit=e=>{
     e.preventDefault();
+    syncDosingSystemsFromForm();
     const fd=new FormData(e.currentTarget);
     const result=existing?structuredClone(existing):p;
     result.access=result.access||{};
