@@ -479,14 +479,52 @@ function dashboardTrafficTally(){
   });
   return tally;
 }
+const plantZones={
+  inlet:{title:"Zulauf und Vorklärung",subtitle:"Frachten, Konzentrationen und hydraulische Belastung",icon:"↘",calculators:["load","concentration","hrt"]},
+  biology:{title:"Biologische Stufe",subtitle:"Belebung, Biomasse und Absetzverhalten",icon:"◎",calculators:["loading","sludge-age","svi"]},
+  precipitation:{title:"Fällmittelstation",subtitle:"Phosphorelimination und Chemikaliendosierung",icon:"◆",calculators:["precipitation","dose","cost"]},
+  clarifier:{title:"Nachklärung",subtitle:"Absetzverhalten und hydraulische Aufenthaltszeit",icon:"◉",calculators:["svi","sludge-age","hrt"]},
+  sludge:{title:"Schlammbehandlung",subtitle:"Feststoffmengen, Lagerung und Reichweiten",icon:"≋",calculators:["dw-throughput","dw-cake","tank"]},
+  dewatering:{title:"Schlammentwässerung",subtitle:"Maschinenleistung, Polymer und Entsorgung",icon:"▦",calculators:["dw-polymer","dw-retention","dw-disposal","dw-compare"]}
+};
 function renderPlantAnimation(){
-  return `<div class="plant-animation" aria-label="Animierte schematische Kläranlage aus der Vogelperspektive">
-    <img src="plant-hero-base.png" alt="Kläranlage aus der Vogelperspektive">
+  return `<div class="plant-animation" aria-label="Interaktive schematische Kläranlage aus der Vogelperspektive">
+    <img src="plant-hero-base.png" alt="Kläranlage aus der Vogelperspektive. Anlagenteile können angetippt werden.">
     <div class="water-flow flow-a"></div><div class="water-flow flow-b"></div><div class="water-flow flow-c"></div>
     <span class="clarifier-rotor rotor-a"></span><span class="clarifier-rotor rotor-b"></span><span class="clarifier-rotor rotor-c"></span>
     <span class="aeration-bubbles bubbles-a"></span><span class="aeration-bubbles bubbles-b"></span>
+    <div class="plant-hotspots" aria-label="Anlagenteile">
+      ${Object.entries(plantZones).map(([id,zone])=>`<button type="button" class="plant-hotspot zone-${id}" data-plant-zone="${id}" aria-label="${zone.title} öffnen"><span>${zone.title}</span></button>`).join("")}
+    </div>
+    <p class="plant-touch-hint">Anlagenteil antippen</p>
     <button class="animation-toggle" id="animationToggle" type="button">Ⅱ Animation pausieren</button>
   </div>`;
+}
+function renderPlantSheet(){
+  return `<div class="plant-sheet-backdrop" id="plantSheetBackdrop" hidden></div>
+    <section class="plant-sheet" id="plantSheet" role="dialog" aria-modal="true" aria-labelledby="plantSheetTitle" hidden>
+      <div class="plant-sheet-handle" aria-hidden="true"></div>
+      <header><div class="plant-sheet-icon" id="plantSheetIcon">◎</div><div><p class="eyebrow">Anlagenbereich</p><h2 id="plantSheetTitle"></h2><p id="plantSheetSubtitle"></p></div><button type="button" class="plant-sheet-close" id="plantSheetClose" aria-label="Bereich schließen">×</button></header>
+      <div class="plant-sheet-actions" id="plantSheetActions"></div>
+      <button type="button" class="plant-sheet-cancel" id="plantSheetCancel">Schließen</button>
+    </section>`;
+}
+function openPlantSheet(zoneId){
+  const zone=plantZones[zoneId];if(!zone)return;
+  const sheet=$("#plantSheet"),backdrop=$("#plantSheetBackdrop");
+  $("#plantSheetTitle").textContent=zone.title;$("#plantSheetSubtitle").textContent=zone.subtitle;$("#plantSheetIcon").textContent=zone.icon;
+  $("#plantSheetActions").innerHTML=zone.calculators.map(id=>{const item=calculators.find(c=>c.id===id);return item?`<button type="button" data-sheet-calculator="${item.id}"><span><strong>${item.name}</strong><small>${item.short}</small></span><b>›</b></button>`:""}).join("");
+  sheet.hidden=false;backdrop.hidden=false;requestAnimationFrame(()=>{sheet.classList.add("open");backdrop.classList.add("open")});
+  document.body.classList.add("sheet-open");
+  $$("[data-plant-zone]").forEach(button=>button.classList.toggle("selected",button.dataset.plantZone===zoneId));
+  $$("[data-sheet-calculator]").forEach(button=>button.onclick=()=>{closePlantSheet();selectCalculator(button.dataset.sheetCalculator)});
+  setTimeout(()=>$("#plantSheetClose")?.focus(),220);
+}
+function closePlantSheet(){
+  const sheet=$("#plantSheet"),backdrop=$("#plantSheetBackdrop");if(!sheet||sheet.hidden)return;
+  sheet.classList.remove("open");backdrop.classList.remove("open");document.body.classList.remove("sheet-open");
+  $$("[data-plant-zone]").forEach(button=>button.classList.remove("selected"));
+  setTimeout(()=>{sheet.hidden=true;backdrop.hidden=true},220);
 }
 function renderDashboard(){
   const plant=activePlant();
@@ -553,7 +591,8 @@ function renderDashboard(){
     <section class="dashboard-section calculator-categories-home">
       <div class="section-heading"><div><p class="eyebrow">Direktzugriff</p><h2>Rechnerkategorien</h2></div><button class="text-button" data-dashboard-action="allCalculators" type="button">Alle Rechner</button></div>
       <div class="category-home-grid">${categories.map(category=>{const meta=categoryMeta[category]||{icon:"∑",description:""};return `<button type="button" data-dashboard-action="${category}"><span>${meta.icon}</span><strong>${category}</strong><small>${categoryCount(category)} Rechner</small></button>`}).join("")}</div>
-    </section>`;
+    </section>
+    ${renderPlantSheet()}`;
   bindDashboardActions();
   const animationToggle=$("#animationToggle");
   if(animationToggle)animationToggle.onclick=()=>{
@@ -561,6 +600,8 @@ function renderDashboard(){
     const paused=visual.classList.toggle("paused");
     animationToggle.textContent=paused?"▶ Animation starten":"Ⅱ Animation pausieren";
   };
+  $$("[data-plant-zone]").forEach(button=>button.onclick=()=>openPlantSheet(button.dataset.plantZone));
+  $("#plantSheetClose").onclick=closePlantSheet;$("#plantSheetCancel").onclick=closePlantSheet;$("#plantSheetBackdrop").onclick=closePlantSheet;
 }
 function bindDashboardActions(){
   $$('[data-dashboard-action]').forEach(button=>button.onclick=()=>{

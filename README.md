@@ -1,27 +1,32 @@
-# Abwasser Rechner – Version 0.8.2
+# Abwasser Rechner – Version 0.8.3
 
-## Neue Cockpit-Startseite
+## Interaktive Anlagenübersicht
 
-- überarbeitete Startseite im Dashboard-Design
-- animierte Kläranlage aus der Vogelperspektive
-- pausierbare Animation
-- aktive Anlage direkt in der Grafik
-- Schnellzugriff auf Rechner, Anlagenakte, Termine, Favoriten und Suche
-- zuletzt verwendete Rechner
-- nächste Termine über alle Anlagen
-- Anlagenstatus und Kennzahlen
-- Rechnerkategorien ausschließlich auf der Startseite
+- sechs großflächige, touch-optimierte Anlagenbereiche
+- Tippen öffnet ein mobiles Bottom Sheet
+- fachlich passende Rechner direkt aus der Anlagenabbildung
+- Mindestgröße wichtiger Bedienelemente 48–56 px
+- Bedienung ohne Hover-Abhängigkeit
+- optimierte Trefferflächen für Smartphone und Tablet
+- Tastaturbedienung und Dialogbeschriftung berücksichtigt
+- bestehende Animation bleibt pausierbar
+- `prefers-reduced-motion` wird weiterhin unterstützt
 
-## Navigation
+## Interaktive Bereiche
 
-Die Rechnerkategorien wurden aus dem linken Menü entfernt. Das Menü bleibt für dauerhafte Hauptbereiche reserviert und ist damit für zukünftige Rubriken vorbereitet.
+- Zulauf und Vorklärung
+- Biologische Stufe
+- Fällmittelstation
+- Nachklärung
+- Schlammbehandlung
+- Schlammentwässerung
 
 ## Datenhaltung
 
-Die vorhandene Speicherlogik und alle Storage-Keys bleiben unverändert. Anlagen aus Version 0.8.1 werden weiterhin verwendet.
+Storage-Keys und Anlagenakte bleiben unverändert. Vorhandene lokale Daten werden weiterverwendet.
 
 ## Update
 
-Alle Dateien einschließlich `js`, `styles.css`, `service-worker.js` und `plant-hero-base.png` in das GitHub-Repository hochladen und bestehende Dateien ersetzen.
+Den vollständigen Inhalt dieses Ordners in das Repository hochladen und vorhandene Dateien ersetzen. `index.html` muss im Stammverzeichnis liegen.
 
-Commit: `Version 0.8.2 - Cockpit Startseite`
+Commit: `Version 0.8.3 - Interaktive Anlagenübersicht`
