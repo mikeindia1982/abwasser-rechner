@@ -190,7 +190,7 @@ const emptyPlant=()=>({
     name:"",internalNumber:"",type:"municipal",industry:"",capacityPE:"",actualPE:"",
     mainProcess:"activated-sludge",processStages:[],processOther:"",process:"",notes:""
   },
-  address:{street:"",postalCode:"",city:"",state:"Brandenburg",country:"Deutschland",gps:"",latitude:"",longitude:"",deliveryAddress:""},
+  address:{street:"",postalCode:"",city:"",state:"Brandenburg",country:"Deutschland",gps:"",latitude:"",longitude:"",accuracy:"",capturedAt:"",geocodedAt:"",deliveryAddress:""},
   access:{parking:"",gate:"",accessCode:"",openingHours:"",registration:"",ppe:"",truckAccess:"",deliveryNotes:"",siteNotes:""},
   operator:{name:"",legalForm:"",customerNumber:"",street:"",postalCode:"",city:"",phone:"",email:"",website:""},
   contacts:[],
@@ -683,7 +683,13 @@ function showPlantForm(id=null){
       <label class="field-label span-2">Weitere Besonderheiten der Anlage<textarea name="master.notes">${esc(p.master.notes)}</textarea></label>
     </div></section>
 
-    <section class="form-section"><h2>Anlagenadresse</h2><div class="form-grid">
+    <section class="form-section"><div class="section-heading"><div><h2>Anlagenadresse</h2><p class="form-note">Standort direkt vor Ort erfassen oder Adresse und Koordinaten manuell ergänzen.</p></div></div>
+      <div class="location-capture-card">
+        <div class="location-capture-copy"><span class="location-capture-icon" aria-hidden="true">⌖</span><div><strong>Standort automatisch übernehmen</strong><p>Das Smartphone ermittelt die GPS-Koordinaten. Bei Internetverbindung wird anschließend die Adresse ergänzt.</p></div></div>
+        <button type="button" class="button primary location-capture-button" id="capturePlantLocation">Aktuellen Standort erfassen</button>
+        <div id="locationCaptureStatus" class="location-status" role="status" aria-live="polite"></div>
+      </div>
+      <div class="form-grid">
       ${field("address.street","Straße und Hausnummer",p.address.street)}
       ${field("address.postalCode","Postleitzahl",p.address.postalCode)}
       ${field("address.city","Ort",p.address.city)}
@@ -691,8 +697,12 @@ function showPlantForm(id=null){
       ${field("address.country","Land",p.address.country)}
       ${field("address.latitude","Breitengrad",p.address.latitude,"number","z. B. 52,894321")}
       ${field("address.longitude","Längengrad",p.address.longitude,"number","z. B. 13,108765")}
+      <label class="field-label">GPS-Genauigkeit<input name="address.accuracy" type="text" value="${esc(p.address.accuracy||"")}" placeholder="wird automatisch ermittelt" readonly></label>
+      <label class="field-label">Erfasst am<input name="address.capturedAt" type="text" value="${esc(p.address.capturedAt||"")}" placeholder="wird automatisch ermittelt" readonly></label>
       <label class="field-label span-2">Abweichende Zufahrts-/Lieferadresse<textarea name="address.deliveryAddress">${esc(p.address.deliveryAddress)}</textarea></label>
-    </div></section>
+    </div>
+    <div id="locationPreview" class="location-preview" hidden></div>
+    </section>
     <section class="form-section"><h2>Zufahrt und Besuch</h2><div class="form-grid">
       ${field("access.parking","Parkmöglichkeit",p.access?.parking||"")}
       ${field("access.gate","Tor / Zufahrt",p.access?.gate||"")}
@@ -766,6 +776,84 @@ function showPlantForm(id=null){
   };
   renderContacts();
   $("#addContact").onclick=()=>{contacts.push({name:"",role:"",department:"",phone:"",mobile:"",email:"",preferred:"email",notes:""});renderContacts()};
+
+  const plantForm=$("#plantForm");
+  const locationStatus=$("#locationCaptureStatus");
+  const locationPreview=$("#locationPreview");
+  const locationButton=$("#capturePlantLocation");
+  const formInput=name=>plantForm.elements.namedItem(name);
+  const setInput=(name,value)=>{const input=formInput(name);if(input)input.value=value??""};
+  const getInput=name=>String(formInput(name)?.value||"").trim();
+  const formatCapturedAt=iso=>iso?new Intl.DateTimeFormat("de-DE",{dateStyle:"short",timeStyle:"short"}).format(new Date(iso)):"";
+  const renderLocationPreview=()=>{
+    const lat=Number(getInput("address.latitude").replace(",","."));
+    const lon=Number(getInput("address.longitude").replace(",","."));
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)){locationPreview.hidden=true;locationPreview.innerHTML="";return;}
+    const query=encodeURIComponent(`${lat},${lon}`);
+    locationPreview.hidden=false;
+    locationPreview.innerHTML=`<div class="location-preview-head"><div><strong>Standort prüfen</strong><span>${lat.toFixed(6)}, ${lon.toFixed(6)}</span></div><a class="button secondary" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noopener">In Karte öffnen</a></div><iframe class="location-preview-map" title="Erfasster Anlagenstandort" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=${query}&output=embed"></iframe><p class="location-attribution">Die automatisch ermittelte Adresse ist ein Vorschlag und sollte vor dem Speichern geprüft werden.</p>`;
+  };
+  const setLocationStatus=(message,kind="info")=>{
+    locationStatus.className=`location-status ${kind}`;
+    locationStatus.textContent=message;
+  };
+  const reverseGeocode=async(latitude,longitude)=>{
+    const endpoint=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=de&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`;
+    const response=await fetch(endpoint,{headers:{Accept:"application/json"}});
+    if(!response.ok)throw new Error(`Adressdienst antwortet mit Status ${response.status}`);
+    return response.json();
+  };
+  const applyReverseAddress=data=>{
+    const a=data?.address||{};
+    const road=a.road||a.pedestrian||a.residential||a.path||a.cycleway||"";
+    const street=[road,a.house_number].filter(Boolean).join(" ");
+    const city=a.city||a.town||a.village||a.municipality||a.hamlet||"";
+    if(street)setInput("address.street",street);
+    if(a.postcode)setInput("address.postalCode",a.postcode);
+    if(city)setInput("address.city",city);
+    if(a.state)setInput("address.state",a.state);
+    if(a.country)setInput("address.country",a.country);
+    const nameInput=formInput("master.name");
+    if(nameInput&&!nameInput.value.trim()&&city)nameInput.value=`Kläranlage ${city}`;
+  };
+  locationButton.onclick=()=>{
+    if(!navigator.geolocation){setLocationStatus("Dieses Gerät oder dieser Browser unterstützt keine Standortermittlung.","error");return;}
+    locationButton.disabled=true;
+    locationButton.textContent="Standort wird ermittelt …";
+    setLocationStatus("GPS-Signal wird gesucht. Dies kann im Gebäude etwas länger dauern.","loading");
+    navigator.geolocation.getCurrentPosition(async position=>{
+      const {latitude,longitude,accuracy}=position.coords;
+      const capturedAt=new Date(position.timestamp||Date.now()).toISOString();
+      setInput("address.latitude",latitude.toFixed(6));
+      setInput("address.longitude",longitude.toFixed(6));
+      setInput("address.accuracy",`± ${Math.round(accuracy)} m`);
+      setInput("address.capturedAt",formatCapturedAt(capturedAt));
+      p.address.capturedAt=capturedAt;
+      p.address.accuracy=String(Math.round(accuracy));
+      renderLocationPreview();
+      if(!navigator.onLine){setLocationStatus(`Koordinaten gespeichert (Genauigkeit ± ${Math.round(accuracy)} m). Keine Internetverbindung – die Adresse kann später manuell ergänzt werden.`,"warning");locationButton.disabled=false;locationButton.textContent="Standort erneut erfassen";return;}
+      setLocationStatus(`Koordinaten erfasst (Genauigkeit ± ${Math.round(accuracy)} m). Adresse wird ermittelt …`,"loading");
+      try{
+        const data=await reverseGeocode(latitude,longitude);
+        applyReverseAddress(data);
+        p.address.geocodedAt=new Date().toISOString();
+        setLocationStatus("Standort und Adresse wurden übernommen. Bitte die Angaben vor dem Speichern prüfen.","success");
+      }catch(error){
+        console.warn("Rückwärts-Geokodierung fehlgeschlagen",error);
+        setLocationStatus("Die Koordinaten wurden gespeichert, aber die Adresse konnte nicht automatisch ermittelt werden. Sie kann manuell ergänzt werden.","warning");
+      }finally{
+        locationButton.disabled=false;
+        locationButton.textContent="Standort erneut erfassen";
+      }
+    },error=>{
+      const messages={1:"Standortfreigabe wurde verweigert. Bitte die Berechtigung im Browser aktivieren oder die Daten manuell eintragen.",2:"Der Standort konnte nicht bestimmt werden. Bitte nach draußen gehen oder GPS aktivieren.",3:"Die Standortermittlung hat zu lange gedauert. Bitte erneut versuchen."};
+      setLocationStatus(messages[error.code]||"Der Standort konnte nicht ermittelt werden.","error");
+      locationButton.disabled=false;
+      locationButton.textContent="Standort erneut erfassen";
+    },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+  };
+  ["address.latitude","address.longitude"].forEach(name=>formInput(name)?.addEventListener("input",renderLocationPreview));
+  renderLocationPreview();
   $("#cancelPlant").onclick=()=>existing?showPlantDashboard():showApplication("plants");
   $("#plantForm").onsubmit=e=>{
     e.preventDefault();
@@ -786,6 +874,9 @@ function showPlantForm(id=null){
     if(result.address.latitude!==""&&(!Number.isFinite(latitude)||latitude<-90||latitude>90))return alert("Der Breitengrad muss zwischen -90 und +90 liegen.");
     if(result.address.longitude!==""&&(!Number.isFinite(longitude)||longitude<-180||longitude>180))return alert("Der Längengrad muss zwischen -180 und +180 liegen.");
     result.address.gps=result.address.latitude&&result.address.longitude?`${result.address.latitude}, ${result.address.longitude}`:result.address.gps||"";
+    result.address.accuracy=p.address.accuracy||String(result.address.accuracy||"").replace(/[^0-9.,]/g,"");
+    result.address.capturedAt=p.address.capturedAt||result.address.capturedAt||"";
+    result.address.geocodedAt=p.address.geocodedAt||result.address.geocodedAt||"";
     result.operator.phone=combinePhone(fd,"operator.phoneParts");
     result.contacts=contacts.map((c,i)=>{
       const obj={};

@@ -1,32 +1,13 @@
-# Abwasser Rechner – Version 0.8.3
+# Abwasser Rechner v0.8.4
 
-## Interaktive Anlagenübersicht
+## Standortgestützte Anlagenerfassung
 
-- sechs großflächige, touch-optimierte Anlagenbereiche
-- Tippen öffnet ein mobiles Bottom Sheet
-- fachlich passende Rechner direkt aus der Anlagenabbildung
-- Mindestgröße wichtiger Bedienelemente 48–56 px
-- Bedienung ohne Hover-Abhängigkeit
-- optimierte Trefferflächen für Smartphone und Tablet
-- Tastaturbedienung und Dialogbeschriftung berücksichtigt
-- bestehende Animation bleibt pausierbar
-- `prefers-reduced-motion` wird weiterhin unterstützt
+- GPS-Koordinaten direkt über Smartphone oder Tablet erfassen
+- Messgenauigkeit und Erfassungszeit anzeigen
+- Adresse bei bestehender Internetverbindung automatisch aus den Koordinaten ableiten
+- Anlagenname aus dem ermittelten Ort vorschlagen, sofern das Feld noch leer ist
+- Standort vor dem Speichern in einer Karte prüfen
+- Koordinaten auch offline speichern; Adresse kann später manuell ergänzt werden
+- verständliche Hinweise bei verweigerter Berechtigung, fehlendem GPS oder Zeitüberschreitung
 
-## Interaktive Bereiche
-
-- Zulauf und Vorklärung
-- Biologische Stufe
-- Fällmittelstation
-- Nachklärung
-- Schlammbehandlung
-- Schlammentwässerung
-
-## Datenhaltung
-
-Storage-Keys und Anlagenakte bleiben unverändert. Vorhandene lokale Daten werden weiterverwendet.
-
-## Update
-
-Den vollständigen Inhalt dieses Ordners in das Repository hochladen und vorhandene Dateien ersetzen. `index.html` muss im Stammverzeichnis liegen.
-
-Commit: `Version 0.8.3 - Interaktive Anlagenübersicht`
+Die bestehende lokale Datenhaltung bleibt kompatibel. Neue Standortmetadaten werden ergänzend in der Anlagenadresse gespeichert.
