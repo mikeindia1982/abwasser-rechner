@@ -1,23 +1,11 @@
-# Abwasser-Rechner 0.8.6.2
+# Abwasser-Rechner 0.9.2
 
-Offline-fähige PWA für Abwassertechnik und anlagenbezogene Außendienstdaten.
-
-## Neu in 0.8.6.2
-
-- Schlammentwässerung als eigener Bereich der Anlagenakte
-- Verfahren, Hersteller, Typ, Baujahr, Leistung, Betriebsdaten und Peripherie
-- beliebig viele Dosieranlagen pro Kläranlage
-- Tankanlage mit Volumen, Material, Baujahr, Überwachung und Prüfterminen
-- Dosierstation mit Pumpentechnik, Leistung, Betriebsweise und Armaturen
-- Medium, Verbrauch, Gefahrstoffangaben sowie Mess-, Steuer- und Regeltechnik
-- kompakte Technikübersicht auf der Anlagenstartseite
-- automatische Einbindung der Entwässerung und Fällmitteldosierung in das Verfahrensschema
-- bestehende Anlagen werden ohne Datenverlust um die neuen Bereiche ergänzt
+Offline-first PWA mit digitaler Anlagenakte, Besuchsmodus, Anlagenpass, Produkten, Optimierungsprojekten und lokaler Dokumentenbibliothek.
 
 ## Installation
 
-Alle Dateien gemeinsam auf einen HTTPS-Webspace oder GitHub Pages hochladen. Nach einem Update die installierte PWA einmal vollständig schließen und neu öffnen.
+Alle Dateien auf einen HTTPS-Webserver übertragen. Bei einer installierten PWA die App nach dem Update vollständig schließen und erneut öffnen.
 
-## Version 0.9.0
+## Dokumente
 
-Der digitale Anlagenpass zeigt den Bearbeitungs- und Vollständigkeitsgrad jeder Anlagenakte. Die Bewertung dient der Arbeitsvorbereitung und Dokumentationsqualität, nicht der technischen Leistungsbewertung.
+Dateien werden lokal im Browser über IndexedDB gespeichert. Browserdaten dürfen nicht gelöscht werden, solange kein separates Dateiarchiv exportiert wurde.
