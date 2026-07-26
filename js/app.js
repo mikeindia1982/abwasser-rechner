@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.9.1";
+const VERSION="0.9.2";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -188,8 +188,55 @@ function makeId(){
   return globalThis.crypto?.randomUUID?.()||`id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 }
 
+const DOCUMENT_DB_NAME="abwasser-document-library-v1";
+const DOCUMENT_DB_STORE="files";
+function openDocumentDb(){
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open(DOCUMENT_DB_NAME,1);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(DOCUMENT_DB_STORE))db.createObjectStore(DOCUMENT_DB_STORE,{keyPath:"id"});
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error("Dokumentenspeicher konnte nicht geöffnet werden."));
+  });
+}
+async function putDocumentFile(documentId,file){
+  const db=await openDocumentDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DOCUMENT_DB_STORE,"readwrite");
+    tx.objectStore(DOCUMENT_DB_STORE).put({id:documentId,blob:file,name:file.name,type:file.type||"application/octet-stream",size:file.size,updatedAt:new Date().toISOString()});
+    tx.oncomplete=()=>{db.close();resolve(true)};
+    tx.onerror=()=>{db.close();reject(tx.error||new Error("Datei konnte nicht gespeichert werden."))};
+  });
+}
+async function getDocumentFile(documentId){
+  const db=await openDocumentDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DOCUMENT_DB_STORE,"readonly");
+    const req=tx.objectStore(DOCUMENT_DB_STORE).get(documentId);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error);
+    tx.oncomplete=()=>db.close();
+  });
+}
+async function deleteDocumentFile(documentId){
+  const db=await openDocumentDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DOCUMENT_DB_STORE,"readwrite");
+    tx.objectStore(DOCUMENT_DB_STORE).delete(documentId);
+    tx.oncomplete=()=>{db.close();resolve(true)};
+    tx.onerror=()=>{db.close();reject(tx.error)};
+  });
+}
+function formatFileSize(bytes=0){
+  const n=Number(bytes)||0;if(!n)return "";
+  if(n<1024)return `${n} B`;if(n<1024*1024)return `${(n/1024).toFixed(1)} KB`;
+  return `${(n/1024/1024).toFixed(1)} MB`;
+}
+
 const emptyPlant=()=>({
-  schemaVersion:8,
+  schemaVersion:9,
   id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
@@ -1491,7 +1538,7 @@ function renderDigitalPlantPass(plant){
 
 function normalizeDocument(value={}){
   const x=value&&typeof value==="object"?value:{};
-  return {id:x.id||makeId(),title:x.title||"Dokument",category:x.category||"other",documentNumber:x.documentNumber||"",version:x.version||"",documentDate:x.documentDate||"",validUntil:x.validUntil||"",status:x.status||"current",productId:x.productId||"",projectId:x.projectId||"",component:x.component||"",fileName:x.fileName||"",fileType:x.fileType||"",notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
+  return {id:x.id||makeId(),title:x.title||"Dokument",category:x.category||"other",documentNumber:x.documentNumber||"",version:x.version||"",documentDate:x.documentDate||"",validUntil:x.validUntil||"",status:x.status||"current",productId:x.productId||"",projectId:x.projectId||"",component:x.component||"",fileName:x.fileName||"",fileType:x.fileType||"",fileSize:Number(x.fileSize)||0,hasLocalFile:Boolean(x.hasLocalFile),notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
 }
 function normalizeProduct(value={}){
   const x=value&&typeof value==="object"?value:{};
@@ -1521,16 +1568,51 @@ function renderCommercialFoundation(plant){
   ${activeProjects.length?`<div class="project-preview">${activeProjects.slice(0,3).map(x=>`<article><div><span class="stage-chip">${PROJECT_STAGES[x.status]||x.status}</span><strong>${esc(x.title)}</strong><small>${esc(x.nextStep||x.goal||'Nächsten Schritt festlegen')}</small></div><div class="project-probability"><b>${Number(x.probability)||0}%</b><small>${x.value?euro(x.value):'ohne Wert'}</small></div></article>`).join('')}</div>`:'<div class="empty-panel compact"><p>Noch kein Optimierungsprojekt. Potenziale können direkt aus einem Besuch heraus strukturiert weiterverfolgt werden.</p></div>'}
   </section>`;
 }
+function documentStatusLabel(d){
+  if(d.validUntil&&new Date(d.validUntil+'T23:59:59')<new Date())return 'Abgelaufen';
+  return ({current:'Aktuell',draft:'Entwurf',expired:'Abgelaufen',archived:'Archiviert'})[d.status]||'Aktuell';
+}
+async function openStoredDocument(id,download=false){
+  try{
+    const record=await getDocumentFile(id);
+    if(!record?.blob)return alert('Zu diesem Eintrag ist keine lokale Datei gespeichert.');
+    const url=URL.createObjectURL(record.blob);
+    if(download){const a=document.createElement('a');a.href=url;a.download=record.name||'dokument';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);return;}
+    const d=activePlant()?.documents?.find(x=>x.id===id);
+    setView('documentPreview');setBreadcrumb(`Dokumente › ${d?.title||record.name}`);
+    const isPdf=(record.type||'').includes('pdf')||/\.pdf$/i.test(record.name||'');
+    const isImage=(record.type||'').startsWith('image/');
+    appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Offline-Dokument</p><h1>${esc(d?.title||record.name)}</h1><p class="subtitle">${esc(record.name)} · ${formatFileSize(record.size)}</p></div><div class="section-actions"><button class="button secondary" id="backDocuments">Zurück</button><button class="button primary" id="downloadDocument">Herunterladen</button></div></section>${isPdf?`<iframe class="document-preview-frame" src="${url}" title="PDF-Vorschau"></iframe>`:isImage?`<div class="document-image-preview"><img src="${url}" alt="${esc(d?.title||record.name)}"></div>`:`<div class="empty-panel"><p>Für diesen Dateityp steht keine integrierte Vorschau zur Verfügung. Die Datei kann heruntergeladen und mit der passenden App geöffnet werden.</p></div>`}`;
+    $('#backDocuments').onclick=()=>{URL.revokeObjectURL(url);showDocuments()};
+    $('#downloadDocument').onclick=()=>openStoredDocument(id,true);
+  }catch(error){console.error(error);alert('Das Dokument konnte nicht geöffnet werden.');}
+}
 function showDocuments(){
   const plant=activePlant();if(!plant)return;setView('documents');setBreadcrumb(`Anlagen › ${plant.master.name} › Dokumente`);
   const docs=[...(plant.documents||[])].sort((a,b)=>String(b.documentDate||b.createdAt).localeCompare(String(a.documentDate||a.createdAt)));
-  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Digitale Anlagenakte</p><h1>Dokumente</h1><p class="subtitle">Vertriebs- und Technikdokumente mit Produkten, Projekten und Komponenten verknüpfen.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addDocument">Dokument erfassen</button></div></section><div class="entity-list">${docs.length?docs.map(d=>`<article class="entity-card"><div><span class="entity-type">${DOCUMENT_CATEGORIES[d.category]||'Dokument'}</span><h3>${esc(d.title)}</h3><p>${esc(d.documentNumber||'ohne Dokumentnummer')} ${d.version?`· Version ${esc(d.version)}`:''}</p><small>${d.productId?`Produkt: ${esc(linkedName(plant.products,d.productId))} · `:''}${d.projectId?`Projekt: ${esc(linkedName(plant.optimizationProjects,d.projectId))} · `:''}${d.documentDate?new Date(d.documentDate+'T00:00:00').toLocaleDateString('de-DE'):'Datum offen'}</small></div><div class="entity-actions"><button class="text-button" data-edit-document="${d.id}">Bearbeiten</button><button class="text-button danger" data-delete-document="${d.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Dokumente erfasst.</p></div>'}</div>`;
-  $('#backPlant').onclick=showPlantDashboard;$('#addDocument').onclick=()=>showDocumentForm();$$('[data-edit-document]').forEach(b=>b.onclick=()=>showDocumentForm(b.dataset.editDocument));$$('[data-delete-document]').forEach(b=>b.onclick=()=>{if(confirm('Dokumenteintrag löschen?')){plant.documents=plant.documents.filter(x=>x.id!==b.dataset.deleteDocument);savePlants();showDocuments();}});
+  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Offline-Dokumentenbibliothek</p><h1>Dokumente</h1><p class="subtitle">PDFs und weitere Dateien lokal speichern und mit Produkten, Projekten und Komponenten verknüpfen.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addDocument">Dokument importieren</button></div></section><div class="document-library-note"><strong>Offline gespeichert</strong><span>Dateien liegen ausschließlich im Browser dieses Geräts (IndexedDB). Ein normaler JSON-Export enthält nur die Metadaten, nicht die PDF-Dateien.</span></div><div class="entity-list">${docs.length?docs.map(d=>`<article class="entity-card document-card"><div><span class="entity-type">${DOCUMENT_CATEGORIES[d.category]||'Dokument'} · ${documentStatusLabel(d)}</span><h3>${esc(d.title)}</h3><p>${esc(d.documentNumber||'ohne Dokumentnummer')} ${d.version?`· Version ${esc(d.version)}`:''}</p><small>${d.productId?`Produkt: ${esc(linkedName(plant.products,d.productId))} · `:''}${d.projectId?`Projekt: ${esc(linkedName(plant.optimizationProjects,d.projectId))} · `:''}${d.fileName?`${esc(d.fileName)}${d.fileSize?` (${formatFileSize(d.fileSize)})`:''}`:'Keine Datei hinterlegt'}</small></div><div class="entity-actions">${d.hasLocalFile?`<button class="text-button" data-open-document="${d.id}">Öffnen</button><button class="text-button" data-download-document="${d.id}">Exportieren</button>`:''}<button class="text-button" data-edit-document="${d.id}">Bearbeiten</button><button class="text-button danger" data-delete-document="${d.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Dokumente importiert.</p></div>'}</div>`;
+  $('#backPlant').onclick=showPlantDashboard;$('#addDocument').onclick=()=>showDocumentForm();
+  $$('[data-open-document]').forEach(b=>b.onclick=()=>openStoredDocument(b.dataset.openDocument));
+  $$('[data-download-document]').forEach(b=>b.onclick=()=>openStoredDocument(b.dataset.downloadDocument,true));
+  $$('[data-edit-document]').forEach(b=>b.onclick=()=>showDocumentForm(b.dataset.editDocument));
+  $$('[data-delete-document]').forEach(b=>b.onclick=async()=>{if(confirm('Dokument einschließlich lokal gespeicherter Datei löschen?')){plant.documents=plant.documents.filter(x=>x.id!==b.dataset.deleteDocument);try{await deleteDocumentFile(b.dataset.deleteDocument)}catch(e){console.warn(e)}savePlants();showDocuments();}});
 }
 function showDocumentForm(id=''){
-  const plant=activePlant(),d=normalizeDocument((plant.documents||[]).find(x=>x.id===id)||{});setView('documentForm');setBreadcrumb('Dokument erfassen');
-  appView.innerHTML=`<form id="documentForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Dokumentenmodell</p><h1>${id?'Dokument bearbeiten':'Dokument erfassen'}</h1><p class="subtitle">In Phase 1 werden Metadaten und Verknüpfungen gespeichert. Die lokale Dateiablage folgt in Phase 2.</p></div></section><section class="form-section"><div class="form-grid">${field('title','Bezeichnung',d.title)}${selectField('category','Kategorie',d.category,Object.entries(DOCUMENT_CATEGORIES))}${field('documentNumber','Dokument-/Angebotsnummer',d.documentNumber)}${field('version','Version / Revision',d.version)}${field('documentDate','Dokumentdatum',d.documentDate,'date')}${field('validUntil','Gültig bis',d.validUntil,'date')}${selectField('status','Status',d.status,[["current","Aktuell"],["draft","Entwurf"],["expired","Abgelaufen"],["archived","Archiviert"]])}<label class="field-label">Produkt<select name="productId">${optionsHtml(plant.products,d.productId)}</select></label><label class="field-label">Optimierungsprojekt<select name="projectId">${optionsHtml(plant.optimizationProjects,d.projectId)}</select></label>${field('component','Komponente / Anlagenteil',d.component)}${field('fileName','Dateiname / Ablagehinweis',d.fileName)}<label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(d.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelDocument">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
-  $('#cancelDocument').onclick=showDocuments;$('#documentForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);for(const k of ['title','category','documentNumber','version','documentDate','validUntil','status','productId','projectId','component','fileName','notes'])d[k]=String(fd.get(k)||'').trim();d.updatedAt=new Date().toISOString();const i=plant.documents.findIndex(x=>x.id===d.id);if(i>=0)plant.documents[i]=d;else plant.documents.push(d);if(savePlants())showDocuments();};
+  const plant=activePlant(),d=normalizeDocument((plant.documents||[]).find(x=>x.id===id)||{});setView('documentForm');setBreadcrumb('Dokument importieren');
+  appView.innerHTML=`<form id="documentForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Dokumentenbibliothek</p><h1>${id?'Dokument bearbeiten':'Dokument importieren'}</h1><p class="subtitle">Datei offline speichern, versionieren und fachlich zuordnen.</p></div></section><section class="form-section"><div class="form-grid"><label class="field-label span-2 file-drop-field">Lokale Datei<input name="documentFile" type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"><span>${d.hasLocalFile?`Aktuell: ${esc(d.fileName)}${d.fileSize?` · ${formatFileSize(d.fileSize)}`:''}. Eine neue Auswahl ersetzt die Datei.`:'PDF, Bild oder Office-Datei auswählen. Empfohlen: maximal 25 MB.'}</span></label>${field('title','Bezeichnung',d.title)}${selectField('category','Kategorie',d.category,Object.entries(DOCUMENT_CATEGORIES))}${field('documentNumber','Dokument-/Angebotsnummer',d.documentNumber)}${field('version','Version / Revision',d.version)}${field('documentDate','Dokumentdatum',d.documentDate,'date')}${field('validUntil','Gültig bis',d.validUntil,'date')}${selectField('status','Status',d.status,[["current","Aktuell"],["draft","Entwurf"],["expired","Abgelaufen"],["archived","Archiviert"]])}<label class="field-label">Produkt<select name="productId">${optionsHtml(plant.products,d.productId)}</select></label><label class="field-label">Optimierungsprojekt<select name="projectId">${optionsHtml(plant.optimizationProjects,d.projectId)}</select></label>${field('component','Komponente / Anlagenteil',d.component)}<label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(d.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelDocument">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
+  const fileInput=$('[name="documentFile"]');
+  fileInput.onchange=()=>{const f=fileInput.files?.[0];if(f&&!id&&!d.title)d.title=f.name.replace(/\.[^.]+$/,'');};
+  $('#cancelDocument').onclick=showDocuments;
+  $('#documentForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;button.textContent='Speichert …';try{
+    const fd=new FormData(e.currentTarget),file=fileInput.files?.[0];
+    if(file&&file.size>25*1024*1024)throw new Error('Die Datei ist größer als 25 MB.');
+    for(const k of ['title','category','documentNumber','version','documentDate','validUntil','status','productId','projectId','component','notes'])d[k]=String(fd.get(k)||'').trim();
+    if(!d.title&&file)d.title=file.name.replace(/\.[^.]+$/,'');
+    if(!d.title)throw new Error('Bitte eine Bezeichnung eingeben.');
+    if(file){await putDocumentFile(d.id,file);d.fileName=file.name;d.fileType=file.type;d.fileSize=file.size;d.hasLocalFile=true;}
+    d.updatedAt=new Date().toISOString();const i=plant.documents.findIndex(x=>x.id===d.id);if(i>=0)plant.documents[i]=d;else plant.documents.push(d);
+    if(savePlants())showDocuments();
+  }catch(error){console.error(error);alert(error.message||'Das Dokument konnte nicht gespeichert werden.');button.disabled=false;button.textContent='Speichern';}};
 }
 function showProducts(){
  const plant=activePlant();setView('products');setBreadcrumb(`Anlagen › ${plant.master.name} › Produkte`);const products=plant.products||[];

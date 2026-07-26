@@ -1,9 +1,11 @@
-# Abwasser-Rechner 0.9.1
+# Abwasser-Rechner 0.9.2
 
-Offline-fähige PWA für die digitale Anlagenakte im technischen Außendienst.
+Offline-first PWA mit digitaler Anlagenakte, Besuchsmodus, Anlagenpass, Produkten, Optimierungsprojekten und lokaler Dokumentenbibliothek.
 
-## Phase 1 – Datenfundament
+## Installation
 
-Version 0.9.1 erweitert jede Anlage um strukturierte Dokumente, Produkte und Optimierungsprojekte. Angebote, Sicherheitsdatenblätter, Aufträge und Produktinformationen können damit fachlich verknüpft werden. Der technische Sales Funnel wird als Optimierungsprojekt abgebildet.
+Alle Dateien auf einen HTTPS-Webserver übertragen. Bei einer installierten PWA die App nach dem Update vollständig schließen und erneut öffnen.
 
-Die eigentliche lokale Dateiablage für PDF-Dokumente folgt in Phase 2; diese Version stabilisiert zuerst Datenmodell, Beziehungen und Bedienabläufe.
+## Dokumente
+
+Dateien werden lokal im Browser über IndexedDB gespeichert. Browserdaten dürfen nicht gelöscht werden, solange kein separates Dateiarchiv exportiert wurde.
