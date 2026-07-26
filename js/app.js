@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8";
+const VERSION="0.8.1";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -337,26 +337,23 @@ function renderPlantSelector(){
 function renderCategoryMenu(){
   menu.innerHTML=categories.map(category=>{
     const meta=categoryMeta[category]||{icon:"•",description:""};
-    const open=state.openCategories.has(category);
-    const items=calculators.filter(item=>item.category===category);
-    return `<section class="menu-group ${open?"open":""}">
-      <button class="menu-group-toggle ${state.category===category&&!state.favoritesOnly?"active":""}" type="button" data-category-toggle="${category}" aria-expanded="${open}">
-        <span class="menu-icon">${meta.icon}</span><span class="menu-label">${category}</span>
-        <span class="menu-count">${items.length}</span><span class="menu-chevron">›</span>
-      </button>
-      <div class="menu-items">
-        <button class="menu-all" type="button" data-category="${category}">Alle in ${category}</button>
-        ${items.map(item=>`<button class="menu-item ${state.selected===item.id?"active":""}" type="button" data-calculator="${item.id}">${item.name}</button>`).join("")}
-      </div>
-    </section>`;
+    const active=state.category===category&&!state.favoritesOnly;
+    return `<button class="category-nav-item ${active?"active":""}" type="button" data-category="${category}" title="${esc(meta.description||category)}">
+      <span class="category-nav-icon">${meta.icon}</span>
+      <span class="category-nav-copy"><strong>${category}</strong><small>${esc(meta.description||"")}</small></span>
+      <span class="category-nav-count">${categoryCount(category)}</span>
+    </button>`;
   }).join("");
-  $$("[data-category-toggle]").forEach(button=>button.onclick=()=>{
-    const category=button.dataset.categoryToggle;
-    state.openCategories.has(category)?state.openCategories.delete(category):state.openCategories.add(category);
-    persistMenu();renderCategoryMenu();
+  $$('[data-category]').forEach(button=>button.onclick=()=>{showCategory(button.dataset.category);closeMobileSidebar()});
+  updatePrimaryNavigation();
+}
+function updatePrimaryNavigation(){
+  $$('[data-primary-view]').forEach(button=>{
+    const target=button.dataset.primaryView;
+    const calculatorActive=target==="calculators"&&(state.view==="calculators"||state.view==="dashboard");
+    const plantActive=target==="plants"&&["plants","plantForm","plantDashboard","limits","traffic"].includes(state.view);
+    button.classList.toggle("active",calculatorActive||plantActive);
   });
-  $$("[data-category]").forEach(button=>button.onclick=()=>{showCategory(button.dataset.category);closeMobileSidebar()});
-  $$("[data-calculator]").forEach(button=>button.onclick=()=>{selectCalculator(button.dataset.calculator);closeMobileSidebar()});
 }
 function toggleFavorite(id){
   state.favorites.has(id)?state.favorites.delete(id):state.favorites.add(id);
@@ -388,6 +385,7 @@ function setView(view){
   appView.classList.toggle("hidden",!["plants","plantForm","plantDashboard","limits","traffic"].includes(view));
   $("#dashboardNav").classList.toggle("active",view==="dashboard");
   $("#printButton").classList.toggle("hidden",view!=="calculators"||!state.selected);
+  updatePrimaryNavigation();
 }
 function showHome(){
   state.category=null;state.query="";state.selected=null;state.favoritesOnly=false;
@@ -402,6 +400,14 @@ function showCategory(category){
   $("#catalogDescription").textContent=meta.description||"Verfügbare Rechner";
   workspace.innerHTML=`<div class="empty-state"><h2>Rechner auswählen</h2><p>Wähle ein Werkzeug aus der Kategorie ${category}.</p></div>`;
   setBreadcrumb(category);renderCards();renderCategoryMenu();
+}
+function showAllCalculators(){
+  state.category=null;state.favoritesOnly=false;state.selected=null;state.query="";
+  $("#searchInput").value="";$("#favoriteFilter").textContent="★ Favoriten";setView("calculators");
+  $("#catalogEyebrow").textContent="Werkzeuge";$("#catalogTitle").textContent="Alle Rechner";
+  $("#catalogDescription").textContent="Alle verfügbaren Rechner, gegliedert nach Fachgebiet.";
+  workspace.innerHTML=`<div class="empty-state"><h2>Rechner auswählen</h2><p>Wähle ein Werkzeug aus den Karten.</p></div>`;
+  setBreadcrumb("Alle Rechner");renderCards();renderCategoryMenu();
 }
 function showSearchResults(){
   state.category=null;state.favoritesOnly=false;state.selected=null;setView("calculators");
@@ -913,6 +919,13 @@ function downloadJson(filename,data){
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
 }
 
+$$('[data-primary-view]').forEach(button=>button.onclick=()=>{
+  const target=button.dataset.primaryView;
+  if(target==="plants")showApplication("plants");
+  else if(target==="calculators")showAllCalculators();
+  closeMobileSidebar();
+});
+$("#showAllCalculators").onclick=()=>{showAllCalculators();closeMobileSidebar()};
 $("#homeButton").onclick=showHome;$("#dashboardNav").onclick=()=>{showHome();closeMobileSidebar()};
 $("#breadcrumbHome").onclick=showHome;$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
 $("#activePlantSelect").onchange=e=>{activePlantId=e.target.value;savePlants();showPlantDashboard()};

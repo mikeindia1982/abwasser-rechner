@@ -141,3 +141,30 @@ footer{text-align:center;color:var(--muted);font-size:.77rem;padding:16px clamp(
 input[readonly]{background:var(--surface-soft);cursor:not-allowed}
 @media(max-width:900px){.chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.chip-grid{grid-template-columns:1fr}}
+
+/* Version 0.8.1: kompakte, rubrikenfähige Navigation */
+.primary-navigation{display:grid;gap:4px;padding:5px 10px 8px;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)}
+.primary-nav-item{width:100%;display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:9px;border:0;border-radius:13px;padding:.69rem .7rem;background:transparent;color:rgba(255,255,255,.78);text-align:left}
+.primary-nav-item:hover:not(:disabled),.primary-nav-item.active{background:rgba(255,255,255,.13);color:#fff}
+.primary-nav-item:disabled{opacity:.5;cursor:default}
+.primary-nav-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.1);font-size:.8rem;font-weight:900;letter-spacing:-.02em}
+.primary-nav-item.active .primary-nav-icon{background:#fff;color:var(--primary-dark)}
+.primary-nav-copy{display:grid;gap:1px;min-width:0}.primary-nav-copy strong{font-size:.87rem}.primary-nav-copy small{font-size:.66rem;font-weight:600;color:rgba(255,255,255,.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.primary-nav-item.active .primary-nav-copy small{color:rgba(255,255,255,.72)}
+.nav-status{font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:.2rem .36rem}
+.sidebar-section{display:flex;min-height:0;flex:1;flex-direction:column;padding:9px 8px 10px}
+.sidebar-section-heading{display:flex;align-items:center;justify-content:space-between;padding:2px 7px 8px;color:rgba(255,255,255,.55);font-size:.65rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.sidebar-section-heading button{border:0;background:transparent;color:rgba(255,255,255,.68);font-size:.67rem;font-weight:800;padding:.2rem .3rem;border-radius:6px}
+.sidebar-section-heading button:hover{background:rgba(255,255,255,.09);color:#fff}
+.category-menu{display:grid;align-content:start;gap:4px;overflow:auto;padding:0 2px 8px}
+.category-nav-item{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;border:0;border-radius:12px;padding:.62rem .65rem;background:transparent;color:rgba(255,255,255,.75);text-align:left}
+.category-nav-item:hover,.category-nav-item.active{background:rgba(255,255,255,.1);color:#fff}
+.category-nav-item.active{box-shadow:inset 3px 0 0 rgba(255,255,255,.86)}
+.category-nav-icon{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:rgba(255,255,255,.08);font-size:.68rem;font-weight:900}
+.category-nav-item.active .category-nav-icon{background:rgba(255,255,255,.18)}
+.category-nav-copy{display:grid;gap:1px;min-width:0}.category-nav-copy strong{font-size:.8rem}.category-nav-copy small{font-size:.61rem;line-height:1.18;color:rgba(255,255,255,.46);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.category-nav-item.active .category-nav-copy small{color:rgba(255,255,255,.66)}
+.category-nav-count{min-width:23px;padding:.17rem .35rem;border-radius:999px;background:rgba(255,255,255,.09);font-size:.62rem;font-weight:900;text-align:center;color:rgba(255,255,255,.62)}
+.category-nav-item.active .category-nav-count{background:#fff;color:var(--primary-dark)}
+/* Alte Accordion-Regeln bleiben für Kompatibilität erhalten, werden in 0.8.1 jedoch nicht mehr gerendert. */
+@media(max-height:760px) and (min-width:1051px){.plant-context{padding-top:7px;padding-bottom:7px}.primary-nav-copy small,.category-nav-copy small{display:none}.primary-nav-item,.category-nav-item{padding-top:.52rem;padding-bottom:.52rem}}

@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>Abwasser Rechner v0.8</title>
+  <title>Abwasser Rechner v0.8.1</title>
 </head>
 <body>
 <div class="app-layout">
@@ -19,7 +19,7 @@
         <span class="brand-mark">AR</span>
         <span class="brand-copy">
           <strong>Abwasser Rechner</strong>
-          <small>Version 0.8</small>
+          <small>Version 0.8.1</small>
         </span>
       </button>
       <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
@@ -43,22 +43,28 @@
       <button id="clearSearch" type="button" aria-label="Suche löschen">×</button>
     </div>
 
-    <nav class="app-menu" aria-label="Anwendungsbereiche">
-      <section class="menu-group open">
-        <button class="menu-group-toggle" type="button" data-static-toggle="anlagen" aria-expanded="true">
-          <span class="menu-icon">KA</span><span class="menu-label">Anlagen</span><span class="menu-chevron">›</span>
-        </button>
-        <div class="menu-items" data-static-items="anlagen">
-          <button type="button" data-view="plants">Anlagenübersicht</button>
-          <button type="button" data-view="plantForm">Neue Anlage</button>
-          <button type="button" data-view="plantDashboard">Anlagenstartseite</button>
-          <button type="button" data-view="limits">Grenz- und Zielwerte</button>
-          <button type="button" data-view="traffic">Ampelübersicht</button>
-        </div>
-      </section>
+    <nav class="primary-navigation" aria-label="Anwendungsbereiche">
+      <button class="primary-nav-item" type="button" data-primary-view="plants">
+        <span class="primary-nav-icon">KA</span><span class="primary-nav-copy"><strong>Anlagen</strong><small>Akten, Kontakte und Termine</small></span>
+      </button>
+      <button class="primary-nav-item active" type="button" data-primary-view="calculators">
+        <span class="primary-nav-icon">∑</span><span class="primary-nav-copy"><strong>Rechner</strong><small>Fachliche Werkzeuge</small></span>
+      </button>
+      <button class="primary-nav-item planned" type="button" disabled>
+        <span class="primary-nav-icon">↗</span><span class="primary-nav-copy"><strong>Auswertung</strong><small>Diagramme und Vergleiche</small></span><span class="nav-status">später</span>
+      </button>
+      <button class="primary-nav-item planned" type="button" disabled>
+        <span class="primary-nav-icon">D</span><span class="primary-nav-copy"><strong>Dokumentation</strong><small>Berichte und Protokolle</small></span><span class="nav-status">später</span>
+      </button>
     </nav>
 
-    <nav id="categoryMenu" class="category-menu" aria-label="Rechnerkategorien"></nav>
+    <section class="sidebar-section" aria-labelledby="calculatorCategoryTitle">
+      <div class="sidebar-section-heading">
+        <span id="calculatorCategoryTitle">Rechnerkategorien</span>
+        <button id="showAllCalculators" type="button">Alle</button>
+      </div>
+      <nav id="categoryMenu" class="category-menu" aria-label="Rechnerkategorien"></nav>
+    </section>
 
     <div class="sidebar-bottom">
       <button id="favoriteFilter" class="side-action" type="button">★ Favoriten</button>
