@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.9.0";
+const VERSION="0.9.1";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -189,7 +189,7 @@ function makeId(){
 }
 
 const emptyPlant=()=>({
-  schemaVersion:7,
+  schemaVersion:8,
   id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
@@ -214,7 +214,11 @@ const emptyPlant=()=>({
     sludgeAge:"",sludgeFlow:"",sludgeTs:"",cakeTs:"",retention:"",polymer:"",
     disposalPrice:"",precipitantPrice:"",operatingDays:"365"
   },
-  limits:structuredClone(defaultLimits)
+  limits:structuredClone(defaultLimits),
+  documents:[],
+  products:[],
+  optimizationProjects:[],
+  knowledgeLinks:[]
 });
 
 const VISIT_CHECKLIST=[
@@ -245,7 +249,7 @@ function normalizePlant(value={}){
   const normalized={
     ...base,
     ...source,
-    schemaVersion:7,
+    schemaVersion:8,
     id:source.id||base.id,
     master:{...base.master,...(source.master||{})},
     address:{...base.address,...(source.address||{})},
@@ -258,6 +262,10 @@ function normalizePlant(value={}){
     contacts:Array.isArray(source.contacts)?source.contacts:[],
     visits:Array.isArray(source.visits)?source.visits.map(normalizeVisit):[],
     actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||""})):[],
+    documents:Array.isArray(source.documents)?source.documents.map(normalizeDocument):[],
+    products:Array.isArray(source.products)?source.products.map(normalizeProduct):[],
+    optimizationProjects:Array.isArray(source.optimizationProjects)?source.optimizationProjects.map(normalizeOptimizationProject):[],
+    knowledgeLinks:Array.isArray(source.knowledgeLinks)?source.knowledgeLinks:[],
     limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
   };
   normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
@@ -1480,6 +1488,70 @@ function renderDigitalPlantPass(plant){
   </section>`;
 }
 
+
+function normalizeDocument(value={}){
+  const x=value&&typeof value==="object"?value:{};
+  return {id:x.id||makeId(),title:x.title||"Dokument",category:x.category||"other",documentNumber:x.documentNumber||"",version:x.version||"",documentDate:x.documentDate||"",validUntil:x.validUntil||"",status:x.status||"current",productId:x.productId||"",projectId:x.projectId||"",component:x.component||"",fileName:x.fileName||"",fileType:x.fileType||"",notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
+}
+function normalizeProduct(value={}){
+  const x=value&&typeof value==="object"?value:{};
+  return {id:x.id||makeId(),name:x.name||"Produkt",productNumber:x.productNumber||"",category:x.category||"chemical",manufacturer:x.manufacturer||"VTA",status:x.status||"active",application:x.application||"",dosingSystemId:x.dosingSystemId||"",tankSystemId:x.tankSystemId||"",standardProduct:Boolean(x.standardProduct),startDate:x.startDate||"",endDate:x.endDate||"",consumption:x.consumption||"",consumptionUnit:x.consumptionUnit||"kg/a",stock:x.stock||"",stockUnit:x.stockUnit||"kg",notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
+}
+function normalizeOptimizationProject(value={}){
+  const x=value&&typeof value==="object"?value:{};
+  return {id:x.id||makeId(),title:x.title||"Optimierungsprojekt",status:x.status||"lead",probability:x.probability??10,value:x.value||"",currency:x.currency||"EUR",goal:x.goal||"",baseline:x.baseline||"",target:x.target||"",result:x.result||"",productIds:Array.isArray(x.productIds)?x.productIds:[],documentIds:Array.isArray(x.documentIds)?x.documentIds:[],component:x.component||"",owner:x.owner||"",nextStep:x.nextStep||"",nextActionDate:x.nextActionDate||"",startedAt:x.startedAt||new Date().toISOString().slice(0,10),closedAt:x.closedAt||"",notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
+}
+const DOCUMENT_CATEGORIES={offer:"Angebot",order:"Schriftlicher Auftrag",confirmation:"Auftragsbestätigung",sds:"Sicherheitsdatenblatt",datasheet:"Produktdatenblatt",contract:"Vertrag",report:"Labor-/Versuchsbericht",delivery:"Lieferschein",invoice:"Rechnung",manual:"Betriebsanleitung",other:"Sonstiges"};
+const PROJECT_STAGES={lead:"Potenzial erkannt",analysis:"Analyse",sample:"Probe",trial:"Versuch",offer:"Angebot",negotiation:"Verhandlung",order:"Auftrag",delivery:"Lieferung",care:"Betreuung",won:"Gewonnen",lost:"Nicht umgesetzt"};
+function linkedName(list,id,fallback="–"){return list.find(x=>x.id===id)?.name||list.find(x=>x.id===id)?.title||fallback;}
+function euro(value){const n=Number(String(value).replace(',','.'));return Number.isFinite(n)?new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n):"–";}
+function optionsHtml(items,current="",emptyLabel="Keine Zuordnung"){return `<option value="">${emptyLabel}</option>`+items.map(x=>`<option value="${x.id}" ${x.id===current?'selected':''}>${esc(x.name||x.title)}</option>`).join('');}
+
+function renderCommercialFoundation(plant){
+  const docs=plant.documents||[],products=plant.products||[],projects=plant.optimizationProjects||[];
+  const activeProjects=projects.filter(x=>!["won","lost"].includes(x.status));
+  const pipeline=activeProjects.reduce((sum,x)=>sum+(Number(String(x.value).replace(',','.'))||0)*(Number(x.probability)||0)/100,0);
+  const missingSds=products.filter(p=>p.status==="active"&&!docs.some(d=>d.category==="sds"&&d.productId===p.id&&d.status!=="expired"));
+  return `<section class="dashboard-section commercial-hub"><div class="section-heading"><div><p class="eyebrow">Phase 1 · Datenfundament</p><h2>Vertrieb, Produkte und Dokumente</h2><p class="form-note">Alle Verkaufsinformationen bleiben im Kontext dieser Anlage verknüpft.</p></div></div>
+  <div class="commercial-kpis">
+    <button type="button" class="commercial-kpi" id="openDocuments"><span>Dokumente</span><strong>${docs.length}</strong><small>${docs.filter(d=>d.category==='offer').length} Angebote · ${docs.filter(d=>d.category==='sds').length} SDS</small></button>
+    <button type="button" class="commercial-kpi" id="openProducts"><span>Produkte</span><strong>${products.filter(p=>p.status==='active').length}</strong><small>${missingSds.length?`${missingSds.length} ohne aktuelles SDS`:'SDS-Zuordnung vollständig'}</small></button>
+    <button type="button" class="commercial-kpi" id="openProjects"><span>Optimierungsprojekte</span><strong>${activeProjects.length}</strong><small>Gewichtete Pipeline ${euro(pipeline)}</small></button>
+  </div>
+  ${activeProjects.length?`<div class="project-preview">${activeProjects.slice(0,3).map(x=>`<article><div><span class="stage-chip">${PROJECT_STAGES[x.status]||x.status}</span><strong>${esc(x.title)}</strong><small>${esc(x.nextStep||x.goal||'Nächsten Schritt festlegen')}</small></div><div class="project-probability"><b>${Number(x.probability)||0}%</b><small>${x.value?euro(x.value):'ohne Wert'}</small></div></article>`).join('')}</div>`:'<div class="empty-panel compact"><p>Noch kein Optimierungsprojekt. Potenziale können direkt aus einem Besuch heraus strukturiert weiterverfolgt werden.</p></div>'}
+  </section>`;
+}
+function showDocuments(){
+  const plant=activePlant();if(!plant)return;setView('documents');setBreadcrumb(`Anlagen › ${plant.master.name} › Dokumente`);
+  const docs=[...(plant.documents||[])].sort((a,b)=>String(b.documentDate||b.createdAt).localeCompare(String(a.documentDate||a.createdAt)));
+  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Digitale Anlagenakte</p><h1>Dokumente</h1><p class="subtitle">Vertriebs- und Technikdokumente mit Produkten, Projekten und Komponenten verknüpfen.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addDocument">Dokument erfassen</button></div></section><div class="entity-list">${docs.length?docs.map(d=>`<article class="entity-card"><div><span class="entity-type">${DOCUMENT_CATEGORIES[d.category]||'Dokument'}</span><h3>${esc(d.title)}</h3><p>${esc(d.documentNumber||'ohne Dokumentnummer')} ${d.version?`· Version ${esc(d.version)}`:''}</p><small>${d.productId?`Produkt: ${esc(linkedName(plant.products,d.productId))} · `:''}${d.projectId?`Projekt: ${esc(linkedName(plant.optimizationProjects,d.projectId))} · `:''}${d.documentDate?new Date(d.documentDate+'T00:00:00').toLocaleDateString('de-DE'):'Datum offen'}</small></div><div class="entity-actions"><button class="text-button" data-edit-document="${d.id}">Bearbeiten</button><button class="text-button danger" data-delete-document="${d.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Dokumente erfasst.</p></div>'}</div>`;
+  $('#backPlant').onclick=showPlantDashboard;$('#addDocument').onclick=()=>showDocumentForm();$$('[data-edit-document]').forEach(b=>b.onclick=()=>showDocumentForm(b.dataset.editDocument));$$('[data-delete-document]').forEach(b=>b.onclick=()=>{if(confirm('Dokumenteintrag löschen?')){plant.documents=plant.documents.filter(x=>x.id!==b.dataset.deleteDocument);savePlants();showDocuments();}});
+}
+function showDocumentForm(id=''){
+  const plant=activePlant(),d=normalizeDocument((plant.documents||[]).find(x=>x.id===id)||{});setView('documentForm');setBreadcrumb('Dokument erfassen');
+  appView.innerHTML=`<form id="documentForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Dokumentenmodell</p><h1>${id?'Dokument bearbeiten':'Dokument erfassen'}</h1><p class="subtitle">In Phase 1 werden Metadaten und Verknüpfungen gespeichert. Die lokale Dateiablage folgt in Phase 2.</p></div></section><section class="form-section"><div class="form-grid">${field('title','Bezeichnung',d.title)}${selectField('category','Kategorie',d.category,Object.entries(DOCUMENT_CATEGORIES))}${field('documentNumber','Dokument-/Angebotsnummer',d.documentNumber)}${field('version','Version / Revision',d.version)}${field('documentDate','Dokumentdatum',d.documentDate,'date')}${field('validUntil','Gültig bis',d.validUntil,'date')}${selectField('status','Status',d.status,[["current","Aktuell"],["draft","Entwurf"],["expired","Abgelaufen"],["archived","Archiviert"]])}<label class="field-label">Produkt<select name="productId">${optionsHtml(plant.products,d.productId)}</select></label><label class="field-label">Optimierungsprojekt<select name="projectId">${optionsHtml(plant.optimizationProjects,d.projectId)}</select></label>${field('component','Komponente / Anlagenteil',d.component)}${field('fileName','Dateiname / Ablagehinweis',d.fileName)}<label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(d.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelDocument">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
+  $('#cancelDocument').onclick=showDocuments;$('#documentForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);for(const k of ['title','category','documentNumber','version','documentDate','validUntil','status','productId','projectId','component','fileName','notes'])d[k]=String(fd.get(k)||'').trim();d.updatedAt=new Date().toISOString();const i=plant.documents.findIndex(x=>x.id===d.id);if(i>=0)plant.documents[i]=d;else plant.documents.push(d);if(savePlants())showDocuments();};
+}
+function showProducts(){
+ const plant=activePlant();setView('products');setBreadcrumb(`Anlagen › ${plant.master.name} › Produkte`);const products=plant.products||[];
+ appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>Produkte an der Anlage</h1><p class="subtitle">Produkteinsatz, Verbrauch und technische Zuordnung dauerhaft dokumentieren.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addProduct">Produkt hinzufügen</button></div></section><div class="entity-list">${products.length?products.map(p=>`<article class="entity-card"><div><span class="entity-type">${p.status==='active'?'Aktiv':'Historisch'}</span><h3>${esc(p.name)}</h3><p>${esc(p.application||p.category)}${p.standardProduct?' · Standardprodukt':''}</p><small>${p.consumption?`Verbrauch ${esc(p.consumption)} ${esc(p.consumptionUnit)} · `:''}${p.stock?`Bestand ${esc(p.stock)} ${esc(p.stockUnit)}`:'Bestand offen'}</small></div><div class="entity-actions"><button class="text-button" data-edit-product="${p.id}">Bearbeiten</button><button class="text-button danger" data-delete-product="${p.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Produkte zugeordnet.</p></div>'}</div>`;
+ $('#backPlant').onclick=showPlantDashboard;$('#addProduct').onclick=()=>showProductForm();$$('[data-edit-product]').forEach(b=>b.onclick=()=>showProductForm(b.dataset.editProduct));$$('[data-delete-product]').forEach(b=>b.onclick=()=>{if(confirm('Produktzuordnung löschen?')){plant.products=plant.products.filter(x=>x.id!==b.dataset.deleteProduct);savePlants();showProducts();}});
+}
+function showProductForm(id=''){
+ const plant=activePlant(),p=normalizeProduct((plant.products||[]).find(x=>x.id===id)||{});setView('productForm');setBreadcrumb('Produkt erfassen');
+ appView.innerHTML=`<form id="productForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Produktmodell</p><h1>${id?'Produkt bearbeiten':'Produkt hinzufügen'}</h1></div></section><section class="form-section"><div class="form-grid">${field('name','Produktname',p.name)}${field('productNumber','Produktnummer',p.productNumber)}${selectField('category','Produktgruppe',p.category,[["chemical","Chemikalie"],["polymer","Polymer"],["precipitant","Fällmittel"],["equipment","Anlagentechnik"],["service","Dienstleistung"],["other","Sonstiges"]])}${field('manufacturer','Hersteller / Lieferant',p.manufacturer)}${selectField('status','Einsatzstatus',p.status,[["active","Aktiv eingesetzt"],["trial","Im Versuch"],["planned","Geplant"],["historic","Historisch"]])}${field('application','Anwendung / Zweck',p.application)}${field('startDate','Einsatz seit',p.startDate,'date')}${field('endDate','Einsatz bis',p.endDate,'date')}${field('consumption','Verbrauch',p.consumption,'number')}${field('consumptionUnit','Verbrauchseinheit',p.consumptionUnit)}${field('stock','Bestand',p.stock,'number')}${field('stockUnit','Bestandseinheit',p.stockUnit)}<div class="span-2 toggle-panel">${checkboxField('standardProduct','Standardprodukt dieser Anlage',p.standardProduct)}</div><label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(p.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelProduct">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
+ $('#cancelProduct').onclick=showProducts;$('#productForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);for(const k of ['name','productNumber','category','manufacturer','status','application','startDate','endDate','consumption','consumptionUnit','stock','stockUnit','notes'])p[k]=String(fd.get(k)||'').trim();p.standardProduct=fd.has('standardProduct');p.updatedAt=new Date().toISOString();const i=plant.products.findIndex(x=>x.id===p.id);if(i>=0)plant.products[i]=p;else plant.products.push(p);if(savePlants())showProducts();};
+}
+function showProjects(){
+ const plant=activePlant();setView('projects');setBreadcrumb(`Anlagen › ${plant.master.name} › Optimierungsprojekte`);const projects=plant.optimizationProjects||[];
+ appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Technischer Vertrieb</p><h1>Optimierungsprojekte</h1><p class="subtitle">Fachliches Potenzial vom Ersthinweis bis zur Betreuung nachvollziehbar führen.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addProject">Projekt anlegen</button></div></section><div class="funnel-strip">${Object.entries(PROJECT_STAGES).slice(0,9).map(([key,label])=>`<div><strong>${projects.filter(p=>p.status===key).length}</strong><span>${label}</span></div>`).join('')}</div><div class="entity-list">${projects.length?projects.map(p=>`<article class="entity-card project-card"><div><span class="entity-type">${PROJECT_STAGES[p.status]||p.status}</span><h3>${esc(p.title)}</h3><p>${esc(p.goal||'Ziel noch offen')}</p><small>${p.nextActionDate?`Nächste Aktion ${new Date(p.nextActionDate+'T00:00:00').toLocaleDateString('de-DE')} · `:''}${p.value?`${euro(p.value)} · `:''}${Number(p.probability)||0}% Chance</small></div><div class="entity-actions"><button class="text-button" data-edit-project="${p.id}">Bearbeiten</button><button class="text-button danger" data-delete-project="${p.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Optimierungsprojekte angelegt.</p></div>'}</div>`;
+ $('#backPlant').onclick=showPlantDashboard;$('#addProject').onclick=()=>showProjectForm();$$('[data-edit-project]').forEach(b=>b.onclick=()=>showProjectForm(b.dataset.editProject));$$('[data-delete-project]').forEach(b=>b.onclick=()=>{if(confirm('Optimierungsprojekt löschen?')){plant.optimizationProjects=plant.optimizationProjects.filter(x=>x.id!==b.dataset.deleteProject);savePlants();showProjects();}});
+}
+function showProjectForm(id=''){
+ const plant=activePlant(),p=normalizeOptimizationProject((plant.optimizationProjects||[]).find(x=>x.id===id)||{});setView('projectForm');setBreadcrumb('Optimierungsprojekt');
+ appView.innerHTML=`<form id="projectForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Projektmodell</p><h1>${id?'Projekt bearbeiten':'Optimierungsprojekt anlegen'}</h1></div></section><section class="form-section"><div class="form-grid">${field('title','Projekttitel',p.title)}${selectField('status','Funnel-Stufe',p.status,Object.entries(PROJECT_STAGES))}${field('probability','Auftragschance [%]',p.probability,'number')}${field('value','Potenzial / Angebotswert [€]',p.value,'number')}${field('goal','Fachliches Ziel',p.goal)}${field('component','Anlagenteil / Komponente',p.component)}${field('baseline','Ausgangssituation',p.baseline)}${field('target','Zielwert',p.target)}${field('result','Ergebnis',p.result)}${field('owner','Verantwortlich',p.owner||employeeDisplayName())}${field('startedAt','Projektstart',p.startedAt,'date')}${field('nextActionDate','Nächste Aktion',p.nextActionDate,'date')}${field('nextStep','Nächster Schritt',p.nextStep)}<label class="field-label span-2">Produkte<select name="productIds" multiple size="4">${(plant.products||[]).map(x=>`<option value="${x.id}" ${p.productIds.includes(x.id)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label><label class="field-label span-2">Notizen<textarea name="notes">${esc(p.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelProject">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
+ $('#cancelProject').onclick=showProjects;$('#projectForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);for(const k of ['title','status','value','goal','component','baseline','target','result','owner','startedAt','nextActionDate','nextStep','notes'])p[k]=String(fd.get(k)||'').trim();p.probability=Math.max(0,Math.min(100,Number(fd.get('probability'))||0));p.productIds=fd.getAll('productIds');p.updatedAt=new Date().toISOString();if(['won','lost'].includes(p.status)&&!p.closedAt)p.closedAt=new Date().toISOString().slice(0,10);const i=plant.optimizationProjects.findIndex(x=>x.id===p.id);if(i>=0)plant.optimizationProjects[i]=p;else plant.optimizationProjects.push(p);if(savePlants())showProjects();};
+}
 function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1542,6 +1614,7 @@ function showPlantDashboard(){
   <div class="kpi-grid">
     ${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}
   </div></section>
+  ${renderCommercialFoundation(plant)}
   ${renderActionCenter(plant)}
   ${renderVisits(plant)}
   ${renderPlantTimeline(plant)}
@@ -1552,6 +1625,7 @@ function showPlantDashboard(){
   $("#addVisit").onclick=()=>showVisitForm();
   $("#startVisitCockpit")?.addEventListener("click",()=>showVisitMode());
   $("#completePlantPass")?.addEventListener("click",()=>showPlantForm(plant.id));
+  $("#openDocuments")?.addEventListener("click",showDocuments);$("#openProducts")?.addEventListener("click",showProducts);$("#openProjects")?.addEventListener("click",showProjects);
   $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:""}];if(savePlants())showPlantDashboard();});
   $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(savePlants())showPlantDashboard();});
   $$(`[data-delete-action]`).forEach(b=>b.onclick=()=>{if(!confirm("Aufgabe wirklich löschen?"))return;plant.actions=(plant.actions||[]).filter(a=>a.id!==b.dataset.deleteAction);if(savePlants())showPlantDashboard();});
