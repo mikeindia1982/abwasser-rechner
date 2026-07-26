@@ -1,14 +1,11 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8";
-const DATA_SCHEMA_VERSION=2;
-const STORAGE_DATA="abwasser-rechner-data";
-const BACKUP_KEY_PREFIX="abwasser-rechner-backup-schema-";
-const LEGACY_PLANT_KEYS=["abwasser-plants-v05","abwasser-plants-v06","abwasser-plants-v061","abwasser-plants-v07"];
-const STORAGE_FAVORITES="abwasser-rechner-favorites";
-const STORAGE_MENU="abwasser-rechner-menu";
-const STORAGE_ACTIVE_PLANT="abwasser-rechner-active-plant";
+const VERSION="0.7";
+const STORAGE_FAVORITES="abwasser-favorites-v07";
+const STORAGE_MENU="abwasser-menu-v07";
+const STORAGE_PLANTS="abwasser-plants-v07";
+const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v07";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -128,13 +125,6 @@ function exportVisitIcs(plant,visit){
   a.click();
   URL.revokeObjectURL(url);
 }
-
-const mainProcessOptions=[
-["activated-sludge","Belebtschlammverfahren"],["sbr","Sequencing Batch Reactor (SBR)"],["mbr","Membranbelebungsverfahren (MBR)"],["trickling-filter","Tropfkörper"],["rotating-biological-contactor","Scheibentauchkörper"],["mbbr","Moving Bed Biofilm Reactor (MBBR)"],["fixed-bed","Festbettverfahren"],["biofilter","Biologischer Filter / Biofilter"],["lagoon","Abwasserteich / Lagune"],["constructed-wetland","Pflanzenkläranlage"],["anaerobic","Anaerobes Hauptverfahren"],["physico-chemical","Physikalisch-chemisches Hauptverfahren"],["other","Sonstiges"]];
-const processStageOptions=[
-["screening","Rechenanlage"],["grit-grease","Sand- und Fettfang"],["primary-clarification","Vorklärung"],["pre-denitrification","Vorgeschaltete Denitrifikation"],["simultaneous-denitrification","Simultane Denitrifikation"],["post-denitrification","Nachgeschaltete Denitrifikation"],["intermittent-aeration","Intermittierende Belüftung"],["nitrification","Nitrifikation"],["biological-p-removal","Biologische Phosphorelimination"],["pre-precipitation","Vorfällung"],["simultaneous-precipitation","Simultanfällung"],["post-precipitation","Nachfällung"],["secondary-clarification","Nachklärung"],["sand-filtration","Sandfiltration"],["cloth-filtration","Tuchfiltration"],["disc-filtration","Scheibenfiltration"],["microfiltration","Mikrofiltration"],["ultrafiltration","Ultrafiltration"],["activated-carbon","Aktivkohleadsorption"],["ozonation","Ozonung"],["uv","UV-Desinfektion"],["chlorination","Chlorung / chemische Desinfektion"],["sludge-digestion","Klärschlammfaulung"],["aerobic-stabilization","Aerobe Schlammstabilisierung"],["sludge-dewatering","Maschinelle Schlammentwässerung"],["thermal-drying","Thermische Trocknung"],["solar-drying","Solare Trocknung"],["other","Sonstige Verfahrensstufe"]];
-function multiSelectField(name,label,selectedValues,options){const selected=new Set(selectedValues||[]);return `<fieldset class="field-label span-2 option-fieldset"><legend>${label}</legend><div class="chip-grid">${options.map(([value,text])=>`<label class="check-chip"><input type="checkbox" name="${name}" value="${value}" ${selected.has(value)?"checked":""}><span>${text}</span></label>`).join("")}</div></fieldset>`;}
-
 const defaultLimits=[
   {key:"pOut",label:"Ablauf Pges",unit:"mg/l",direction:"max",target:0.8,warning:1.0,legal:2.0},
   {key:"nh4Out",label:"Ablauf NH₄-N",unit:"mg/l",direction:"max",target:2.0,warning:4.0,legal:10.0},
@@ -145,37 +135,15 @@ const defaultLimits=[
   {key:"polymer",label:"Polymerverbrauch",unit:"kg WS/t TS",direction:"max",target:8,warning:11,legal:null}
 ];
 
-function nowIso(){return new Date().toISOString()}
-function createEmptyData(){return {schemaVersion:DATA_SCHEMA_VERSION,nextPlantNumber:1,plants:[],settings:{},backupMetadata:{lastAutomaticBackup:"",lastManualBackup:""}}}
-function safeJsonParse(value,fallback=null){try{return JSON.parse(value)}catch{return fallback}}
-function normalizePlantNumber(value){const m=String(value||"").match(/(\d+)/);return m?Number(m[1]):0}
-function formatPlantNumber(n){return `ANL-${String(n).padStart(4,"0")}`}
-function migratePlant(plant){const p=structuredClone(plant||{});p.id=p.id||crypto.randomUUID();p.master=p.master||{};p.address=p.address||{};p.operator=p.operator||{};p.contacts=Array.isArray(p.contacts)?p.contacts:[];p.visits=Array.isArray(p.visits)?p.visits:[];p.access=p.access||{};p.parameters=p.parameters||{};p.limits=Array.isArray(p.limits)?p.limits:structuredClone(defaultLimits);if(!p.master.mainProcess){const old=String(p.master.process||"").toLowerCase();p.master.mainProcess=old.includes("sbr")?"sbr":old.includes("membran")?"mbr":old.includes("tropf")?"trickling-filter":old.includes("scheiben")?"rotating-biological-contactor":old.includes("mbbr")?"mbbr":old.includes("festbett")?"fixed-bed":"activated-sludge"}p.master.processStages=Array.isArray(p.master.processStages)?p.master.processStages:[];p.master.processOther=p.master.processOther||p.master.process||"";p.master.actualPE=p.master.actualPE||"";p.master.plantNumber=p.master.plantNumber||"";if((!p.address.latitude||!p.address.longitude)&&p.address.gps){const parts=String(p.address.gps).split(/[;, ]+/).filter(Boolean);if(parts.length>=2){const lat=Number(parts[0].replace(",",".")),lon=Number(parts[1].replace(",","."));if(Number.isFinite(lat)&&Number.isFinite(lon)){p.address.latitude=String(lat);p.address.longitude=String(lon)}}}p.address.latitude=p.address.latitude||"";p.address.longitude=p.address.longitude||"";return p}
-function createAutomaticBackup(raw,fromSchema){if(!raw)return;try{localStorage.setItem(`${BACKUP_KEY_PREFIX}${fromSchema}-${Date.now()}`,raw);localStorage.setItem("abwasser-rechner-last-auto-backup",nowIso())}catch(e){console.warn(e)}}
-function migrateData(data){const source=structuredClone(data||createEmptyData());const from=Number(source.schemaVersion||0);const migrated={schemaVersion:DATA_SCHEMA_VERSION,nextPlantNumber:Number(source.nextPlantNumber||1),plants:(Array.isArray(source.plants)?source.plants:[]).map(migratePlant),settings:source.settings||{},backupMetadata:source.backupMetadata||{}};let max=0;for(const p of migrated.plants)max=Math.max(max,normalizePlantNumber(p.master.plantNumber));let counter=Math.max(migrated.nextPlantNumber,max+1,1);for(const p of migrated.plants)if(!p.master.plantNumber)p.master.plantNumber=formatPlantNumber(counter++);migrated.nextPlantNumber=Math.max(counter,max+1);return {data:migrated,changed:from!==DATA_SCHEMA_VERSION}}
-function discoverLegacyPlants(){const merged=[],seen=new Set();for(const key of LEGACY_PLANT_KEYS){const list=safeJsonParse(localStorage.getItem(key),[]);if(!Array.isArray(list))continue;for(const p of list){const f=p.id||`${p.master?.name||""}|${p.address?.street||""}|${p.address?.city||""}`;if(!seen.has(f)){seen.add(f);merged.push(p)}}}return merged}
-function loadDataStore(){const raw=localStorage.getItem(STORAGE_DATA);if(raw){const parsed=safeJsonParse(raw,createEmptyData()),result=migrateData(parsed);if(result.changed){createAutomaticBackup(raw,parsed.schemaVersion||0);result.data.backupMetadata.lastAutomaticBackup=localStorage.getItem("abwasser-rechner-last-auto-backup")||nowIso();localStorage.setItem(STORAGE_DATA,JSON.stringify(result.data))}return result.data}const initial=createEmptyData();initial.plants=discoverLegacyPlants();const result=migrateData(initial);localStorage.setItem(STORAGE_DATA,JSON.stringify(result.data));return result.data}
-let dataStore=loadDataStore();
-function persistData(){localStorage.setItem(STORAGE_DATA,JSON.stringify(dataStore))}
-function nextPlantNumber(){const n=Math.max(Number(dataStore.nextPlantNumber||1),1);dataStore.nextPlantNumber=n+1;persistData();return formatPlantNumber(n)}
-
-function loadPlants(){return dataStore.plants||[]}
-function savePlants(){
-  dataStore.plants=plants;persistData();
-  if(activePlantId)localStorage.setItem(STORAGE_ACTIVE_PLANT,activePlantId);
-  else localStorage.removeItem(STORAGE_ACTIVE_PLANT);
-  renderPlantSelector();
-}
-
 const emptyPlant=()=>({
   id:crypto.randomUUID(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
   master:{
-    name:"",internalNumber:"",plantNumber:nextPlantNumber(),type:"municipal",industry:"",capacityPE:"",actualPE:"",
-    mainProcess:"activated-sludge",processStages:[],processOther:"",process:"",notes:""
+    name:"",internalNumber:"",type:"municipal",industry:"",capacityPE:"",actualPE:"",
+    process:"",notes:""
   },
-  address:{street:"",postalCode:"",city:"",state:"Brandenburg",country:"Deutschland",latitude:"",longitude:"",gps:"",deliveryAddress:""},
+  address:{street:"",postalCode:"",city:"",state:"Brandenburg",country:"Deutschland",gps:"",deliveryAddress:""},
   access:{parking:"",gate:"",accessCode:"",openingHours:"",registration:"",ppe:"",truckAccess:"",deliveryNotes:"",siteNotes:""},
   operator:{name:"",legalForm:"",customerNumber:"",street:"",postalCode:"",city:"",phone:"",email:"",website:""},
   contacts:[],
@@ -205,7 +173,18 @@ const menu=$("#categoryMenu");
 const count=$("#calculatorCount");
 const appView=$("#applicationView");
 
-
+function loadPlants(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(STORAGE_PLANTS)||"[]");
+    return Array.isArray(parsed)?parsed:[];
+  }catch{return []}
+}
+function savePlants(){
+  localStorage.setItem(STORAGE_PLANTS,JSON.stringify(plants));
+  if(activePlantId)localStorage.setItem(STORAGE_ACTIVE_PLANT,activePlantId);
+  else localStorage.removeItem(STORAGE_ACTIVE_PLANT);
+  renderPlantSelector();
+}
 function activePlant(){return plants.find(p=>p.id===activePlantId)||null}
 function fmt(value,digits=3){
   const num=Number(String(value).replace(",","."));
@@ -218,7 +197,16 @@ function esc(value=""){
   return String(value).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
 }
 
-function locationQuery(plant){const lat=Number(String(plant.address?.latitude||"").replace(",",".")),lon=Number(String(plant.address?.longitude||"").replace(",","."));if(Number.isFinite(lat)&&Number.isFinite(lon))return `${lat},${lon}`;const gps=(plant.address?.gps||"").trim();if(gps)return gps;return [plant.address?.street,plant.address?.postalCode,plant.address?.city,plant.address?.country].filter(Boolean).join(", ")}
+function locationQuery(plant){
+  const gps=(plant.address?.gps||"").trim();
+  if(gps)return gps;
+  return [
+    plant.address?.street,
+    plant.address?.postalCode,
+    plant.address?.city,
+    plant.address?.country
+  ].filter(Boolean).join(", ");
+}
 function googleMapsUrls(plant){
   const query=encodeURIComponent(locationQuery(plant));
   return {
@@ -452,12 +440,6 @@ function renderPlants(){
     }
   });
 }
-function fmtInteger(value){const num=Number(String(value).replace(/\./g,"").replace(",","."));return Number.isFinite(num)?num.toLocaleString("de-DE",{maximumFractionDigits:0}):"–"}
-function processLabel(value){return mainProcessOptions.find(([k])=>k===value)?.[1]||"–"}
-function stageLabels(values){return (values||[]).map(v=>processStageOptions.find(([k])=>k===v)?.[1]||v)}
-function normalizedTel(value=""){return String(value).replace(/[^\d+]/g,"")}
-function emailLink(value,label=value){return value?`<a class="contact-link" href="mailto:${esc(value)}">${esc(label)}</a>`:"–"}
-function telLink(value,label=value){const tel=normalizedTel(value);return tel?`<a class="contact-link" href="tel:${tel}">${esc(label)}</a>`:"–"}
 function field(name,label,value="",type="text",placeholder=""){
   const numericAttributes=type==="number" ? ` step="0.001" inputmode="decimal"` : "";
   return `<label class="field-label">${label}<input name="${name}" type="${type}"${numericAttributes} value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
@@ -472,18 +454,15 @@ function showPlantForm(id=null){
   appView.innerHTML=`<form id="plantForm" class="record-form">
     <section class="page-header"><div><p class="eyebrow">Anlagenakte</p><h1>${existing?"Anlage bearbeiten":"Neue Anlage"}</h1><p class="subtitle">Stammdaten, Adresse, Betreiber, Ansprechpartner und zentrale Betriebswerte.</p></div></section>
 
-    <section class="form-section"><h2>Stammdaten und Verfahrenstechnik</h2><div class="form-grid">
-      ${field("master.plantNumber","Anlagennummer",p.master.plantNumber||"")}
+    <section class="form-section"><h2>Stammdaten</h2><div class="form-grid">
       ${field("master.name","Name der Kläranlage",p.master.name)}
       ${field("master.internalNumber","Interne Anlagen-/Kundennummer",p.master.internalNumber)}
       ${selectField("master.type","Anlagentyp",p.master.type,[["municipal","Kommunal"],["industrial","Industriell"],["mixed","Kommunal mit Industrieanteil"]])}
       ${field("master.industry","Branche bei Industrieanlage",p.master.industry)}
       ${field("master.capacityPE","Ausbaugröße EW",p.master.capacityPE,"number")}
       ${field("master.actualPE","Tatsächliche Belastung EW",p.master.actualPE,"number")}
-      ${selectField("master.mainProcess","Hauptverfahren",p.master.mainProcess||"activated-sludge",mainProcessOptions)}
-      ${multiSelectField("master.processStages","Weitere Verfahrensstufen",p.master.processStages||[],processStageOptions)}
-      <label class="field-label span-2">Sonstige Verfahren / Besonderheiten<textarea name="master.processOther">${esc(p.master.processOther||"")}</textarea></label>
-      <label class="field-label span-2">Allgemeine Besonderheiten<textarea name="master.notes">${esc(p.master.notes)}</textarea></label>
+      ${field("master.process","Verfahrenstechnik",p.master.process)}
+      <label class="field-label span-2">Besonderheiten<textarea name="master.notes">${esc(p.master.notes)}</textarea></label>
     </div></section>
 
     <section class="form-section"><h2>Anlagenadresse</h2><div class="form-grid">
@@ -492,8 +471,7 @@ function showPlantForm(id=null){
       ${field("address.city","Ort",p.address.city)}
       ${field("address.state","Bundesland",p.address.state)}
       ${field("address.country","Land",p.address.country)}
-      ${field("address.latitude","Breitengrad",p.address.latitude||"","number","z. B. 52,894321")}
-      ${field("address.longitude","Längengrad",p.address.longitude||"","number","z. B. 13,108765")}
+      ${field("address.gps","GPS-Koordinaten",p.address.gps)}
       <label class="field-label span-2">Abweichende Zufahrts-/Lieferadresse<textarea name="address.deliveryAddress">${esc(p.address.deliveryAddress)}</textarea></label>
     </div></section>
     <section class="form-section"><h2>Zufahrt und Besuch</h2><div class="form-grid">
@@ -548,7 +526,6 @@ function showPlantForm(id=null){
   </form>`;
 
   enableDecimalInputs(appView);
-  const plantNumberInput=appView.querySelector('[name="master.plantNumber"]');if(plantNumberInput)plantNumberInput.readOnly=true;
   let contacts=structuredClone(p.contacts||[]);
   const editor=$("#contactsEditor");
   const renderContacts=()=>{
@@ -576,16 +553,10 @@ function showPlantForm(id=null){
     result.access=result.access||{};
     for(const [key,value] of fd.entries()){
       if(key.startsWith("contact."))continue;
-      if(key==="master.processStages")continue;
       if(key.startsWith("operator.phoneParts."))continue;
       const [section,prop]=key.split(".");
       result[section][prop]=value;
     }
-    result.master.processStages=fd.getAll("master.processStages");
-    result.master.plantNumber=existing?.master?.plantNumber||result.master.plantNumber||nextPlantNumber();
-    const lat=Number(String(result.address.latitude||"").replace(",",".")),lon=Number(String(result.address.longitude||"").replace(",","."));
-    if(result.address.latitude!==""&&(!Number.isFinite(lat)||lat<-90||lat>90))return alert("Der Breitengrad muss zwischen -90 und +90 liegen.");
-    if(result.address.longitude!==""&&(!Number.isFinite(lon)||lon<-180||lon>180))return alert("Der Längengrad muss zwischen -180 und +180 liegen.");
     result.operator.phone=combinePhone(fd,"operator.phoneParts");
     result.contacts=contacts.map((c,i)=>{
       const obj={};
@@ -696,7 +667,8 @@ function renderVisits(plant){
     <div class="visits-list">${visits.length?visits.map(v=>`<article class="visit-card">
       <div class="visit-date"><strong>${formatDateTime(v.start)}</strong><span>bis ${formatDateTime(v.end)}</span></div>
       <div class="visit-main"><div class="visit-title-row"><h3>${esc(v.title||"Besuchstermin")}</h3><span class="status-chip ${visitStatusClass(v.status)}">${visitStatusLabel(v.status)}</span></div>
-        <p><strong>Anlass:</strong> ${esc(v.purpose||"Nicht hinterlegt")}</p>${v.notes?`<p class="visit-notes"><strong>Notizen:</strong> ${esc(v.notes)}</p>`:""}<small>${v.contact?`Ansprechpartner: ${esc(v.contact)}`:"Kein Ansprechpartner hinterlegt"}</small>
+        <p>${esc(v.purpose||"Kein Anlass hinterlegt")}</p>
+        <small>${v.contact?`Ansprechpartner: ${esc(v.contact)}`:"Kein Ansprechpartner hinterlegt"}</small>
       </div>
       <div class="visit-actions">
         <button type="button" data-edit-visit="${v.id}">Bearbeiten</button>
@@ -707,16 +679,6 @@ function renderVisits(plant){
     </article>`).join(""):`<div class="empty-panel"><h3>Noch keine Besuchstermine</h3><p>Termine können lokal gespeichert und als Outlook-kompatible ICS-Datei exportiert werden.</p></div>`}</div>
   </section>`;
 }
-
-function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url)}
-function safeFilename(value="anlage"){return value.toLowerCase().replace(/[^a-z0-9äöüß]+/gi,"-").replace(/^-|-$/g,"")||"anlage"}
-function exportSinglePlant(plant){downloadJson(`${plant.master.plantNumber||"ANL"}_${safeFilename(plant.master.name)}.json`,{format:"abwasser-rechner-plant",schemaVersion:DATA_SCHEMA_VERSION,exportedAt:nowIso(),plant:structuredClone(plant)})}
-function exportCompleteBackup(){dataStore.backupMetadata.lastManualBackup=nowIso();persistData();downloadJson(`abwasser-rechner-komplettsicherung-${new Date().toISOString().slice(0,10)}.json`,{format:"abwasser-rechner-backup",appVersion:VERSION,exportedAt:nowIso(),data:dataStore})}
-async function readJsonFile(file){return JSON.parse(await file.text())}
-function chooseJsonFile(onFile){const input=document.createElement("input");input.type="file";input.accept=".json,application/json";input.onchange=()=>input.files?.[0]&&onFile(input.files[0]);input.click()}
-async function importSinglePlantFile(file){try{const payload=await readJsonFile(file),raw=payload?.format==="abwasser-rechner-plant"?payload.plant:payload?.plant||payload;if(!raw?.master)throw new Error("Keine gültigen Anlagendaten gefunden.");const incoming=migratePlant(raw),i=plants.findIndex(p=>p.id===incoming.id||(incoming.master.plantNumber&&p.master.plantNumber===incoming.master.plantNumber));if(i>=0){if(confirm("Diese Anlage existiert bereits. Vorhandene Anlage aktualisieren?")){incoming.id=plants[i].id;incoming.master.plantNumber=plants[i].master.plantNumber;plants[i]=incoming}else{incoming.id=crypto.randomUUID();incoming.master.plantNumber=nextPlantNumber();plants.push(incoming)}}else{if(!incoming.master.plantNumber||plants.some(p=>p.master.plantNumber===incoming.master.plantNumber))incoming.master.plantNumber=nextPlantNumber();plants.push(incoming)}savePlants();setActivePlant(incoming.id);renderPlantSelector();showPlantDashboard();alert("Anlagendaten wurden importiert.")}catch(e){alert(`Import fehlgeschlagen: ${e.message}`)}}
-async function restoreCompleteBackupFile(file){try{const payload=await readJsonFile(file),incoming=payload?.format==="abwasser-rechner-backup"?payload.data:payload?.data||payload;if(!Array.isArray(incoming?.plants))throw new Error("Keine gültige Komplettsicherung gefunden.");if(!confirm("Die aktuelle lokale Datenbasis wird vollständig ersetzt. Fortfahren?"))return;createAutomaticBackup(JSON.stringify(dataStore),dataStore.schemaVersion||0);dataStore=migrateData(incoming).data;plants=dataStore.plants;persistData();renderPlantSelector();if(plants[0])setActivePlant(plants[0].id);showHome();alert("Komplettsicherung wurde wiederhergestellt.")}catch(e){alert(`Wiederherstellung fehlgeschlagen: ${e.message}`)}}
-
 function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -724,8 +686,8 @@ function showPlantDashboard(){
   const mapUrls=googleMapsUrls(plant);
   appView.innerHTML=`<section class="plant-hero">
     <div><p class="eyebrow">Anlagenstartseite</p><h1>${esc(plant.master.name||"Unbenannte Anlage")}</h1>
-    <p class="subtitle">${esc(plant.master.plantNumber||"")} · ${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmtInteger(plant.master.capacityPE)} EW Ausbaugröße`:""}${plant.master.actualPE?` · ${fmtInteger(plant.master.actualPE)} EW Belastung`:""}</p></div>
-    <div class="hero-actions"><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button secondary" id="exportPlant">Anlage exportieren</button><button class="button secondary" id="importPlant">Anlage importieren</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
+    <p class="subtitle">${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmt(plant.master.capacityPE,0)} EW`:""}</p></div>
+    <div class="hero-actions"><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
   ${renderTrafficSummary(plant)}
   <section class="map-section">
@@ -748,13 +710,13 @@ function showPlantDashboard(){
   <div class="record-grid">
     <article class="record-card"><h2>Anlage</h2><dl>
       <div><dt>Adresse</dt><dd>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"–")}</dd></div>
-      <div><dt>Anlagennummer</dt><dd>${esc(plant.master.plantNumber||"–")}</dd></div><div><dt>Ausbaugröße</dt><dd>${plant.master.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"–"}</dd></div><div><dt>Tatsächliche Belastung</dt><dd>${plant.master.actualPE?`${fmtInteger(plant.master.actualPE)} EW`:"–"}</dd></div><div><dt>Auslastung</dt><dd>${plant.master.capacityPE&&plant.master.actualPE?`${fmt(Number(plant.master.actualPE)/Number(plant.master.capacityPE)*100,1)} %`:"–"}</dd></div><div><dt>Hauptverfahren</dt><dd>${esc(processLabel(plant.master.mainProcess))}</dd></div><div><dt>Weitere Stufen</dt><dd>${esc(stageLabels(plant.master.processStages).join(", ")||"–")}</dd></div><div><dt>Branche</dt><dd>${esc(plant.master.industry||"–")}</dd></div>
+      <div><dt>Verfahren</dt><dd>${esc(plant.master.process||"–")}</dd></div><div><dt>Branche</dt><dd>${esc(plant.master.industry||"–")}</dd></div>
     </dl></article>
     <article class="record-card"><h2>Betreiber</h2><dl>
-      <div><dt>Name</dt><dd>${esc(plant.operator.name||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(plant.operator.phone)}</dd></div><div><dt>E-Mail</dt><dd>${emailLink(plant.operator.email)}</dd></div>
+      <div><dt>Name</dt><dd>${esc(plant.operator.name||"–")}</dd></div><div><dt>Telefon</dt><dd>${esc(plant.operator.phone||"–")}</dd></div><div><dt>E-Mail</dt><dd>${esc(plant.operator.email||"–")}</dd></div>
     </dl></article>
     <article class="record-card"><h2>Hauptansprechpartner</h2><dl>
-      <div><dt>Name</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Funktion</dt><dd>${esc(primary?.role||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(primary?.mobile||primary?.phone||"")}</dd></div><div><dt>E-Mail</dt><dd>${emailLink(primary?.email||"")}</dd></div>
+      <div><dt>Name</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Funktion</dt><dd>${esc(primary?.role||"–")}</dd></div><div><dt>Kontakt</dt><dd>${esc(primary?.mobile||primary?.phone||primary?.email||"–")}</dd></div>
     </dl></article>
     <article class="record-card"><h2>Zufahrt und Besuch</h2><dl>
       <div><dt>Parken</dt><dd>${esc(plant.access?.parking||"–")}</dd></div>
@@ -770,11 +732,10 @@ function showPlantDashboard(){
     ${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}
   </div></section>
   ${renderVisits(plant)}
-  <section class="dashboard-section backup-section"><div class="section-heading"><div><p class="eyebrow">Datensicherung</p><h2>Anlagen- und Gesamtdaten</h2></div></div><div class="backup-actions"><button class="button secondary" id="exportAllData">Komplettsicherung herunterladen</button><button class="button secondary" id="restoreAllData">Komplettsicherung wiederherstellen</button><span>Datenschema ${DATA_SCHEMA_VERSION}${dataStore.backupMetadata.lastAutomaticBackup?` · letzte automatische Sicherung: ${new Date(dataStore.backupMetadata.lastAutomaticBackup).toLocaleString("de-DE")}`:""}</span></div></section>
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Berechnungen</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
   $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
-  $("#exportPlant").onclick=()=>exportSinglePlant(plant);$("#importPlant").onclick=()=>chooseJsonFile(importSinglePlantFile);$("#exportAllData").onclick=exportCompleteBackup;$("#restoreAllData").onclick=()=>chooseJsonFile(restoreCompleteBackupFile);$("#addVisit").onclick=()=>showVisitForm();
+  $("#addVisit").onclick=()=>showVisitForm();
   $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
   $$("[data-ics-visit]").forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
   $$("[data-delete-visit]").forEach(b=>b.onclick=()=>{
