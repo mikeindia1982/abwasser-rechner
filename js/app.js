@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.8.8";
+const VERSION="0.8.9";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -235,7 +235,7 @@ function normalizeVisit(value={}){
     status:source.status||"planned",notes:source.notes||"",modeStatus:source.modeStatus||"not-started",startedAt:source.startedAt||"",completedAt:source.completedAt||"",
     checklist:{...Object.fromEntries(VISIT_CHECKLIST.map(([key])=>[key,false])),...(source.checklist||{})},
     measurements:{flow:source.measurements?.flow||"",pOut:source.measurements?.pOut||"",nh4Out:source.measurements?.nh4Out||"",cakeTs:source.measurements?.cakeTs||"",polymer:source.measurements?.polymer||"",custom:source.measurements?.custom||""},
-    findings:Array.isArray(source.findings)?source.findings:[],photos:Array.isArray(source.photos)?source.photos:[],summary:source.summary||""
+    findings:Array.isArray(source.findings)?source.findings.map(f=>({id:f.id||makeId(),severity:f.severity||"info",text:f.text||"",createdAt:f.createdAt||new Date().toISOString(),resolved:Boolean(f.resolved)})):[],photos:Array.isArray(source.photos)?source.photos:[],summary:source.summary||""
   };
 }
 
@@ -245,7 +245,7 @@ function normalizePlant(value={}){
   const normalized={
     ...base,
     ...source,
-    schemaVersion:5,
+    schemaVersion:6,
     id:source.id||base.id,
     master:{...base.master,...(source.master||{})},
     address:{...base.address,...(source.address||{})},
@@ -257,6 +257,7 @@ function normalizePlant(value={}){
     tankSystems:Array.isArray(source.tankSystems)?source.tankSystems.map(tankDefaults):[],
     contacts:Array.isArray(source.contacts)?source.contacts:[],
     visits:Array.isArray(source.visits)?source.visits.map(normalizeVisit):[],
+    actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||""})):[],
     limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
   };
   normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
@@ -1333,7 +1334,7 @@ function showVisitMode(visitId=null){
     $("#finishVisit").onclick=()=>{visit.modeStatus=visit.modeStatus==="completed"?"active":"completed";visit.status=visit.modeStatus==="completed"?"done":"planned";visit.completedAt=visit.modeStatus==="completed"?new Date().toISOString():"";if(persist())render();};
     $$('[data-check]').forEach(el=>el.onchange=()=>{visit.checklist[el.dataset.check]=el.checked;persist();render();});
     $("#saveMeasurements").onclick=()=>{for(const key of ["flow","pOut","nh4Out","cakeTs","polymer","custom"]){const el=appView.querySelector(`[name="vm.${key}"]`);visit.measurements[key]=el?.value||"";}visit.checklist.measurements=true;if(persist())render();};
-    $("#findingForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),text=String(fd.get("text")||"").trim();if(!text)return;visit.findings.unshift({id:makeId(),severity:fd.get("severity")||"info",text,createdAt:new Date().toISOString()});if(fd.get("severity")==="task")visit.checklist.tasks=true;if(persist())render();};
+    $("#findingForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),text=String(fd.get("text")||"").trim();if(!text)return;const severity=fd.get("severity")||"info";visit.findings.unshift({id:makeId(),severity,text,createdAt:new Date().toISOString(),resolved:false});if(severity==="task"){visit.checklist.tasks=true;plant.actions=[...(plant.actions||[]),{id:makeId(),title:text,status:"open",priority:"normal",dueDate:"",component:"Besuch",sourceVisitId:visit.id,createdAt:new Date().toISOString(),completedAt:""}];}if(persist())render();};
     $$('[data-remove-finding]').forEach(b=>b.onclick=()=>{visit.findings=visit.findings.filter(f=>f.id!==b.dataset.removeFinding);if(persist())render();});
     $("#saveVisitSummary").onclick=()=>{visit.summary=$("#visitSummary").value.trim();visit.notes=visit.summary;if(persist())alert("Besuchsnotiz gespeichert.");};
     $("#visitPhotoInput").onchange=async e=>{const files=[...e.target.files].slice(0,Math.max(0,6-visit.photos.length));for(const file of files){if(file.size>1500000){alert(`${file.name}: Foto ist größer als 1,5 MB und wurde nicht gespeichert.`);continue;}const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});visit.photos.push({id:makeId(),name:file.name,createdAt:new Date().toISOString(),dataUrl});}if(files.length)visit.checklist.photos=true;if(persist())render();};
@@ -1368,6 +1369,61 @@ function showTankForm(){
   const render=()=>{editor.innerHTML=items.length?items.map((t,i)=>`<section class="form-section"><div class="section-heading"><h2>${esc(t.name||`Tankanlage ${i+1}`)}</h2><button type="button" class="danger-link" data-remove-tank="${i}">Entfernen</button></div><div class="form-grid">${field(`t.${i}.name`,`Bezeichnung`,t.name)}${selectField(`t.${i}.status`,`Betriebsstatus`,t.status,[["active","In Betrieb"],["inactive","Außer Betrieb"],["reserve","Reserve"],["planned","Geplant"]])}${field(`t.${i}.location`,`Standort`,t.location)}${selectField(`t.${i}.type`,`Tankart`,t.type,[["storage-tank","Lagertank"],["day-tank","Tagestank"],["ibc","IBC"],["double-wall","Doppelwandtank"],["other","Sonstiges"]])}${field(`t.${i}.manufacturer`,`Hersteller`,t.manufacturer)}${field(`t.${i}.model`,`Typ`,t.model)}${field(`t.${i}.year`,`Baujahr`,t.year,"number")}${field(`t.${i}.volume`,`Volumen [l]`,t.volume,"number")}${field(`t.${i}.material`,`Material`,t.material)}${field(`t.${i}.medium`,`Medium / Produkt`,t.medium)}${field(`t.${i}.lastInspection`,`Letzte Prüfung`,t.lastInspection,"date")}${field(`t.${i}.nextInspection`,`Nächste Prüfung`,t.nextInspection,"date")}<div class="span-2 check-grid">${checkboxField(`t.${i}.doubleWalled`,`Doppelwandig`,t.doubleWalled)}${checkboxField(`t.${i}.bundPresent`,`Auffangwanne`,t.bundPresent)}${checkboxField(`t.${i}.levelMonitoring`,`Füllstandsüberwachung`,t.levelMonitoring)}${checkboxField(`t.${i}.leakageMonitoring`,`Leckageüberwachung`,t.leakageMonitoring)}</div><label class="field-label span-2">Bemerkungen<textarea name="t.${i}.notes">${esc(t.notes)}</textarea></label></div></section>`).join(""):`<div class="empty-panel"><p>Noch keine Tankanlage angelegt.</p></div>`;editor.querySelectorAll('[data-remove-tank]').forEach(b=>b.onclick=()=>{sync();items.splice(Number(b.dataset.removeTank),1);render();});enableDecimalInputs(editor);};
   render();$("#addTank").onclick=()=>{sync();items.push(tankDefaults({name:`Tankanlage ${items.length+1}`}));render();};$("#cancelTechnical").onclick=showPlantDashboard;form.onsubmit=e=>{e.preventDefault();sync();plant.tankSystems=items;plant.updatedAt=new Date().toISOString();if(savePlants())showPlantDashboard();};
 }
+
+function plantDiagnostics(plant){
+  const items=[];
+  const today=new Date(); today.setHours(0,0,0,0);
+  (plant.tankSystems||[]).forEach(t=>{
+    if(t.nextInspection){
+      const d=new Date(`${t.nextInspection}T00:00:00`);
+      const days=Math.ceil((d-today)/86400000);
+      if(days<0)items.push({level:"red",title:`Tankprüfung überfällig`,text:`${t.name||t.medium||"Tankanlage"}: seit ${Math.abs(days)} Tagen fällig`,component:"Tankanlage"});
+      else if(days<=90)items.push({level:"yellow",title:`Tankprüfung steht an`,text:`${t.name||t.medium||"Tankanlage"}: in ${days} Tagen`,component:"Tankanlage"});
+    }
+    if(t.medium&&!t.bundPresent)items.push({level:"yellow",title:"Auffangwanne prüfen",text:`${t.name||t.medium}: keine Auffangwanne dokumentiert`,component:"Tankanlage"});
+  });
+  (plant.dosingSystems||[]).forEach(d=>{
+    if(d.hazardous&&!d.safetyDataSheetAvailable)items.push({level:"red",title:"Sicherheitsdatenblatt fehlt",text:`${d.name||d.productName||"Dosierstation"}`,component:"Dosiertechnik"});
+    if(Number(d.pumpCount||0)===1&&!d.standbyPump)items.push({level:"yellow",title:"Keine Reservepumpe dokumentiert",text:`${d.name||"Dosierstation"}`,component:"Dosiertechnik"});
+  });
+  const dw=plant.sludgeDewatering||{};
+  if(dw.enabled&&(!dw.outletTsPercent||!dw.polymerKgPerTds))items.push({level:"yellow",title:"Entwässerungsdaten unvollständig",text:"Kuchen-TS oder Polymerverbrauch fehlen.",component:"Schlammentwässerung"});
+  return items;
+}
+function openPlantActions(plant){return (plant.actions||[]).filter(a=>a.status!=="done");}
+function renderTodayCockpit(plant){
+  const primary=plant.contacts?.[0];
+  const visits=[...(plant.visits||[])].sort((a,b)=>String(b.start||b.startedAt).localeCompare(String(a.start||a.startedAt)));
+  const last=visits.find(v=>v.modeStatus==="completed"||v.status==="done");
+  const photos=visits.reduce((n,v)=>n+(v.photos?.length||0),0);
+  const actions=openPlantActions(plant);
+  const diagnostics=plantDiagnostics(plant);
+  return `<section class="today-cockpit">
+    <div class="section-heading"><div><p class="eyebrow">Einsatzcockpit</p><h2>Heute beim Kunden</h2></div><button class="button visit-start" id="startVisitCockpit" type="button">▶ Besuch starten</button></div>
+    <div class="today-grid">
+      <article class="today-card"><span>Ansprechpartner</span><strong>${esc(primary?.name||"Nicht hinterlegt")}</strong><small>${esc(primary?.role||"")}</small><div class="today-links">${primary?.mobile||primary?.phone?`<a href="tel:${esc(primary.mobile||primary.phone)}">Anrufen</a>`:""}${primary?.email?`<a href="mailto:${esc(primary.email)}">E-Mail</a>`:""}</div></article>
+      <article class="today-card"><span>Letzter Besuch</span><strong>${last?formatDateTime(last.completedAt||last.start):"Noch kein Besuch"}</strong><small>${last?esc(last.summary||last.purpose||"Dokumentation vorhanden"):""}</small></article>
+      <article class="today-card ${actions.length?'attention':''}"><span>Offene Aufgaben</span><strong>${actions.length}</strong><small>${actions.length?"Vor Ort oder nach dem Termin bearbeiten":"Keine offenen Aufgaben"}</small></article>
+      <article class="today-card"><span>Dokumentation</span><strong>${photos} Fotos</strong><small>${visits.length} Besuche in der Historie</small></article>
+    </div>
+    ${diagnostics.length?`<div class="today-alerts">${diagnostics.slice(0,4).map(x=>`<article class="today-alert ${x.level}"><b>${x.level==="red"?"!":"•"}</b><div><strong>${esc(x.title)}</strong><span>${esc(x.text)}</span></div></article>`).join("")}</div>`:`<div class="today-ok">Keine automatischen Hinweise aus den vorhandenen Technikdaten.</div>`}
+  </section>`;
+}
+function renderActionCenter(plant){
+  const actions=[...(plant.actions||[])].sort((a,b)=>(a.status==="done")-(b.status==="done")||String(b.createdAt).localeCompare(String(a.createdAt)));
+  return `<section class="dashboard-section action-center"><div class="section-heading"><div><p class="eyebrow">Nachverfolgung</p><h2>Aufgaben und Aktionen</h2></div></div>
+    <form id="quickActionForm" class="quick-action-form"><input name="title" required placeholder="Neue Aufgabe, z. B. Polymeroptimierung durchführen"><select name="priority"><option value="normal">Normal</option><option value="high">Hoch</option></select><input name="dueDate" type="date"><button class="button primary" type="submit">Aufgabe anlegen</button></form>
+    <div class="action-list">${actions.length?actions.map(a=>`<article class="action-item ${a.status==='done'?'done':''} ${a.priority==='high'?'high':''}"><button type="button" class="action-check" data-toggle-action="${a.id}" aria-label="Status ändern">${a.status==='done'?'✓':'○'}</button><div><strong>${esc(a.title)}</strong><small>${a.component?esc(a.component):'Allgemein'}${a.dueDate?` · fällig ${new Date(a.dueDate+'T00:00:00').toLocaleDateString('de-DE')}`:''}</small></div><button type="button" class="action-delete" data-delete-action="${a.id}" aria-label="Aufgabe löschen">×</button></article>`).join(''):`<div class="empty-panel compact"><p>Noch keine Aufgaben angelegt.</p></div>`}</div>
+  </section>`;
+}
+function renderPlantTimeline(plant){
+  const entries=[];
+  (plant.visits||[]).forEach(v=>entries.push({date:v.completedAt||v.start||v.startedAt,type:"visit",title:v.title||"Besuch",text:v.summary||v.purpose||`${v.findings?.length||0} Auffälligkeiten · ${v.photos?.length||0} Fotos`}));
+  (plant.actions||[]).filter(a=>a.status==="done").forEach(a=>entries.push({date:a.completedAt||a.createdAt,type:"action",title:"Aufgabe erledigt",text:a.title}));
+  entries.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Entwicklung der Anlage</p><h2>Zeitleiste</h2></div></div><div class="plant-timeline">${entries.length?entries.slice(0,12).map(e=>`<article><div class="timeline-dot ${e.type}"></div><div><time>${formatDateTime(e.date)}</time><strong>${esc(e.title)}</strong><p>${esc(e.text)}</p></div></article>`).join(''):`<div class="empty-panel compact"><p>Noch keine Ereignisse vorhanden.</p></div>`}</div></section>`;
+}
+
 function showPlantDashboard(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1378,6 +1434,7 @@ function showPlantDashboard(){
     <p class="subtitle">${esc(plant.master.internalNumber||"")} · ${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmtInteger(plant.master.capacityPE)} EW Ausbaugröße`:""}${plant.master.actualPE?` · ${fmtInteger(plant.master.actualPE)} EW Belastung`:""}</p></div>
     <div class="hero-actions"><button class="button visit-start" id="startVisit" type="button">▶ Besuch starten</button><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
   </section>
+  ${renderTodayCockpit(plant)}
   ${procedureCard(plant)}
   ${renderTechnicalAssets(plant)}
   ${renderTrafficSummary(plant)}
@@ -1428,12 +1485,18 @@ function showPlantDashboard(){
   <div class="kpi-grid">
     ${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}
   </div></section>
+  ${renderActionCenter(plant)}
   ${renderVisits(plant)}
-  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Berechnungen</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
+  ${renderPlantTimeline(plant)}
+  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
   bindProcedureCard(appView);
   $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
   $("#addVisit").onclick=()=>showVisitForm();
+  $("#startVisitCockpit")?.addEventListener("click",()=>showVisitMode());
+  $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:""}];if(savePlants())showPlantDashboard();});
+  $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(savePlants())showPlantDashboard();});
+  $$(`[data-delete-action]`).forEach(b=>b.onclick=()=>{if(!confirm("Aufgabe wirklich löschen?"))return;plant.actions=(plant.actions||[]).filter(a=>a.id!==b.dataset.deleteAction);if(savePlants())showPlantDashboard();});
   $("#startVisit")?.addEventListener("click",()=>showVisitMode());
   $("#startVisitMain")?.addEventListener("click",()=>showVisitMode());
   $$('[data-open-visit]').forEach(b=>b.onclick=()=>showVisitMode(b.dataset.openVisit));
