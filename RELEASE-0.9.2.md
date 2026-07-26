@@ -1,10 +1,10 @@
-# Version 0.9.2 – Offline-Dokumentenbibliothek
+# Abwasser-Rechner 0.9.2 – Produktbibliothek & PDF-Import
 
-- PDF-, Bild- und Office-Dateien lokal in IndexedDB speichern
-- Dokumente Produkten, Optimierungsprojekten und Komponenten zuordnen
-- PDF- und Bildvorschau direkt in der App
-- Dateien exportieren oder ersetzen
-- Version, Revision, Gültigkeit und Status verwalten
-- lokale Dateien gemeinsam mit dem Dokumenteintrag löschen
+- Globale Produktbibliothek mit Produktakten
+- Kontrollierter PDF-Import für SDS, Factsheets, Produktdatenblätter und technische Merkblätter
+- Dokumenttyp- und Produkterkennung mit Prüfmaske
+- Lokale PDF-Ablage in IndexedDB
+- Technische, sicherheitsbezogene und vertriebliche Produktdaten
+- Vorbelegte Produktakten für VTA Aquafix® 70 plus und VTA Biokat®
 
-Hinweis: Der JSON-Gesamtexport enthält weiterhin die Dokument-Metadaten, aber nicht die Binärdateien aus IndexedDB.
+Hinweis: Die lokale Basiserkennung liest unkomprimierte PDF-Textanteile. Bei PDFs ohne zugängliche Textschicht müssen erkannte Felder manuell geprüft und ergänzt werden. OCR folgt in einem späteren Ausbau.

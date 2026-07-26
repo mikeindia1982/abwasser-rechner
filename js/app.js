@@ -1,7 +1,7 @@
 import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 
-const VERSION="0.9.2";
+const VERSION="0.9.2a";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -9,6 +9,9 @@ const STORAGE_ACTIVE_PLANT="abwasser-active-plant-v07";
 const STORAGE_RECENT="abwasser-recent-v082";
 const STORAGE_PROFILE="abwasser-employee-profile-v087";
 const STORAGE_BACKUP="abwasser-plants-backup-v087";
+const STORAGE_PLANT_PAGE="abwasser-plant-page-v091a";
+const STORAGE_GLOBAL_PAGE="abwasser-global-page-v091b";
+const STORAGE_PRODUCTS="abwasser-products-v092";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -188,55 +191,8 @@ function makeId(){
   return globalThis.crypto?.randomUUID?.()||`id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 }
 
-const DOCUMENT_DB_NAME="abwasser-document-library-v1";
-const DOCUMENT_DB_STORE="files";
-function openDocumentDb(){
-  return new Promise((resolve,reject)=>{
-    const request=indexedDB.open(DOCUMENT_DB_NAME,1);
-    request.onupgradeneeded=()=>{
-      const db=request.result;
-      if(!db.objectStoreNames.contains(DOCUMENT_DB_STORE))db.createObjectStore(DOCUMENT_DB_STORE,{keyPath:"id"});
-    };
-    request.onsuccess=()=>resolve(request.result);
-    request.onerror=()=>reject(request.error||new Error("Dokumentenspeicher konnte nicht geöffnet werden."));
-  });
-}
-async function putDocumentFile(documentId,file){
-  const db=await openDocumentDb();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(DOCUMENT_DB_STORE,"readwrite");
-    tx.objectStore(DOCUMENT_DB_STORE).put({id:documentId,blob:file,name:file.name,type:file.type||"application/octet-stream",size:file.size,updatedAt:new Date().toISOString()});
-    tx.oncomplete=()=>{db.close();resolve(true)};
-    tx.onerror=()=>{db.close();reject(tx.error||new Error("Datei konnte nicht gespeichert werden."))};
-  });
-}
-async function getDocumentFile(documentId){
-  const db=await openDocumentDb();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(DOCUMENT_DB_STORE,"readonly");
-    const req=tx.objectStore(DOCUMENT_DB_STORE).get(documentId);
-    req.onsuccess=()=>resolve(req.result||null);
-    req.onerror=()=>reject(req.error);
-    tx.oncomplete=()=>db.close();
-  });
-}
-async function deleteDocumentFile(documentId){
-  const db=await openDocumentDb();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(DOCUMENT_DB_STORE,"readwrite");
-    tx.objectStore(DOCUMENT_DB_STORE).delete(documentId);
-    tx.oncomplete=()=>{db.close();resolve(true)};
-    tx.onerror=()=>{db.close();reject(tx.error)};
-  });
-}
-function formatFileSize(bytes=0){
-  const n=Number(bytes)||0;if(!n)return "";
-  if(n<1024)return `${n} B`;if(n<1024*1024)return `${(n/1024).toFixed(1)} KB`;
-  return `${(n/1024/1024).toFixed(1)} MB`;
-}
-
 const emptyPlant=()=>({
-  schemaVersion:9,
+  schemaVersion:7,
   id:makeId(),
   createdAt:new Date().toISOString(),
   updatedAt:new Date().toISOString(),
@@ -261,11 +217,7 @@ const emptyPlant=()=>({
     sludgeAge:"",sludgeFlow:"",sludgeTs:"",cakeTs:"",retention:"",polymer:"",
     disposalPrice:"",precipitantPrice:"",operatingDays:"365"
   },
-  limits:structuredClone(defaultLimits),
-  documents:[],
-  products:[],
-  optimizationProjects:[],
-  knowledgeLinks:[]
+  limits:structuredClone(defaultLimits)
 });
 
 const VISIT_CHECKLIST=[
@@ -296,7 +248,7 @@ function normalizePlant(value={}){
   const normalized={
     ...base,
     ...source,
-    schemaVersion:8,
+    schemaVersion:7,
     id:source.id||base.id,
     master:{...base.master,...(source.master||{})},
     address:{...base.address,...(source.address||{})},
@@ -309,10 +261,6 @@ function normalizePlant(value={}){
     contacts:Array.isArray(source.contacts)?source.contacts:[],
     visits:Array.isArray(source.visits)?source.visits.map(normalizeVisit):[],
     actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||""})):[],
-    documents:Array.isArray(source.documents)?source.documents.map(normalizeDocument):[],
-    products:Array.isArray(source.products)?source.products.map(normalizeProduct):[],
-    optimizationProjects:Array.isArray(source.optimizationProjects)?source.optimizationProjects.map(normalizeOptimizationProject):[],
-    knowledgeLinks:Array.isArray(source.knowledgeLinks)?source.knowledgeLinks:[],
     limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
   };
   normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
@@ -352,6 +300,85 @@ function qrSvg(text,size=220){
   try{const qr=new window.QRCodeGenerator(0,window.QRErrorCorrectLevel.M);qr.addData(text);qr.make();const n=qr.getModuleCount(),quiet=4,cell=size/(n+quiet*2);let rects="";for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(qr.isDark(r,c))rects+=`<rect x="${((c+quiet)*cell).toFixed(2)}" y="${((r+quiet)*cell).toFixed(2)}" width="${(cell+.15).toFixed(2)}" height="${(cell+.15).toFixed(2)}"/>`;return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR-Code mit Kontaktdaten"><rect width="100%" height="100%" fill="white"/><g fill="black">${rects}</g></svg>`;}catch(error){console.error(error);return `<div class="qr-error">QR-Code konnte nicht erzeugt werden.</div>`;}
 }
 function downloadVCard(){const blob=new Blob([employeeVCard()],{type:"text/vcard;charset=utf-8"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`${employeeDisplayName().replace(/[^a-z0-9äöüß]+/gi,"-").toLowerCase()||"kontakt"}.vcf`;a.click();URL.revokeObjectURL(url);}
+
+
+const seededProducts=[
+  {
+    id:"product-aquafix-70-plus",name:"VTA Aquafix® 70 plus",materialNumber:"33",category:"Fällungs- und Flockungsmittel",status:"active",
+    shortDescription:"Flüssiges Fällungs- und Flockungsmittel in wässriger Lösung.",applications:["Fällung","Flockung"],problems:[],benefits:[],
+    technical:{state:"flüssig",color:"gelb, grün",ph:"< 2",density:"ca. 1,3 g/cm³",solubility:"vollständig mischbar",storageStability:"12 Monate"},
+    safety:{signalWord:"Gefahr",hazardStatements:["H290","H318"],unNumber:"UN1760",transportClass:"8",waterHazardClass:"1"},
+    documents:[],createdAt:"2026-07-26T00:00:00.000Z",updatedAt:"2026-07-26T00:00:00.000Z",reviewStatus:"seeded"
+  },
+  {
+    id:"product-biokat",name:"VTA Biokat®",materialNumber:"",category:"Biologische Prozessunterstützung",status:"active",
+    shortDescription:"Maßgeschneiderte Bio-Kost zur Stabilisierung und Aktivierung der biologischen Reinigungsleistung.",
+    applications:["Biologische Abwasserreinigung","Belebungsanlage"],
+    problems:["Blähschlamm","Schwimmschlamm","starke Fädigkeit","lockere und instabile Flocken","gestörte Reinigungsleistung"],
+    benefits:["Verbessert Reinigungsleistung und Schlammeigenschaften","Kompakte und stabile Flocken","Reduziert Energie- und Produktverbrauch","Biologisch verträglich"],
+    technical:{state:"",color:"",ph:"",density:"",solubility:"",storageStability:""},safety:{signalWord:"",hazardStatements:[],unNumber:"",transportClass:"",waterHazardClass:""},
+    documents:[],createdAt:"2026-07-26T00:00:00.000Z",updatedAt:"2026-07-26T00:00:00.000Z",reviewStatus:"seeded"
+  }
+];
+function normalizeProduct(x={}){
+  return {id:x.id||makeId(),name:x.name||"",materialNumber:x.materialNumber||"",category:x.category||"Sonstiges",status:x.status||"active",shortDescription:x.shortDescription||"",applications:Array.isArray(x.applications)?x.applications:[],problems:Array.isArray(x.problems)?x.problems:[],benefits:Array.isArray(x.benefits)?x.benefits:[],technical:{state:"",color:"",ph:"",density:"",solubility:"",storageStability:"",...(x.technical||{})},safety:{signalWord:"",hazardStatements:[],unNumber:"",transportClass:"",waterHazardClass:"",...(x.safety||{})},documents:Array.isArray(x.documents)?x.documents:[],createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString(),reviewStatus:x.reviewStatus||"draft"};
+}
+function loadProducts(){
+  try{const raw=localStorage.getItem(STORAGE_PRODUCTS);if(!raw){localStorage.setItem(STORAGE_PRODUCTS,JSON.stringify(seededProducts));return seededProducts.map(normalizeProduct)}const data=JSON.parse(raw);return Array.isArray(data)?data.map(normalizeProduct):seededProducts.map(normalizeProduct)}catch{return seededProducts.map(normalizeProduct)}
+}
+let products=loadProducts();
+function saveProducts(){try{localStorage.setItem(STORAGE_PRODUCTS,JSON.stringify(products));return true}catch(error){console.error(error);alert("Produktdaten konnten nicht gespeichert werden.");return false}}
+function productById(id){return products.find(x=>x.id===id)||null}
+function splitKnowledge(value=""){return String(value).split(/\n|;/).map(x=>x.trim()).filter(Boolean)}
+function unique(values){return [...new Set(values.filter(Boolean))]}
+function detectDocumentType(text,name=""){
+  const hay=`${name}\n${text}`.toLowerCase();
+  if(hay.includes("sicherheitsdatenblatt")||hay.includes("abschnitt 1:")||hay.includes("verordnung (eg) nr. 1907/2006"))return "sds";
+  if(hay.includes("factsheet")||hay.includes("eine bio-innovation")||hay.includes("viele vorteile")||hay.includes("100% effizient"))return "factsheet";
+  if(hay.includes("technisches merkblatt")||hay.includes("technische information"))return "technical";
+  if(hay.includes("produktdatenblatt"))return "product-sheet";
+  return "other";
+}
+function documentTypeLabel(type){return ({sds:"Sicherheitsdatenblatt",factsheet:"Factsheet","product-sheet":"Produktdatenblatt",technical:"Technisches Merkblatt",other:"Sonstiges Dokument"})[type]||"Sonstiges Dokument"}
+function cleanPdfText(value=""){return String(value).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g," ").replace(/\s+/g," ").trim()}
+async function extractPdfTextBasic(file){
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const decoded=new TextDecoder("latin1").decode(bytes);
+  const literal=[...decoded.matchAll(/\(([^()]*(?:\\.[^()]*)*)\)\s*Tj/g)].map(m=>m[1]);
+  const arrays=[...decoded.matchAll(/\[(.*?)\]\s*TJ/gs)].flatMap(m=>[...m[1].matchAll(/\((.*?)\)/g)].map(x=>x[1]));
+  const text=cleanPdfText([...literal,...arrays].join(" ").replace(/\\[nrt]/g," ").replace(/\\([()\\])/g,"$1"));
+  return text.length>80?text:"";
+}
+function inferProductFromPdf(text,fileName,type){
+  const hay=cleanPdfText(`${fileName.replace(/\.pdf$/i,"")} ${text}`);
+  let name="";
+  const vta=hay.match(/VTA\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9®+\- ]{2,45}/);
+  if(vta)name=vta[0].replace(/(?:_D-de|Sicherheitsdatenblatt|Factsheet).*$/i,"").trim();
+  if(!name)name=fileName.replace(/\.pdf$/i,"").replace(/[_-](?:D-de|DE)$/i,"").replace(/_/g," ").trim();
+  const material=(hay.match(/Materialnummer\s*:?\s*(\d+)/i)||[])[1]||"";
+  const date=(hay.match(/(?:Überarbeitet am|Stand|Version)\s*:?\s*(\d{2}\.\d{2}\.\d{4})/i)||[])[1]||"";
+  const category=type==="sds"?(hay.match(/Fällungsmittel[^,.;]*,?\s*Flockungsmittel/i)?"Fällungs- und Flockungsmittel":"Chemisches Produkt"):(/mikroorganismen|bio-kost|biologisch/i.test(hay)?"Biologische Prozessunterstützung":"Sonstiges");
+  const result={name,materialNumber:material,documentDate:date,category,shortDescription:"",applications:[],problems:[],benefits:[],technical:{},safety:{}};
+  if(type==="sds"){
+    result.applications=unique([/Fällungsmittel/i.test(hay)?"Fällung":"",/Flockungsmittel/i.test(hay)?"Flockung":""]);
+    result.technical.state=(hay.match(/Aggregatzustand\s*:?\s*(flüssig|fest|gasförmig)/i)||[])[1]||"";
+    result.technical.ph=(hay.match(/pH-Wert[^:<]{0,30}:?\s*(<\s*\d+(?:[,.]\d+)?|\d+(?:[,.]\d+)?(?:\s*[-–]\s*\d+(?:[,.]\d+)?)?)/i)||[])[1]||"";
+    result.technical.density=(hay.match(/Dichte\s*:?\s*(?:ca\.\s*)?([\d,.]+\s*g\/cm³)/i)||[])[1]||"";
+    result.safety.signalWord=(hay.match(/Signalwort\s*:?\s*(Gefahr|Achtung)/i)||[])[1]||"";
+    result.safety.hazardStatements=unique([...hay.matchAll(/\bH(\d{3})\b/g)].map(m=>`H${m[1]}`)).slice(0,12);
+    result.safety.unNumber=(hay.match(/\bUN\s?(\d{4})\b/i)||[])[0]?.replace(/\s/g,"")||"";
+  }else if(type==="factsheet"){
+    const mappings=[["Blähschlamm",/blähschlamm/i],["Schwimmschlamm",/schwimmschlamm/i],["starke Fädigkeit",/starke fädigkeit/i],["lockere und instabile Flocken",/lockere.{0,5}instabile flocken/i]];
+    result.problems=mappings.filter(([,re])=>re.test(hay)).map(([v])=>v);
+    result.benefits=unique([/verbessert.{0,80}reinigungsleistung/i.test(hay)?"Verbessert die Reinigungsleistung":"",/verbessert.{0,100}schlammeigenschaften/i.test(hay)?"Verbessert die Schlammeigenschaften":"",/reduziert.{0,80}energie/i.test(hay)?"Reduziert Energie- und Produktverbrauch":"",/biologisch verträglich/i.test(hay)?"Biologisch verträglich":""]);
+    result.applications=/kläranlage|abwasserreinigung/i.test(hay)?["Biologische Abwasserreinigung"]:[];
+  }
+  return result;
+}
+function openProductDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open("abwasser-product-documents-v1",1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("files"))req.result.createObjectStore("files")};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+async function storeProductFile(key,file){const db=await openProductDb();return new Promise((resolve,reject)=>{const tx=db.transaction("files","readwrite");tx.objectStore("files").put(file,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
+async function getProductFile(key){const db=await openProductDb();return new Promise((resolve,reject)=>{const req=db.transaction("files","readonly").objectStore("files").get(key);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
+async function deleteProductFile(key){const db=await openProductDb();return new Promise((resolve,reject)=>{const tx=db.transaction("files","readwrite");tx.objectStore("files").delete(key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
 
 let plants=loadPlants();
 let activePlantId=localStorage.getItem(STORAGE_ACTIVE_PLANT)||plants[0]?.id||"";
@@ -575,9 +602,14 @@ function renderCategoryMenu(){
 function updatePrimaryNavigation(){
   $$('[data-primary-view]').forEach(button=>{
     const target=button.dataset.primaryView;
-    const calculatorActive=target==="calculators"&&(state.view==="calculators"||state.view==="dashboard");
+    const calculatorActive=target==="calculators"&&state.view==="calculators";
     const plantActive=target==="plants"&&["plants","plantForm","plantDashboard","limits","traffic"].includes(state.view);
     button.classList.toggle("active",calculatorActive||plantActive);
+  });
+  $$('[data-global-view]').forEach(button=>{
+    const target=button.dataset.globalView;
+    const active=(target==="today"&&state.view==="dashboard")||state.view===`global-${target}`;
+    button.classList.toggle("active",active);
   });
 }
 function toggleFavorite(id){
@@ -607,8 +639,8 @@ function setView(view){
   state.view=view;
   $("#dashboard").classList.toggle("hidden",view!=="dashboard");
   $("#calculatorView").classList.toggle("hidden",view!=="calculators");
-  appView.classList.toggle("hidden",!["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm"].includes(view));
-  $("#dashboardNav").classList.toggle("active",view==="dashboard");
+  const applicationVisible=["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm"].includes(view)||view.startsWith("global-");
+  appView.classList.toggle("hidden",!applicationVisible);
   $("#printButton").classList.toggle("hidden",view!=="calculators"||!state.selected);
   updatePrimaryNavigation();
 }
@@ -836,6 +868,79 @@ function bindDashboardActions(){
   });
   $$('[data-dashboard-calculator]').forEach(button=>button.onclick=()=>selectCalculator(button.dataset.dashboardCalculator));
 }
+
+function globalPageHeader(eyebrow,title,subtitle=""){
+  return `<section class="page-header global-page-header"><div><p class="eyebrow">${esc(eyebrow)}</p><h1>${esc(title)}</h1>${subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:""}</div></section>`;
+}
+function renderGlobalPlaceholder(icon,title,text,next=""){
+  return `${globalPageHeader("Arbeitsbereich",title,text)}<section class="global-placeholder"><span class="global-placeholder-icon">${icon}</span><h2>${esc(title)}</h2><p>${esc(text)}</p>${next?`<small>${esc(next)}</small>`:""}</section>`;
+}
+function showGlobalPage(page){
+  const valid=new Set(["today","appointments","tasks-global","documents","products","projects","reports","backup","settings","system"]);
+  page=valid.has(page)?page:"today";localStorage.setItem(STORAGE_GLOBAL_PAGE,page);
+  if(page==="today")return showHome();
+  setView(`global-${page}`);
+  const titles={appointments:"Termine",'tasks-global':"Aufgaben",documents:"Dokumente",products:"Produkte",projects:"Optimierungsprojekte",reports:"Berichte",backup:"Backup",settings:"Einstellungen",system:"Info & System"};
+  setBreadcrumb(titles[page]||"Abwasser-Rechner");
+  if(page==="appointments"){
+    const items=upcomingVisits(50);
+    appView.innerHTML=`${globalPageHeader("Einsatzplanung","Termine","Anlagenübergreifende Besuchs- und Terminübersicht.")}<div class="appointment-global-list">${items.length?items.map(({plant,visit,date})=>`<article><time>${date.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric"})}<strong>${date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></time><div><h3>${esc(plant.master.name||"Kläranlage")}</h3><p>${esc(visit.title||visit.purpose||"Besuchstermin")}</p></div><button type="button" data-global-open-plant="${plant.id}">Anlage öffnen</button></article>`).join(""):`<div class="empty-panel"><h2>Keine Termine vorhanden</h2><p>Geplante Besuche erscheinen hier anlagenübergreifend.</p></div>`}</div>`;
+  }else if(page==="tasks-global"){
+    const tasks=plants.flatMap(plant=>(plant.actions||[]).filter(a=>a.status!=="done").map(action=>({plant,action}))).sort((a,b)=>(a.action.dueDate||"9999").localeCompare(b.action.dueDate||"9999"));
+    appView.innerHTML=`${globalPageHeader("Arbeitsliste","Aufgaben","Offene Aufgaben aus allen Anlagen.")}<div class="global-task-list">${tasks.length?tasks.map(({plant,action})=>`<article class="${action.priority==='high'?'high':''}"><div><span>${esc(plant.master.name||"Kläranlage")}</span><h3>${esc(action.title)}</h3><p>${action.dueDate?`Fällig: ${formatDate(action.dueDate)}`:"Ohne Fälligkeit"}</p></div><button type="button" data-global-open-plant="${plant.id}" data-global-plant-page="tasks">Öffnen</button></article>`).join(""):`<div class="empty-panel"><h2>Keine offenen Aufgaben</h2><p>Offene Punkte aus Besuchen und Anlagenakten werden hier gesammelt.</p></div>`}</div>`;
+  }else if(page==="backup"){
+    appView.innerHTML=`${globalPageHeader("Datensicherheit","Backup","Lokale Daten sichern oder eine Gesamtsicherung wiederherstellen.")}<section class="backup-center"><article><h2>Gesamtsicherung exportieren</h2><p>Exportiert Profil, Anlagen, Besuche und Aufgaben als JSON-Datei.</p><button class="button primary" id="globalExportBackup" type="button">Sicherung exportieren</button></article><article><h2>Sicherung importieren</h2><p>Ersetzt nach Bestätigung den aktuellen lokalen Datenbestand.</p><label class="button secondary file-label-inline">Sicherung auswählen<input id="globalImportBackup" type="file" accept=".json,application/json"></label></article></section>`;
+    $("#globalExportBackup").onclick=()=>downloadJson(`abwasser-rechner-sicherung-${new Date().toISOString().slice(0,10)}.json`,{schema:"abwasser-rechner-backup-v1",version:VERSION,exportedAt:new Date().toISOString(),employeeProfile,plants,products,activePlantId});
+    $("#globalImportBackup").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.plants)||!data.employeeProfile)throw new Error("Keine gültige Gesamtsicherung");if(!confirm("Vorhandene Profil- und Anlagendaten durch diese Sicherung ersetzen?"))return;plants=data.plants.map(normalizePlant);products=Array.isArray(data.products)?data.products.map(normalizeProduct):products;saveProducts();employeeProfile=normalizeEmployeeProfile(data.employeeProfile);activePlantId=data.activePlantId&&plants.some(x=>x.id===data.activePlantId)?data.activePlantId:plants[0]?.id||"";if(savePlants()&&saveEmployeeProfile()){renderPlantSelector();updateProfileButton();showGlobalPage("backup");}}catch(err){alert(`Import nicht möglich: ${err.message}`)}finally{e.target.value="";}};
+  }else if(page==="system"){
+    const visitCount=plants.reduce((n,p)=>n+(p.visits||[]).length,0),actionCount=plants.reduce((n,p)=>n+(p.actions||[]).length,0);
+    appView.innerHTML=`${globalPageHeader("Info & System","Abwasser-Rechner","Versions-, Datenschutz- und Systeminformationen.")}<div class="system-grid"><article><span>Version</span><strong>${VERSION}</strong><small>Produktbibliothek & PDF-Import · Beta</small></article><article><span>Datenbestand</span><strong>${plants.length} Anlagen</strong><small>${visitCount} Besuche · ${actionCount} Aufgaben</small></article><article><span>Offline-Modus</span><strong>${navigator.onLine?'Online / offlinefähig':'Offline'}</strong><small>Lokale Speicherung im Browser</small></article><article><span>Datenmodell</span><strong>Schema ${Math.max(0,...plants.map(p=>Number(p.schemaVersion)||0))||'–'}</strong><small>Keine Cloud-Synchronisation</small></article></div><div class="record-grid"><article class="record-card"><h2>Copyright</h2><p><strong>© 2026 Mirco Krause & Sebastian Steinkohl</strong></p><p>Alle Rechte vorbehalten.</p><p>Diese Software wurde für den professionellen Einsatz im technischen Außendienst der Wasser- und Abwassertechnik entwickelt.</p></article><article class="record-card"><h2>Datenschutz</h2><p>Anlagen-, Kontakt- und Profildaten werden lokal im Browser gespeichert. Eine Übertragung an Dritte oder Cloud-Synchronisation findet in dieser Version nicht statt.</p><p>Exporte erfolgen ausschließlich durch eine bewusste Benutzeraktion.</p></article></div><article class="release-notes"><h2>Release Notes 0.9.2a</h2><h3>Neu</h3><ul><li>Globale Produktbibliothek mit strukturierten Produktakten</li><li>Kontrollierter PDF-Import für SDS, Factsheets und technische Dokumente</li><li>Lokale PDF-Ablage in IndexedDB mit Prüfmaske</li></ul><h3>Verbessert</h3><ul><li>Klare Trennung zwischen appweiten Funktionen und der Navigation einer einzelnen Anlage</li><li>Reduzierte Anlagennavigation ohne systemfremde Inhalte</li><li>Vorbereitung für Dokumenten- und Produktbibliothek</li></ul></article>`;
+  }else if(page==="documents") appView.innerHTML=renderGlobalPlaceholder("📚","Dokumente","Zentrale Dokumentenbibliothek für Produktdatenblätter, Sicherheitsdatenblätter, Angebote und Auftragsunterlagen.","Die Offline-Dateiablage folgt im nächsten Dokumenten-Sprint.");
+  else if(page==="products") return showProducts();
+  else if(page==="projects") appView.innerHTML=renderGlobalPlaceholder("📈","Optimierungsprojekte","Anlagenübergreifende Pipeline für Analysen, Versuche, Angebote und Aufträge.","Die Projektlogik wird nach der Dokumenten- und Produktbasis umgesetzt.");
+  else if(page==="reports") appView.innerHTML=renderGlobalPlaceholder("📊","Berichte","Besuchsberichte, Jahresübersichten und technische Auswertungen.","Berichte werden schrittweise aus Anlagen-, Besuchs- und Projektdaten erzeugt.");
+  else if(page==="settings") appView.innerHTML=renderGlobalPlaceholder("⚙","Einstellungen","Appweite Einstellungen für Darstellung, Backup-Erinnerungen und zukünftige Benutzeroptionen.","Die lokale Benutzer- und PIN-Sperre ist als späterer Foundation-Baustein vorgesehen.");
+  $$('[data-global-open-plant]').forEach(b=>b.onclick=()=>{activePlantId=b.dataset.globalOpenPlant;savePlants();showPlantDashboard(b.dataset.globalPlantPage||"overview");});
+}
+
+
+function showProducts(){
+  state.view="global-products";localStorage.setItem(STORAGE_GLOBAL_PAGE,"products");setView("global-products");setBreadcrumb("Produkte");updatePrimaryNavigation();
+  appView.innerHTML=`${globalPageHeader("Produkte","Produktwissen","Sicherheitsdatenblätter und Factsheets lokal importieren, prüfen und Produkten zuordnen.")}
+  <section class="product-toolbar"><label class="button primary file-label-inline">PDF importieren<input id="productPdfImport" type="file" accept="application/pdf,.pdf"></label><button class="button secondary" id="newProductManual" type="button">Produkt manuell anlegen</button><label class="product-search">Produkte durchsuchen<input id="productSearch" type="search" placeholder="Name, Kategorie oder Problem"></label></section>
+  <div id="productImportStatus"></div><div id="productLibrary"></div>`;
+  const render=(query="")=>{const q=query.trim().toLowerCase();const list=products.filter(p=>!q||[p.name,p.materialNumber,p.category,p.shortDescription,...p.applications,...p.problems,...p.benefits].join(" ").toLowerCase().includes(q));$("#productLibrary").innerHTML=list.length?`<div class="product-grid">${list.map(p=>`<article class="product-card"><div class="product-card-head"><span class="status-chip blue">${esc(p.category)}</span><span>${p.documents.length} Dokument${p.documents.length===1?"":"e"}</span></div><h2>${esc(p.name||"Unbenanntes Produkt")}</h2><p>${esc(p.shortDescription||"Noch keine Kurzbeschreibung hinterlegt.")}</p><div class="product-tags">${p.problems.slice(0,4).map(x=>`<span>${esc(x)}</span>`).join("")}</div><dl><div><dt>Materialnummer</dt><dd>${esc(p.materialNumber||"–")}</dd></div><div><dt>Prüfstatus</dt><dd>${p.reviewStatus==="confirmed"?"Geprüft":p.reviewStatus==="seeded"?"Vorbelegt":"Entwurf"}</dd></div></dl><button class="button secondary" type="button" data-open-product="${p.id}">Produkt öffnen</button></article>`).join("")}</div>`:`<div class="empty-panel"><h2>Keine Produkte gefunden</h2><p>Importiere ein PDF oder lege ein Produkt manuell an.</p></div>`;$$('[data-open-product]').forEach(b=>b.onclick=()=>showProductDetail(b.dataset.openProduct));};
+  render();$("#productSearch").oninput=e=>render(e.target.value);$("#productPdfImport").onchange=handleProductPdfImport;$("#newProductManual").onclick=()=>showProductEditor();
+}
+async function handleProductPdfImport(event){
+  const file=event.target.files?.[0];if(!file)return;const status=$("#productImportStatus");if(status)status.innerHTML=`<div class="info-box"><strong>Import läuft:</strong> ${esc(file.name)} wird lokal vorbereitet.</div>`;
+  try{const rawText=await extractPdfTextBasic(file);const type=detectDocumentType(rawText,file.name);const inferred=inferProductFromPdf(rawText,file.name,type);await showProductImportReview(file,type,inferred,rawText)}catch(error){console.error(error);alert(`„${file.name}“ konnte nicht vorbereitet werden: ${error.message}`)}
+  event.target.value="";
+}
+async function showProductImportReview(file,type,inferred,rawText){
+  state.view="product-import";setView("product-import");setBreadcrumb("Produkte › PDF prüfen");
+  const possible=products.filter(p=>p.name&&inferred.name&&p.name.toLowerCase().replace(/[^a-z0-9]/g,"").includes(inferred.name.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
+  appView.innerHTML=`<form id="productImportReview" class="record-form"><section class="page-header"><div><p class="eyebrow">PDF-Import</p><h1>Import prüfen</h1><p class="subtitle">${esc(file.name)} · ${(file.size/1024/1024).toFixed(2)} MB</p></div><span class="status-chip blue">${documentTypeLabel(type)}</span></section>
+  ${!rawText?`<div class="info-box warning"><strong>Hinweis:</strong> In diesem PDF konnte ohne OCR keine verwertbare Textschicht gelesen werden. Produktname und Dokumenttyp wurden aus dem Dateinamen abgeleitet. Bitte alle Felder prüfen.</div>`:""}
+  <section class="form-section"><h2>Zuordnung</h2><div class="form-grid"><label class="field-label span-2">Bestehendem Produkt zuordnen<select name="existingProduct"><option value="">Neues Produkt anlegen</option>${products.map(p=>`<option value="${p.id}" ${possible[0]?.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select></label>${field("name","Produktname",inferred.name)}${field("materialNumber","Materialnummer",inferred.materialNumber)}${field("category","Produktgruppe",inferred.category)}${field("documentDate","Dokumentstand",inferred.documentDate)}<label class="field-label span-2">Kurzbeschreibung<textarea name="shortDescription">${esc(inferred.shortDescription)}</textarea></label></div></section>
+  <section class="form-section"><h2>Anwendung und Vertrieb</h2><div class="form-grid"><label class="field-label">Anwendungsbereiche<textarea name="applications">${esc(inferred.applications.join("\n"))}</textarea></label><label class="field-label">Adressierte Probleme<textarea name="problems">${esc(inferred.problems.join("\n"))}</textarea></label><label class="field-label span-2">Nutzen / Vorteile<textarea name="benefits">${esc(inferred.benefits.join("\n"))}</textarea></label></div></section>
+  <section class="form-section"><h2>Technik und Sicherheit</h2><div class="form-grid">${field("state","Aggregatzustand",inferred.technical.state||"")}${field("ph","pH-Wert",inferred.technical.ph||"")}${field("density","Dichte",inferred.technical.density||"")}${field("signalWord","Signalwort",inferred.safety.signalWord||"")}${field("unNumber","UN-Nummer",inferred.safety.unNumber||"")}<label class="field-label">H-Sätze<textarea name="hazardStatements">${esc((inferred.safety.hazardStatements||[]).join("\n"))}</textarea></label></div></section>
+  <div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelProductImport">Abbrechen</button><button class="button primary" type="submit">PDF und Produkt speichern</button></div></form>`;
+  $("#cancelProductImport").onclick=showProducts;$("#productImportReview").onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.currentTarget);let product=productById(String(fd.get("existingProduct")||""));if(!product){product=normalizeProduct();products.push(product)}product.name=String(fd.get("name")||"").trim();product.materialNumber=String(fd.get("materialNumber")||"").trim();product.category=String(fd.get("category")||"").trim()||"Sonstiges";product.shortDescription=String(fd.get("shortDescription")||"").trim();product.applications=unique([...product.applications,...splitKnowledge(fd.get("applications"))]);product.problems=unique([...product.problems,...splitKnowledge(fd.get("problems"))]);product.benefits=unique([...product.benefits,...splitKnowledge(fd.get("benefits"))]);product.technical.state=String(fd.get("state")||"").trim()||product.technical.state;product.technical.ph=String(fd.get("ph")||"").trim()||product.technical.ph;product.technical.density=String(fd.get("density")||"").trim()||product.technical.density;product.safety.signalWord=String(fd.get("signalWord")||"").trim()||product.safety.signalWord;product.safety.unNumber=String(fd.get("unNumber")||"").trim()||product.safety.unNumber;product.safety.hazardStatements=unique([...product.safety.hazardStatements,...splitKnowledge(fd.get("hazardStatements"))]);const docId=makeId();await storeProductFile(docId,file);product.documents.push({id:docId,fileName:file.name,type,documentDate:String(fd.get("documentDate")||"").trim(),size:file.size,mimeType:file.type||"application/pdf",importedAt:new Date().toISOString(),source:"PDF-Import",reviewStatus:"confirmed",textExtracted:Boolean(rawText)});product.updatedAt=new Date().toISOString();product.reviewStatus="confirmed";if(saveProducts())showProductDetail(product.id);};
+}
+function showProductDetail(id){
+  const p=productById(id);if(!p)return showProducts();state.view="product-detail";setView("product-detail");setBreadcrumb(`Produkte › ${p.name}`);
+  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>${esc(p.name)}</h1><p class="subtitle">${esc(p.category)}${p.materialNumber?` · Materialnummer ${esc(p.materialNumber)}`:""}</p></div><div class="page-header-actions"><button class="button secondary" id="editProduct">Bearbeiten</button><label class="button primary file-label-inline">PDF hinzufügen<input id="addProductPdf" type="file" accept="application/pdf,.pdf"></label></div></section>
+  <div class="product-detail-grid"><article class="record-card"><h2>Übersicht</h2><p>${esc(p.shortDescription||"Keine Kurzbeschreibung vorhanden.")}</p><dl class="product-data-list"><div><dt>Anwendungen</dt><dd>${p.applications.map(esc).join(", ")||"–"}</dd></div><div><dt>Adressierte Probleme</dt><dd>${p.problems.map(esc).join(", ")||"–"}</dd></div><div><dt>Nutzen</dt><dd>${p.benefits.map(esc).join(" · ")||"–"}</dd></div></dl></article><article class="record-card"><h2>Technische Daten</h2><dl class="product-data-list"><div><dt>Aggregatzustand</dt><dd>${esc(p.technical.state||"–")}</dd></div><div><dt>pH-Wert</dt><dd>${esc(p.technical.ph||"–")}</dd></div><div><dt>Dichte</dt><dd>${esc(p.technical.density||"–")}</dd></div><div><dt>Löslichkeit</dt><dd>${esc(p.technical.solubility||"–")}</dd></div><div><dt>Lagerstabilität</dt><dd>${esc(p.technical.storageStability||"–")}</dd></div></dl></article><article class="record-card"><h2>Sicherheit</h2><dl class="product-data-list"><div><dt>Signalwort</dt><dd>${esc(p.safety.signalWord||"–")}</dd></div><div><dt>H-Sätze</dt><dd>${p.safety.hazardStatements.map(esc).join(", ")||"–"}</dd></div><div><dt>UN-Nummer</dt><dd>${esc(p.safety.unNumber||"–")}</dd></div><div><dt>Transportklasse</dt><dd>${esc(p.safety.transportClass||"–")}</dd></div></dl></article></div>
+  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Quellen</p><h2>Dokumente</h2></div></div>${p.documents.length?`<div class="document-list">${p.documents.map(d=>`<article><div><span class="status-chip blue">${documentTypeLabel(d.type)}</span><h3>${esc(d.fileName)}</h3><p>${d.documentDate?`Stand ${esc(d.documentDate)} · `:""}${(d.size/1024/1024).toFixed(2)} MB · ${d.textExtracted?"Text erkannt":"manuell geprüft"}</p></div><div class="document-actions"><button type="button" data-open-product-document="${d.id}">Öffnen</button><button type="button" class="danger-link" data-delete-product-document="${d.id}">Entfernen</button></div></article>`).join("")}</div>`:`<div class="empty-panel compact"><p>Noch keine Dokumente zugeordnet.</p></div>`}</section>`;
+  $("#editProduct").onclick=()=>showProductEditor(p.id);$("#addProductPdf").onchange=handleProductPdfImport;$$('[data-open-product-document]').forEach(b=>b.onclick=async()=>{const blob=await getProductFile(b.dataset.openProductDocument);if(!blob)return alert("Die lokale PDF-Datei wurde nicht gefunden.");const url=URL.createObjectURL(blob);window.open(url,"_blank","noopener");setTimeout(()=>URL.revokeObjectURL(url),60000)});$$('[data-delete-product-document]').forEach(b=>b.onclick=async()=>{if(!confirm("Dokument wirklich aus der Produktakte entfernen?"))return;await deleteProductFile(b.dataset.deleteProductDocument);p.documents=p.documents.filter(d=>d.id!==b.dataset.deleteProductDocument);saveProducts();showProductDetail(p.id)});
+}
+function showProductEditor(id=""){
+  let p=id?productById(id):normalizeProduct();if(!p)return showProducts();state.view="product-editor";setView("product-editor");setBreadcrumb(id?`Produkte › ${p.name} › Bearbeiten`:"Produkte › Neues Produkt");
+  appView.innerHTML=`<form id="productEditor" class="record-form"><section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>${id?"Produkt bearbeiten":"Produkt anlegen"}</h1></div></section><section class="form-section"><div class="form-grid">${field("name","Produktname",p.name)}${field("materialNumber","Materialnummer",p.materialNumber)}${field("category","Produktgruppe",p.category)}<label class="field-label span-2">Kurzbeschreibung<textarea name="shortDescription">${esc(p.shortDescription)}</textarea></label><label class="field-label">Anwendungsbereiche<textarea name="applications">${esc(p.applications.join("\n"))}</textarea></label><label class="field-label">Adressierte Probleme<textarea name="problems">${esc(p.problems.join("\n"))}</textarea></label><label class="field-label span-2">Nutzen / Vorteile<textarea name="benefits">${esc(p.benefits.join("\n"))}</textarea></label>${field("state","Aggregatzustand",p.technical.state)}${field("ph","pH-Wert",p.technical.ph)}${field("density","Dichte",p.technical.density)}${field("solubility","Löslichkeit",p.technical.solubility)}${field("storageStability","Lagerstabilität",p.technical.storageStability)}${field("signalWord","Signalwort",p.safety.signalWord)}${field("unNumber","UN-Nummer",p.safety.unNumber)}<label class="field-label">H-Sätze<textarea name="hazardStatements">${esc(p.safety.hazardStatements.join("\n"))}</textarea></label></div></section><div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelProductEditor">Abbrechen</button><button class="button primary" type="submit">Produkt speichern</button></div></form>`;
+  $("#cancelProductEditor").onclick=()=>id?showProductDetail(id):showProducts();$("#productEditor").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);p.name=String(fd.get("name")||"").trim();p.materialNumber=String(fd.get("materialNumber")||"").trim();p.category=String(fd.get("category")||"").trim()||"Sonstiges";p.shortDescription=String(fd.get("shortDescription")||"").trim();p.applications=splitKnowledge(fd.get("applications"));p.problems=splitKnowledge(fd.get("problems"));p.benefits=splitKnowledge(fd.get("benefits"));for(const k of ["state","ph","density","solubility","storageStability"])p.technical[k]=String(fd.get(k)||"").trim();p.safety.signalWord=String(fd.get("signalWord")||"").trim();p.safety.unNumber=String(fd.get("unNumber")||"").trim();p.safety.hazardStatements=splitKnowledge(fd.get("hazardStatements"));p.updatedAt=new Date().toISOString();p.reviewStatus="confirmed";if(!id)products.push(p);if(saveProducts())showProductDetail(p.id)};
+}
+
 function showApplication(view){
   if(view==="plantDashboard")return showPlantDashboard();
   if(view==="traffic")return showTraffic();
@@ -1535,195 +1640,89 @@ function renderDigitalPlantPass(plant){
   </section>`;
 }
 
-
-function normalizeDocument(value={}){
-  const x=value&&typeof value==="object"?value:{};
-  return {id:x.id||makeId(),title:x.title||"Dokument",category:x.category||"other",documentNumber:x.documentNumber||"",version:x.version||"",documentDate:x.documentDate||"",validUntil:x.validUntil||"",status:x.status||"current",productId:x.productId||"",projectId:x.projectId||"",component:x.component||"",fileName:x.fileName||"",fileType:x.fileType||"",fileSize:Number(x.fileSize)||0,hasLocalFile:Boolean(x.hasLocalFile),notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
-}
-function normalizeProduct(value={}){
-  const x=value&&typeof value==="object"?value:{};
-  return {id:x.id||makeId(),name:x.name||"Produkt",productNumber:x.productNumber||"",category:x.category||"chemical",manufacturer:x.manufacturer||"VTA",status:x.status||"active",application:x.application||"",dosingSystemId:x.dosingSystemId||"",tankSystemId:x.tankSystemId||"",standardProduct:Boolean(x.standardProduct),startDate:x.startDate||"",endDate:x.endDate||"",consumption:x.consumption||"",consumptionUnit:x.consumptionUnit||"kg/a",stock:x.stock||"",stockUnit:x.stockUnit||"kg",notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
-}
-function normalizeOptimizationProject(value={}){
-  const x=value&&typeof value==="object"?value:{};
-  return {id:x.id||makeId(),title:x.title||"Optimierungsprojekt",status:x.status||"lead",probability:x.probability??10,value:x.value||"",currency:x.currency||"EUR",goal:x.goal||"",baseline:x.baseline||"",target:x.target||"",result:x.result||"",productIds:Array.isArray(x.productIds)?x.productIds:[],documentIds:Array.isArray(x.documentIds)?x.documentIds:[],component:x.component||"",owner:x.owner||"",nextStep:x.nextStep||"",nextActionDate:x.nextActionDate||"",startedAt:x.startedAt||new Date().toISOString().slice(0,10),closedAt:x.closedAt||"",notes:x.notes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString()};
-}
-const DOCUMENT_CATEGORIES={offer:"Angebot",order:"Schriftlicher Auftrag",confirmation:"Auftragsbestätigung",sds:"Sicherheitsdatenblatt",datasheet:"Produktdatenblatt",contract:"Vertrag",report:"Labor-/Versuchsbericht",delivery:"Lieferschein",invoice:"Rechnung",manual:"Betriebsanleitung",other:"Sonstiges"};
-const PROJECT_STAGES={lead:"Potenzial erkannt",analysis:"Analyse",sample:"Probe",trial:"Versuch",offer:"Angebot",negotiation:"Verhandlung",order:"Auftrag",delivery:"Lieferung",care:"Betreuung",won:"Gewonnen",lost:"Nicht umgesetzt"};
-function linkedName(list,id,fallback="–"){return list.find(x=>x.id===id)?.name||list.find(x=>x.id===id)?.title||fallback;}
-function euro(value){const n=Number(String(value).replace(',','.'));return Number.isFinite(n)?new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n):"–";}
-function optionsHtml(items,current="",emptyLabel="Keine Zuordnung"){return `<option value="">${emptyLabel}</option>`+items.map(x=>`<option value="${x.id}" ${x.id===current?'selected':''}>${esc(x.name||x.title)}</option>`).join('');}
-
-function renderCommercialFoundation(plant){
-  const docs=plant.documents||[],products=plant.products||[],projects=plant.optimizationProjects||[];
-  const activeProjects=projects.filter(x=>!["won","lost"].includes(x.status));
-  const pipeline=activeProjects.reduce((sum,x)=>sum+(Number(String(x.value).replace(',','.'))||0)*(Number(x.probability)||0)/100,0);
-  const missingSds=products.filter(p=>p.status==="active"&&!docs.some(d=>d.category==="sds"&&d.productId===p.id&&d.status!=="expired"));
-  return `<section class="dashboard-section commercial-hub"><div class="section-heading"><div><p class="eyebrow">Phase 1 · Datenfundament</p><h2>Vertrieb, Produkte und Dokumente</h2><p class="form-note">Alle Verkaufsinformationen bleiben im Kontext dieser Anlage verknüpft.</p></div></div>
-  <div class="commercial-kpis">
-    <button type="button" class="commercial-kpi" id="openDocuments"><span>Dokumente</span><strong>${docs.length}</strong><small>${docs.filter(d=>d.category==='offer').length} Angebote · ${docs.filter(d=>d.category==='sds').length} SDS</small></button>
-    <button type="button" class="commercial-kpi" id="openProducts"><span>Produkte</span><strong>${products.filter(p=>p.status==='active').length}</strong><small>${missingSds.length?`${missingSds.length} ohne aktuelles SDS`:'SDS-Zuordnung vollständig'}</small></button>
-    <button type="button" class="commercial-kpi" id="openProjects"><span>Optimierungsprojekte</span><strong>${activeProjects.length}</strong><small>Gewichtete Pipeline ${euro(pipeline)}</small></button>
-  </div>
-  ${activeProjects.length?`<div class="project-preview">${activeProjects.slice(0,3).map(x=>`<article><div><span class="stage-chip">${PROJECT_STAGES[x.status]||x.status}</span><strong>${esc(x.title)}</strong><small>${esc(x.nextStep||x.goal||'Nächsten Schritt festlegen')}</small></div><div class="project-probability"><b>${Number(x.probability)||0}%</b><small>${x.value?euro(x.value):'ohne Wert'}</small></div></article>`).join('')}</div>`:'<div class="empty-panel compact"><p>Noch kein Optimierungsprojekt. Potenziale können direkt aus einem Besuch heraus strukturiert weiterverfolgt werden.</p></div>'}
+function plantHeader(plant){
+  const type=plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage";
+  return `<section class="plant-hero plant-shell-header">
+    <div><p class="eyebrow">Digitale Anlagenakte</p><h1>${esc(plant.master.name||"Unbenannte Anlage")}</h1>
+    <p class="subtitle">${esc(plant.master.internalNumber||"")} · ${type}${plant.master.capacityPE?` · ${fmtInteger(plant.master.capacityPE)} EW Ausbaugröße`:""}${plant.master.actualPE?` · ${fmtInteger(plant.master.actualPE)} EW Belastung`:""}</p></div>
+    <div class="hero-actions"><button class="button visit-start" id="startVisit" type="button">▶ Besuch starten</button><button class="button secondary" id="openNavigation" type="button">Navigation</button><button class="button secondary" id="editPlant" type="button">Bearbeiten</button></div>
   </section>`;
 }
-function documentStatusLabel(d){
-  if(d.validUntil&&new Date(d.validUntil+'T23:59:59')<new Date())return 'Abgelaufen';
-  return ({current:'Aktuell',draft:'Entwurf',expired:'Abgelaufen',archived:'Archiviert'})[d.status]||'Aktuell';
+function plantPageNavigation(active){
+  const pages=[["overview","Übersicht"],["technology","Technik"],["visits","Einsätze"],["sales","Vertrieb"],["tasks","Aufgaben"],["record","Akte"]];
+  return `<nav class="plant-subnav" aria-label="Bereiche der Anlagenakte">${pages.map(([id,label],i)=>`<button type="button" data-plant-page="${id}" class="${active===id?'active':''} ${i>3?'plant-subnav-more':''}">${label}</button>`).join('')}</nav>`;
 }
-async function openStoredDocument(id,download=false){
-  try{
-    const record=await getDocumentFile(id);
-    if(!record?.blob)return alert('Zu diesem Eintrag ist keine lokale Datei gespeichert.');
-    const url=URL.createObjectURL(record.blob);
-    if(download){const a=document.createElement('a');a.href=url;a.download=record.name||'dokument';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);return;}
-    const d=activePlant()?.documents?.find(x=>x.id===id);
-    setView('documentPreview');setBreadcrumb(`Dokumente › ${d?.title||record.name}`);
-    const isPdf=(record.type||'').includes('pdf')||/\.pdf$/i.test(record.name||'');
-    const isImage=(record.type||'').startsWith('image/');
-    appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Offline-Dokument</p><h1>${esc(d?.title||record.name)}</h1><p class="subtitle">${esc(record.name)} · ${formatFileSize(record.size)}</p></div><div class="section-actions"><button class="button secondary" id="backDocuments">Zurück</button><button class="button primary" id="downloadDocument">Herunterladen</button></div></section>${isPdf?`<iframe class="document-preview-frame" src="${url}" title="PDF-Vorschau"></iframe>`:isImage?`<div class="document-image-preview"><img src="${url}" alt="${esc(d?.title||record.name)}"></div>`:`<div class="empty-panel"><p>Für diesen Dateityp steht keine integrierte Vorschau zur Verfügung. Die Datei kann heruntergeladen und mit der passenden App geöffnet werden.</p></div>`}`;
-    $('#backDocuments').onclick=()=>{URL.revokeObjectURL(url);showDocuments()};
-    $('#downloadDocument').onclick=()=>openStoredDocument(id,true);
-  }catch(error){console.error(error);alert('Das Dokument konnte nicht geöffnet werden.');}
+function renderPlantOverviewPage(plant){
+  return `${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
+    <section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Schnellzugriff</p><h2>Wichtige Bereiche</h2></div></div>
+    <div class="plant-jump-grid">
+      <button type="button" data-jump-page="technology"><strong>Technik</strong><span>Komponenten, Betriebswerte und Ampel</span></button>
+      <button type="button" data-jump-page="visits"><strong>Einsätze</strong><span>Besuche, Messungen und Historie</span></button>
+      <button type="button" data-jump-page="tasks"><strong>Aufgaben</strong><span>${openPlantActions(plant).length} offene Punkte</span></button>
+      <button type="button" data-jump-page="record"><strong>Akte</strong><span>Stammdaten, Kontakte und Standort</span></button>
+    </div></section>`;
 }
-function showDocuments(){
-  const plant=activePlant();if(!plant)return;setView('documents');setBreadcrumb(`Anlagen › ${plant.master.name} › Dokumente`);
-  const docs=[...(plant.documents||[])].sort((a,b)=>String(b.documentDate||b.createdAt).localeCompare(String(a.documentDate||a.createdAt)));
-  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Offline-Dokumentenbibliothek</p><h1>Dokumente</h1><p class="subtitle">PDFs und weitere Dateien lokal speichern und mit Produkten, Projekten und Komponenten verknüpfen.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addDocument">Dokument importieren</button></div></section><div class="document-library-note"><strong>Offline gespeichert</strong><span>Dateien liegen ausschließlich im Browser dieses Geräts (IndexedDB). Ein normaler JSON-Export enthält nur die Metadaten, nicht die PDF-Dateien.</span></div><div class="entity-list">${docs.length?docs.map(d=>`<article class="entity-card document-card"><div><span class="entity-type">${DOCUMENT_CATEGORIES[d.category]||'Dokument'} · ${documentStatusLabel(d)}</span><h3>${esc(d.title)}</h3><p>${esc(d.documentNumber||'ohne Dokumentnummer')} ${d.version?`· Version ${esc(d.version)}`:''}</p><small>${d.productId?`Produkt: ${esc(linkedName(plant.products,d.productId))} · `:''}${d.projectId?`Projekt: ${esc(linkedName(plant.optimizationProjects,d.projectId))} · `:''}${d.fileName?`${esc(d.fileName)}${d.fileSize?` (${formatFileSize(d.fileSize)})`:''}`:'Keine Datei hinterlegt'}</small></div><div class="entity-actions">${d.hasLocalFile?`<button class="text-button" data-open-document="${d.id}">Öffnen</button><button class="text-button" data-download-document="${d.id}">Exportieren</button>`:''}<button class="text-button" data-edit-document="${d.id}">Bearbeiten</button><button class="text-button danger" data-delete-document="${d.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Dokumente importiert.</p></div>'}</div>`;
-  $('#backPlant').onclick=showPlantDashboard;$('#addDocument').onclick=()=>showDocumentForm();
-  $$('[data-open-document]').forEach(b=>b.onclick=()=>openStoredDocument(b.dataset.openDocument));
-  $$('[data-download-document]').forEach(b=>b.onclick=()=>openStoredDocument(b.dataset.downloadDocument,true));
-  $$('[data-edit-document]').forEach(b=>b.onclick=()=>showDocumentForm(b.dataset.editDocument));
-  $$('[data-delete-document]').forEach(b=>b.onclick=async()=>{if(confirm('Dokument einschließlich lokal gespeicherter Datei löschen?')){plant.documents=plant.documents.filter(x=>x.id!==b.dataset.deleteDocument);try{await deleteDocumentFile(b.dataset.deleteDocument)}catch(e){console.warn(e)}savePlants();showDocuments();}});
-}
-function showDocumentForm(id=''){
-  const plant=activePlant(),d=normalizeDocument((plant.documents||[]).find(x=>x.id===id)||{});setView('documentForm');setBreadcrumb('Dokument importieren');
-  appView.innerHTML=`<form id="documentForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Dokumentenbibliothek</p><h1>${id?'Dokument bearbeiten':'Dokument importieren'}</h1><p class="subtitle">Datei offline speichern, versionieren und fachlich zuordnen.</p></div></section><section class="form-section"><div class="form-grid"><label class="field-label span-2 file-drop-field">Lokale Datei<input name="documentFile" type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"><span>${d.hasLocalFile?`Aktuell: ${esc(d.fileName)}${d.fileSize?` · ${formatFileSize(d.fileSize)}`:''}. Eine neue Auswahl ersetzt die Datei.`:'PDF, Bild oder Office-Datei auswählen. Empfohlen: maximal 25 MB.'}</span></label>${field('title','Bezeichnung',d.title)}${selectField('category','Kategorie',d.category,Object.entries(DOCUMENT_CATEGORIES))}${field('documentNumber','Dokument-/Angebotsnummer',d.documentNumber)}${field('version','Version / Revision',d.version)}${field('documentDate','Dokumentdatum',d.documentDate,'date')}${field('validUntil','Gültig bis',d.validUntil,'date')}${selectField('status','Status',d.status,[["current","Aktuell"],["draft","Entwurf"],["expired","Abgelaufen"],["archived","Archiviert"]])}<label class="field-label">Produkt<select name="productId">${optionsHtml(plant.products,d.productId)}</select></label><label class="field-label">Optimierungsprojekt<select name="projectId">${optionsHtml(plant.optimizationProjects,d.projectId)}</select></label>${field('component','Komponente / Anlagenteil',d.component)}<label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(d.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelDocument">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
-  const fileInput=$('[name="documentFile"]');
-  fileInput.onchange=()=>{const f=fileInput.files?.[0];if(f&&!id&&!d.title)d.title=f.name.replace(/\.[^.]+$/,'');};
-  $('#cancelDocument').onclick=showDocuments;
-  $('#documentForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;button.textContent='Speichert …';try{
-    const fd=new FormData(e.currentTarget),file=fileInput.files?.[0];
-    if(file&&file.size>25*1024*1024)throw new Error('Die Datei ist größer als 25 MB.');
-    for(const k of ['title','category','documentNumber','version','documentDate','validUntil','status','productId','projectId','component','notes'])d[k]=String(fd.get(k)||'').trim();
-    if(!d.title&&file)d.title=file.name.replace(/\.[^.]+$/,'');
-    if(!d.title)throw new Error('Bitte eine Bezeichnung eingeben.');
-    if(file){await putDocumentFile(d.id,file);d.fileName=file.name;d.fileType=file.type;d.fileSize=file.size;d.hasLocalFile=true;}
-    d.updatedAt=new Date().toISOString();const i=plant.documents.findIndex(x=>x.id===d.id);if(i>=0)plant.documents[i]=d;else plant.documents.push(d);
-    if(savePlants())showDocuments();
-  }catch(error){console.error(error);alert(error.message||'Das Dokument konnte nicht gespeichert werden.');button.disabled=false;button.textContent='Speichern';}};
-}
-function showProducts(){
- const plant=activePlant();setView('products');setBreadcrumb(`Anlagen › ${plant.master.name} › Produkte`);const products=plant.products||[];
- appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>Produkte an der Anlage</h1><p class="subtitle">Produkteinsatz, Verbrauch und technische Zuordnung dauerhaft dokumentieren.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addProduct">Produkt hinzufügen</button></div></section><div class="entity-list">${products.length?products.map(p=>`<article class="entity-card"><div><span class="entity-type">${p.status==='active'?'Aktiv':'Historisch'}</span><h3>${esc(p.name)}</h3><p>${esc(p.application||p.category)}${p.standardProduct?' · Standardprodukt':''}</p><small>${p.consumption?`Verbrauch ${esc(p.consumption)} ${esc(p.consumptionUnit)} · `:''}${p.stock?`Bestand ${esc(p.stock)} ${esc(p.stockUnit)}`:'Bestand offen'}</small></div><div class="entity-actions"><button class="text-button" data-edit-product="${p.id}">Bearbeiten</button><button class="text-button danger" data-delete-product="${p.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Produkte zugeordnet.</p></div>'}</div>`;
- $('#backPlant').onclick=showPlantDashboard;$('#addProduct').onclick=()=>showProductForm();$$('[data-edit-product]').forEach(b=>b.onclick=()=>showProductForm(b.dataset.editProduct));$$('[data-delete-product]').forEach(b=>b.onclick=()=>{if(confirm('Produktzuordnung löschen?')){plant.products=plant.products.filter(x=>x.id!==b.dataset.deleteProduct);savePlants();showProducts();}});
-}
-function showProductForm(id=''){
- const plant=activePlant(),p=normalizeProduct((plant.products||[]).find(x=>x.id===id)||{});setView('productForm');setBreadcrumb('Produkt erfassen');
- appView.innerHTML=`<form id="productForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Produktmodell</p><h1>${id?'Produkt bearbeiten':'Produkt hinzufügen'}</h1></div></section><section class="form-section"><div class="form-grid">${field('name','Produktname',p.name)}${field('productNumber','Produktnummer',p.productNumber)}${selectField('category','Produktgruppe',p.category,[["chemical","Chemikalie"],["polymer","Polymer"],["precipitant","Fällmittel"],["equipment","Anlagentechnik"],["service","Dienstleistung"],["other","Sonstiges"]])}${field('manufacturer','Hersteller / Lieferant',p.manufacturer)}${selectField('status','Einsatzstatus',p.status,[["active","Aktiv eingesetzt"],["trial","Im Versuch"],["planned","Geplant"],["historic","Historisch"]])}${field('application','Anwendung / Zweck',p.application)}${field('startDate','Einsatz seit',p.startDate,'date')}${field('endDate','Einsatz bis',p.endDate,'date')}${field('consumption','Verbrauch',p.consumption,'number')}${field('consumptionUnit','Verbrauchseinheit',p.consumptionUnit)}${field('stock','Bestand',p.stock,'number')}${field('stockUnit','Bestandseinheit',p.stockUnit)}<div class="span-2 toggle-panel">${checkboxField('standardProduct','Standardprodukt dieser Anlage',p.standardProduct)}</div><label class="field-label span-2">Bemerkungen<textarea name="notes">${esc(p.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelProduct">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
- $('#cancelProduct').onclick=showProducts;$('#productForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);for(const k of ['name','productNumber','category','manufacturer','status','application','startDate','endDate','consumption','consumptionUnit','stock','stockUnit','notes'])p[k]=String(fd.get(k)||'').trim();p.standardProduct=fd.has('standardProduct');p.updatedAt=new Date().toISOString();const i=plant.products.findIndex(x=>x.id===p.id);if(i>=0)plant.products[i]=p;else plant.products.push(p);if(savePlants())showProducts();};
-}
-function showProjects(){
- const plant=activePlant();setView('projects');setBreadcrumb(`Anlagen › ${plant.master.name} › Optimierungsprojekte`);const projects=plant.optimizationProjects||[];
- appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Technischer Vertrieb</p><h1>Optimierungsprojekte</h1><p class="subtitle">Fachliches Potenzial vom Ersthinweis bis zur Betreuung nachvollziehbar führen.</p></div><div class="section-actions"><button class="button secondary" id="backPlant">Zur Anlage</button><button class="button primary" id="addProject">Projekt anlegen</button></div></section><div class="funnel-strip">${Object.entries(PROJECT_STAGES).slice(0,9).map(([key,label])=>`<div><strong>${projects.filter(p=>p.status===key).length}</strong><span>${label}</span></div>`).join('')}</div><div class="entity-list">${projects.length?projects.map(p=>`<article class="entity-card project-card"><div><span class="entity-type">${PROJECT_STAGES[p.status]||p.status}</span><h3>${esc(p.title)}</h3><p>${esc(p.goal||'Ziel noch offen')}</p><small>${p.nextActionDate?`Nächste Aktion ${new Date(p.nextActionDate+'T00:00:00').toLocaleDateString('de-DE')} · `:''}${p.value?`${euro(p.value)} · `:''}${Number(p.probability)||0}% Chance</small></div><div class="entity-actions"><button class="text-button" data-edit-project="${p.id}">Bearbeiten</button><button class="text-button danger" data-delete-project="${p.id}">Löschen</button></div></article>`).join(''):'<div class="empty-panel"><p>Noch keine Optimierungsprojekte angelegt.</p></div>'}</div>`;
- $('#backPlant').onclick=showPlantDashboard;$('#addProject').onclick=()=>showProjectForm();$$('[data-edit-project]').forEach(b=>b.onclick=()=>showProjectForm(b.dataset.editProject));$$('[data-delete-project]').forEach(b=>b.onclick=()=>{if(confirm('Optimierungsprojekt löschen?')){plant.optimizationProjects=plant.optimizationProjects.filter(x=>x.id!==b.dataset.deleteProject);savePlants();showProjects();}});
-}
-function showProjectForm(id=''){
- const plant=activePlant(),p=normalizeOptimizationProject((plant.optimizationProjects||[]).find(x=>x.id===id)||{});setView('projectForm');setBreadcrumb('Optimierungsprojekt');
- appView.innerHTML=`<form id="projectForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Projektmodell</p><h1>${id?'Projekt bearbeiten':'Optimierungsprojekt anlegen'}</h1></div></section><section class="form-section"><div class="form-grid">${field('title','Projekttitel',p.title)}${selectField('status','Funnel-Stufe',p.status,Object.entries(PROJECT_STAGES))}${field('probability','Auftragschance [%]',p.probability,'number')}${field('value','Potenzial / Angebotswert [€]',p.value,'number')}${field('goal','Fachliches Ziel',p.goal)}${field('component','Anlagenteil / Komponente',p.component)}${field('baseline','Ausgangssituation',p.baseline)}${field('target','Zielwert',p.target)}${field('result','Ergebnis',p.result)}${field('owner','Verantwortlich',p.owner||employeeDisplayName())}${field('startedAt','Projektstart',p.startedAt,'date')}${field('nextActionDate','Nächste Aktion',p.nextActionDate,'date')}${field('nextStep','Nächster Schritt',p.nextStep)}<label class="field-label span-2">Produkte<select name="productIds" multiple size="4">${(plant.products||[]).map(x=>`<option value="${x.id}" ${p.productIds.includes(x.id)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label><label class="field-label span-2">Notizen<textarea name="notes">${esc(p.notes)}</textarea></label></div></section><div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelProject">Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;
- $('#cancelProject').onclick=showProjects;$('#projectForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);for(const k of ['title','status','value','goal','component','baseline','target','result','owner','startedAt','nextActionDate','nextStep','notes'])p[k]=String(fd.get(k)||'').trim();p.probability=Math.max(0,Math.min(100,Number(fd.get('probability'))||0));p.productIds=fd.getAll('productIds');p.updatedAt=new Date().toISOString();if(['won','lost'].includes(p.status)&&!p.closedAt)p.closedAt=new Date().toISOString().slice(0,10);const i=plant.optimizationProjects.findIndex(x=>x.id===p.id);if(i>=0)plant.optimizationProjects[i]=p;else plant.optimizationProjects.push(p);if(savePlants())showProjects();};
-}
-function showPlantDashboard(){
-  const plant=activePlant();if(!plant)return showPlantForm();
-  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
-  const primary=plant.contacts?.[0];
-  const mapUrls=googleMapsUrls(plant);
-  appView.innerHTML=`<section class="plant-hero">
-    <div><p class="eyebrow">Anlagenstartseite</p><h1>${esc(plant.master.name||"Unbenannte Anlage")}</h1>
-    <p class="subtitle">${esc(plant.master.internalNumber||"")} · ${plant.master.type==="industrial"?"Industrielle Kläranlage":plant.master.type==="mixed"?"Kommunale Kläranlage mit Industrieanteil":"Kommunale Kläranlage"}${plant.master.capacityPE?` · ${fmtInteger(plant.master.capacityPE)} EW Ausbaugröße`:""}${plant.master.actualPE?` · ${fmtInteger(plant.master.actualPE)} EW Belastung`:""}</p></div>
-    <div class="hero-actions"><button class="button visit-start" id="startVisit" type="button">▶ Besuch starten</button><button class="button secondary" id="editPlant">Bearbeiten</button><button class="button primary" id="openTraffic">Ampelübersicht</button></div>
-  </section>
-  ${renderTodayCockpit(plant)}
-  ${renderDigitalPlantPass(plant)}
-  ${procedureCard(plant)}
-  ${renderTechnicalAssets(plant)}
-  ${renderTrafficSummary(plant)}
-  <section class="map-section">
-    <div class="map-frame-wrap">
-      ${locationQuery(plant)?`<iframe class="map-frame" title="Standort der Anlage" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapUrls.embed}"></iframe>`:`<div class="map-placeholder"><strong>Kein Standort hinterlegt</strong><span>Adresse oder GPS-Koordinaten ergänzen.</span></div>`}
-    </div>
-    <article class="map-info-card">
-      <p class="eyebrow">Standort und Anfahrt</p>
-      <h2>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"Adresse fehlt")}</h2>
-      <p>${plant.address.latitude&&plant.address.longitude?`Breitengrad: ${esc(plant.address.latitude)} · Längengrad: ${esc(plant.address.longitude)}`:plant.address.gps?`GPS: ${esc(plant.address.gps)}`:"Navigation erfolgt über die hinterlegte Anlagenadresse."}</p>
-      ${locationQuery(plant)?mapsButtons(plant):""}
-      <div class="access-quick">
-        <div><span>Parken</span><strong>${esc(plant.access?.parking||"–")}</strong></div>
-        <div><span>Zufahrt</span><strong>${esc(plant.access?.gate||"–")}</strong></div>
-        <div><span>Anmeldung</span><strong>${esc(plant.access?.registration||"–")}</strong></div>
-        <div><span>PSA</span><strong>${esc(plant.access?.ppe||"–")}</strong></div>
-      </div>
-    </article>
-  </section>
-  <div class="record-grid">
-    <article class="record-card"><h2>Anlage</h2><dl>
-      <div><dt>Anlagennummer</dt><dd>${esc(plant.master.internalNumber||"–")}</dd></div>
-      <div><dt>Adresse</dt><dd>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"–")}</dd></div>
-      <div><dt>Ausbaugröße</dt><dd>${plant.master.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"–"}</dd></div>
-      <div><dt>Tatsächliche Belastung</dt><dd>${plant.master.actualPE?`${fmtInteger(plant.master.actualPE)} EW`:"–"}</dd></div>
-      <div><dt>Auslastung</dt><dd>${plant.master.capacityPE&&plant.master.actualPE?`${fmt(Number(plant.master.actualPE)/Number(plant.master.capacityPE)*100,1)} %`:"–"}</dd></div>
-      <div><dt>Hauptverfahren</dt><dd>${esc(processLabel(plant.master.mainProcess||plant.master.process))}</dd></div>
-      <div><dt>Weitere Stufen</dt><dd>${esc(processStageLabels(plant.master.processStages).join(", ")||"–")}</dd></div>
-      <div><dt>Branche</dt><dd>${esc(plant.master.industry||"–")}</dd></div>
-    </dl></article>
-    <article class="record-card"><h2>Betreiber</h2><dl>
-      <div><dt>Name</dt><dd>${esc(plant.operator.name||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(plant.operator.phone)}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(plant.operator.email)}</dd></div>
-    </dl></article>
-    <article class="record-card"><h2>Hauptansprechpartner</h2><dl>
-      <div><dt>Name</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Funktion</dt><dd>${esc(primary?.role||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(primary?.mobile||primary?.phone||"")}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(primary?.email||"")}</dd></div>
-    </dl></article>
-    <article class="record-card"><h2>Zufahrt und Besuch</h2><dl>
-      <div><dt>Parken</dt><dd>${esc(plant.access?.parking||"–")}</dd></div>
-      <div><dt>Tor / Zugang</dt><dd>${esc(plant.access?.gate||"–")}</dd></div>
-      <div><dt>Zugangscode</dt><dd>${esc(plant.access?.accessCode||"–")}</dd></div>
-      <div><dt>Besuchszeiten</dt><dd>${esc(plant.access?.openingHours||"–")}</dd></div>
-      <div><dt>LKW-Zufahrt</dt><dd>${esc(plant.access?.truckAccess||"–")}</dd></div>
-      <div><dt>Hinweise</dt><dd>${esc(plant.access?.siteNotes||"–")}</dd></div>
-    </dl></article>
-  </div>
+function renderPlantTechnologyPage(plant){
+  return `${procedureCard(plant)}${renderTechnicalAssets(plant)}${renderTrafficSummary(plant)}
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Zentrale Datenbasis</p><h2>Betriebswerte</h2></div><button class="text-button" id="editParameters">Werte bearbeiten</button></div>
-  <div class="kpi-grid">
-    ${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}
-  </div></section>
-  ${renderCommercialFoundation(plant)}
-  ${renderActionCenter(plant)}
-  ${renderVisits(plant)}
-  ${renderPlantTimeline(plant)}
-  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Direkt mit dieser Anlage arbeiten</h2></div></div>
+  <div class="kpi-grid">${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}</div></section>
+  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Berechnungen für diese Anlage</h2></div><button class="button primary" id="openTraffic" type="button">Ampelübersicht</button></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
-  bindProcedureCard(appView);
-  $("#editPlant").onclick=()=>showPlantForm(plant.id);$("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);$("#editParameters").onclick=()=>showPlantForm(plant.id);$("#openTraffic").onclick=showTraffic;
-  $("#addVisit").onclick=()=>showVisitForm();
+}
+function renderPlantVisitsPage(plant){return `${renderVisits(plant)}${renderPlantTimeline(plant)}`;}
+function renderPlantTasksPage(plant){return renderActionCenter(plant);}
+function renderPlantSalesPage(plant){
+  return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Technischer Vertrieb</p><h2>Vertrieb und Optimierung</h2><p class="form-note">Dieser Bereich ist für Produkte, Dokumente und Optimierungsprojekte vorbereitet.</p></div></div>
+  <div class="sales-foundation-grid"><article><span>Produkte</span><strong>Produktakte vorbereiten</strong><p>Eingesetzte, geplante und historische Produkte werden hier mit der Anlage verknüpft.</p></article><article><span>Dokumente</span><strong>Dokumentenbibliothek folgt</strong><p>Produktdatenblätter, Sicherheitsdatenblätter, Angebote und Aufträge werden offline verwaltet.</p></article><article><span>Optimierungsprojekte</span><strong>Sales Funnel im Anlagenkontext</strong><p>Analyse, Versuch, Angebot, Auftrag und Nachbetreuung werden als fachliches Projekt abgebildet.</p></article></div>
+  <div class="info-box"><strong>Nächster Ausbauschritt:</strong> IndexedDB-Dokumentenspeicher und globale Produktbibliothek.</div></section>`;
+}
+function renderPlantRecordPage(plant){
+  const primary=plant.contacts?.[0],mapUrls=googleMapsUrls(plant);
+  return `<section class="map-section"><div class="map-frame-wrap">${locationQuery(plant)?`<iframe class="map-frame" title="Standort der Anlage" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapUrls.embed}"></iframe>`:`<div class="map-placeholder"><strong>Kein Standort hinterlegt</strong><span>Adresse oder GPS-Koordinaten ergänzen.</span></div>`}</div>
+  <article class="map-info-card"><p class="eyebrow">Standort und Anfahrt</p><h2>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"Adresse fehlt")}</h2><p>${plant.address.latitude&&plant.address.longitude?`Breitengrad: ${esc(plant.address.latitude)} · Längengrad: ${esc(plant.address.longitude)}`:plant.address.gps?`GPS: ${esc(plant.address.gps)}`:"Navigation erfolgt über die hinterlegte Anlagenadresse."}</p>${locationQuery(plant)?mapsButtons(plant):""}<div class="access-quick"><div><span>Parken</span><strong>${esc(plant.access?.parking||"–")}</strong></div><div><span>Zufahrt</span><strong>${esc(plant.access?.gate||"–")}</strong></div><div><span>Anmeldung</span><strong>${esc(plant.access?.registration||"–")}</strong></div><div><span>PSA</span><strong>${esc(plant.access?.ppe||"–")}</strong></div></div></article></section>
+  <div class="record-grid"><article class="record-card"><h2>Anlage</h2><dl><div><dt>Anlagennummer</dt><dd>${esc(plant.master.internalNumber||"–")}</dd></div><div><dt>Adresse</dt><dd>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"–")}</dd></div><div><dt>Ausbaugröße</dt><dd>${plant.master.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"–"}</dd></div><div><dt>Tatsächliche Belastung</dt><dd>${plant.master.actualPE?`${fmtInteger(plant.master.actualPE)} EW`:"–"}</dd></div><div><dt>Hauptverfahren</dt><dd>${esc(processLabel(plant.master.mainProcess||plant.master.process))}</dd></div><div><dt>Weitere Stufen</dt><dd>${esc(processStageLabels(plant.master.processStages).join(", ")||"–")}</dd></div></dl></article>
+  <article class="record-card"><h2>Betreiber</h2><dl><div><dt>Name</dt><dd>${esc(plant.operator.name||"–")}</dd></div><div><dt>Kundennummer</dt><dd>${esc(plant.operator.customerNumber||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(plant.operator.phone)}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(plant.operator.email)}</dd></div></dl></article>
+  <article class="record-card"><h2>Hauptansprechpartner</h2><dl><div><dt>Name</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Funktion</dt><dd>${esc(primary?.role||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(primary?.mobile||primary?.phone||"")}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(primary?.email||"")}</dd></div></dl></article>
+  <article class="record-card"><h2>Zufahrt und Besuch</h2><dl><div><dt>Parken</dt><dd>${esc(plant.access?.parking||"–")}</dd></div><div><dt>Tor / Zugang</dt><dd>${esc(plant.access?.gate||"–")}</dd></div><div><dt>Zugangscode</dt><dd>${esc(plant.access?.accessCode||"–")}</dd></div><div><dt>Besuchszeiten</dt><dd>${esc(plant.access?.openingHours||"–")}</dd></div><div><dt>Hinweise</dt><dd>${esc(plant.access?.siteNotes||"–")}</dd></div></dl></article></div>`;
+}
+function renderPlantSystemPage(plant){
+  const visits=(plant.visits||[]).length,actions=(plant.actions||[]).length;
+  return `<section class="dashboard-section system-page"><div class="section-heading"><div><p class="eyebrow">Info & System</p><h2>Abwasser-Rechner</h2></div></div>
+  <div class="system-grid"><article><span>Version</span><strong>${VERSION}</strong><small>Foundation Release · Beta</small></article><article><span>Datenbestand</span><strong>${plants.length} Anlagen</strong><small>${visits} Besuche · ${actions} Aufgaben in dieser Anlage</small></article><article><span>Offline-Modus</span><strong>${navigator.onLine?'Online / offlinefähig':'Offline'}</strong><small>Lokale Speicherung im Browser</small></article><article><span>Datenmodell</span><strong>Schema ${plant.schemaVersion||'–'}</strong><small>Bestehende Daten werden weiterverwendet</small></article></div>
+  <div class="record-grid"><article class="record-card"><h2>Copyright</h2><p><strong>© 2026 Mirco Krause & Sebastian Steinkohl</strong></p><p>Alle Rechte vorbehalten.</p><p>Diese Software wurde für den professionellen Einsatz im technischen Außendienst der Wasser- und Abwassertechnik entwickelt.</p></article><article class="record-card"><h2>Datenschutz</h2><p>Anlagen-, Kontakt- und Profildaten werden lokal im Browser gespeichert. Eine Übertragung an Dritte oder Cloud-Synchronisation findet in dieser Version nicht statt.</p><p>Exporte erfolgen ausschließlich durch eine bewusste Benutzeraktion.</p></article></div>
+  <article class="release-notes"><h2>Release Notes 0.9.1a</h2><h3>Neu</h3><ul><li>Unterseiten für Übersicht, Technik, Einsätze, Vertrieb, Aufgaben und Akte</li><li>Persistente Anlagen-Navigation mit mobilem horizontalem Scrollen</li><li>Info-&-System-Bereich mit Copyright und Datenschutz</li></ul><h3>Verbessert</h3><ul><li>Deutlich kürzere Seiten und weniger Scrollen</li><li>Klare Trennung von Überblick, Bearbeitung und Historie</li><li>Vorbereitung für Dokumenten- und Produktbibliothek</li></ul></article></section>`;
+}
+function renderPlantPage(plant,page){
+  const renderers={overview:renderPlantOverviewPage,technology:renderPlantTechnologyPage,visits:renderPlantVisitsPage,sales:renderPlantSalesPage,tasks:renderPlantTasksPage,record:renderPlantRecordPage};
+  return (renderers[page]||renderers.overview)(plant);
+}
+function showPlantDashboard(page){
+  const plant=activePlant();if(!plant)return showPlantForm();
+  const valid=new Set(["overview","technology","visits","sales","tasks","record"]);
+  page=valid.has(page)?page:(valid.has(localStorage.getItem(STORAGE_PLANT_PAGE))?localStorage.getItem(STORAGE_PLANT_PAGE):"overview");
+  localStorage.setItem(STORAGE_PLANT_PAGE,page);
+  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
+  appView.innerHTML=`${plantHeader(plant)}${plantPageNavigation(page)}<div class="plant-page" data-current-page="${page}">${renderPlantPage(plant,page)}</div>`;
+  $$('[data-plant-page]').forEach(b=>b.onclick=()=>showPlantDashboard(b.dataset.plantPage));
+  $$('[data-jump-page]').forEach(b=>b.onclick=()=>showPlantDashboard(b.dataset.jumpPage));
+  $("#editPlant")?.addEventListener("click",()=>showPlantForm(plant.id));
+  $("#startVisit")?.addEventListener("click",()=>showVisitMode());
+  $("#openNavigation")?.addEventListener("click",()=>{const url=googleMapsUrls(plant).directions;if(locationQuery(plant))window.open(url,"_blank","noopener");else alert("Bitte zuerst eine Adresse oder GPS-Koordinaten hinterlegen.");});
   $("#startVisitCockpit")?.addEventListener("click",()=>showVisitMode());
   $("#completePlantPass")?.addEventListener("click",()=>showPlantForm(plant.id));
-  $("#openDocuments")?.addEventListener("click",showDocuments);$("#openProducts")?.addEventListener("click",showProducts);$("#openProjects")?.addEventListener("click",showProjects);
-  $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:""}];if(savePlants())showPlantDashboard();});
-  $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(savePlants())showPlantDashboard();});
-  $$(`[data-delete-action]`).forEach(b=>b.onclick=()=>{if(!confirm("Aufgabe wirklich löschen?"))return;plant.actions=(plant.actions||[]).filter(a=>a.id!==b.dataset.deleteAction);if(savePlants())showPlantDashboard();});
-  $("#startVisit")?.addEventListener("click",()=>showVisitMode());
-  $("#startVisitMain")?.addEventListener("click",()=>showVisitMode());
-  $$('[data-open-visit]').forEach(b=>b.onclick=()=>showVisitMode(b.dataset.openVisit));
-  $$("[data-edit-visit]").forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
-  $$("[data-ics-visit]").forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
-  $$("[data-delete-visit]").forEach(b=>b.onclick=()=>{
-    const v=(plant.visits||[]).find(x=>x.id===b.dataset.deleteVisit);
-    if(confirm(`Termin „${v?.title||"Besuch"}“ wirklich löschen?`)){
-      plant.visits=(plant.visits||[]).filter(x=>x.id!==b.dataset.deleteVisit);savePlants();showPlantDashboard();
-    }
-  });
+  $("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);
+  $("#editParameters")?.addEventListener("click",()=>showPlantForm(plant.id));$("#openTraffic")?.addEventListener("click",showTraffic);
+  $("#addVisit")?.addEventListener("click",()=>showVisitForm());
+  $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:""}];if(savePlants())showPlantDashboard("tasks");});
+  $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(savePlants())showPlantDashboard("tasks");});
+  $$(`[data-delete-action]`).forEach(b=>b.onclick=()=>{if(!confirm("Aufgabe wirklich löschen?"))return;plant.actions=(plant.actions||[]).filter(a=>a.id!==b.dataset.deleteAction);if(savePlants())showPlantDashboard("tasks");});
+  $$('[data-open-visit]').forEach(b=>b.onclick=()=>showVisitMode(b.dataset.openVisit));$$('[data-edit-visit]').forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
+  $$('[data-ics-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
+  $$('[data-delete-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.deleteVisit);if(confirm(`Termin „${v?.title||"Besuch"}“ wirklich löschen?`)){plant.visits=(plant.visits||[]).filter(x=>x.id!==b.dataset.deleteVisit);savePlants();showPlantDashboard("visits");}});
+  if(page==="technology")bindProcedureCard(appView);
   bindDashboardActions();
 }
+
 function showLimits(){
   const plant=activePlant();if(!plant)return showPlantForm();
   setView("limits");setBreadcrumb("Grenz- und Zielwerte");
@@ -1775,8 +1774,8 @@ function showProfile(){
   <article class="qr-profile-card"><p class="eyebrow">Digitale Visitenkarte</p><h2>Kontakt-QR-Code</h2><div class="qr-code">${qrSvg(employeeVCard())}</div><p>Der QR-Code enthält eine vCard und kann mit der Smartphone-Kamera gescannt werden.</p><button class="button secondary" id="downloadVCard">Kontaktdatei herunterladen</button></article></section>
   <section class="profile-dashboard-grid"><article class="cockpit-panel"><div class="panel-title"><div><p class="eyebrow">Arbeitsübersicht</p><h2>Mein Dashboard</h2></div></div><div class="cockpit-metrics"><div><strong>${plants.length}</strong><span>Anlagen lokal</span></div><div><strong>${upcomingVisits(99).length}</strong><span>Kommende Termine</span></div><div><strong>${plants.reduce((n,x)=>n+(x.visits||[]).filter(v=>v.status!=="done"&&v.status!=="cancelled").length,0)}</strong><span>Offene Besuche</span></div></div></article>
   <article class="cockpit-panel"><div class="panel-title"><div><p class="eyebrow">Datenschutz & Offline</p><h2>Lokale Datensicherung</h2></div></div><p>Profil und Anlagen liegen ausschließlich in diesem Browser. Exportiere regelmäßig eine Sicherungsdatei.</p><div class="profile-backup-actions"><button class="button secondary" id="exportFullBackup">Gesamtsicherung exportieren</button><label class="button secondary file-label-inline">Sicherung importieren<input id="importFullBackup" type="file" accept=".json,application/json"></label></div><p class="muted-small">Beim Import werden vorhandene Daten erst nach Bestätigung ersetzt.</p></article></section>`;
-  $("#editEmployeeProfile").onclick=showProfileForm;$("#downloadVCard").onclick=downloadVCard;$("#exportFullBackup").onclick=()=>downloadJson(`abwasser-rechner-sicherung-${new Date().toISOString().slice(0,10)}.json`,{schema:"abwasser-rechner-backup-v1",version:VERSION,exportedAt:new Date().toISOString(),employeeProfile,plants,activePlantId});
-  $("#importFullBackup").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.plants)||!data.employeeProfile)throw new Error("Keine gültige Gesamtsicherung");if(!confirm("Vorhandene Profil- und Anlagendaten durch diese Sicherung ersetzen?"))return;plants=data.plants.map(normalizePlant);employeeProfile=normalizeEmployeeProfile(data.employeeProfile);activePlantId=data.activePlantId&&plants.some(x=>x.id===data.activePlantId)?data.activePlantId:plants[0]?.id||"";if(savePlants()&&saveEmployeeProfile())showProfile();}catch(err){alert(`Import nicht möglich: ${err.message}`)}finally{e.target.value="";}};
+  $("#editEmployeeProfile").onclick=showProfileForm;$("#downloadVCard").onclick=downloadVCard;$("#exportFullBackup").onclick=()=>downloadJson(`abwasser-rechner-sicherung-${new Date().toISOString().slice(0,10)}.json`,{schema:"abwasser-rechner-backup-v1",version:VERSION,exportedAt:new Date().toISOString(),employeeProfile,plants,products,activePlantId});
+  $("#importFullBackup").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.plants)||!data.employeeProfile)throw new Error("Keine gültige Gesamtsicherung");if(!confirm("Vorhandene Profil- und Anlagendaten durch diese Sicherung ersetzen?"))return;plants=data.plants.map(normalizePlant);products=Array.isArray(data.products)?data.products.map(normalizeProduct):products;saveProducts();employeeProfile=normalizeEmployeeProfile(data.employeeProfile);activePlantId=data.activePlantId&&plants.some(x=>x.id===data.activePlantId)?data.activePlantId:plants[0]?.id||"";if(savePlants()&&saveEmployeeProfile())showProfile();}catch(err){alert(`Import nicht möglich: ${err.message}`)}finally{e.target.value="";}};
 }
 function showProfileForm(){
   setView("profileForm");setBreadcrumb("Mitarbeiterprofil › Bearbeiten");const p=employeeProfile;
@@ -1797,9 +1796,10 @@ $$('[data-primary-view]').forEach(button=>button.onclick=()=>{
   else if(target==="calculators")showAllCalculators();
   closeMobileSidebar();
 });
+$$('[data-global-view]').forEach(button=>button.onclick=()=>{showGlobalPage(button.dataset.globalView);closeMobileSidebar();});
 const showAllButton=$("#showAllCalculators");if(showAllButton)showAllButton.onclick=()=>{showAllCalculators();closeMobileSidebar()};
-$("#homeButton").onclick=showHome;$("#dashboardNav").onclick=()=>{showHome();closeMobileSidebar()};
-$("#breadcrumbHome").onclick=showHome;$("#profileButton").onclick=showProfile;$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
+$("#homeButton").onclick=()=>showGlobalPage("today");
+$("#breadcrumbHome").onclick=()=>showGlobalPage("today");$("#profileButton").onclick=showProfile;$("#profileMenuButton").onclick=()=>{showProfile();closeMobileSidebar()};$("#sidebarOpen").onclick=openMobileSidebar;$("#sidebarClose").onclick=closeMobileSidebar;$("#sidebarBackdrop").onclick=closeMobileSidebar;$("#printButton").onclick=()=>window.print();
 $("#activePlantSelect").onchange=e=>{activePlantId=e.target.value;savePlants();showPlantDashboard()};
 $("#managePlantsButton").onclick=()=>{showApplication("plants");closeMobileSidebar()};
 $("#newPlantButton").onclick=()=>{showPlantForm();closeMobileSidebar()};
@@ -1808,7 +1808,7 @@ $$("[data-static-toggle]").forEach(b=>b.onclick=()=>{
   const group=b.closest(".menu-group");group.classList.toggle("open");b.setAttribute("aria-expanded",group.classList.contains("open"));
 });
 $("#searchInput").oninput=e=>{state.query=e.target.value;if(state.query)showSearchResults();else if(state.view==="calculators")showSearchResults()};
-$("#clearSearch").onclick=()=>{$("#searchInput").value="";state.query="";showHome()};
+$("#clearSearch").onclick=()=>{$("#searchInput").value="";state.query="";showGlobalPage("today")};
 $("#favoriteFilter").onclick=()=>{state.favoritesOnly?showHome():showFavorites();closeMobileSidebar()};
 $("#exportPlantButton").onclick=()=>{
   const plant=activePlant();if(!plant)return alert("Bitte zuerst eine Anlage auswählen.");
@@ -1832,4 +1832,4 @@ window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPro
 $("#installButton").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installButton").classList.add("hidden")};
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js",{updateViaCache:"none"}));
 
-renderPlantSelector();renderCategoryMenu();updateProfileButton();showHome();
+renderPlantSelector();renderCategoryMenu();updateProfileButton();showGlobalPage(localStorage.getItem(STORAGE_GLOBAL_PAGE)||"today");
