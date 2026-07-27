@@ -3,8 +3,9 @@ import {calculators} from "./calculators.js";
 import {documentRepository} from "./repositories/document-repository.js";
 import {recentAudit} from "./services/audit-service.js";
 import {mountPdfViewer} from "./components/pdf-viewer.js";
+import {renderProcessSchema3D,bindProcessSchema3D} from "./process/process-schema-3d.js";
 
-const VERSION="0.11.0-alpha.1";
+const VERSION="0.11.0-alpha.8";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -239,6 +240,10 @@ function normalizeVisit(value={}){
   const source=value&&typeof value==="object"?value:{};
   return {
     id:source.id||makeId(),title:source.title||"Besuch",start:source.start||"",end:source.end||"",purpose:source.purpose||"",contact:source.contact||"",
+    visitType:source.visitType||"process-optimization",processArea:source.processArea||"",objective:source.objective||"",
+    initialSituation:source.initialSituation||"",workPerformed:source.workPerformed||"",chemistryChanges:source.chemistryChanges||"",settingChanges:source.settingChanges||"",
+    result:source.result||"",recommendation:source.recommendation||"",nextSteps:source.nextSteps||"",
+    comparison:{beforeProduct:source.comparison?.beforeProduct||"",afterProduct:source.comparison?.afterProduct||"",beforeDose:source.comparison?.beforeDose||"",afterDose:source.comparison?.afterDose||"",beforeCost:source.comparison?.beforeCost||"",afterCost:source.comparison?.afterCost||"",beforeQuality:source.comparison?.beforeQuality||"",afterQuality:source.comparison?.afterQuality||""},
     status:source.status||"planned",notes:source.notes||"",modeStatus:source.modeStatus||"not-started",startedAt:source.startedAt||"",completedAt:source.completedAt||"",
     checklist:{...Object.fromEntries(VISIT_CHECKLIST.map(([key])=>[key,false])),...(source.checklist||{})},
     measurements:{flow:source.measurements?.flow||"",pOut:source.measurements?.pOut||"",nh4Out:source.measurements?.nh4Out||"",cakeTs:source.measurements?.cakeTs||"",polymer:source.measurements?.polymer||"",custom:source.measurements?.custom||""},
@@ -498,6 +503,107 @@ function telLink(value=""){
 }
 function mailLink(value=""){
   return value?`<a class="contact-link" href="mailto:${esc(value)}">${esc(value)}</a>`:"–";
+}
+function mailtoHref({to="",subject="",body=""}={}){
+  const recipient=String(to||"").trim();
+  const params=[];
+  if(subject)params.push(`subject=${encodeURIComponent(String(subject))}`);
+  if(body){
+    const normalizedBody=String(body).replace(/\r?\n/g,"\r\n");
+    params.push(`body=${encodeURIComponent(normalizedBody)}`);
+  }
+  return `mailto:${recipient}${params.length?`?${params.join("&")}`:""}`;
+}
+function openMailClient(mailData){
+  const href=mailtoHref(mailData);
+  // Direkte Navigation innerhalb des echten Klickereignisses funktioniert in
+  // Safari/iOS/iPadOS, macOS-Browsern und Windows-Browsern am zuverlässigsten.
+  window.location.assign(href);
+}
+function bindCommercialMailActions(plant){
+  const actions={
+    order:requestMailData(plant,"order"),
+    offer:requestMailData(plant,"offer")
+  };
+  $$('[data-mail-action]').forEach(link=>{
+    const data=actions[link.dataset.mailAction];
+    if(!data)return;
+    link.href=mailtoHref(data);
+    link.addEventListener("click",event=>{
+      event.preventDefault();
+      openMailClient(data);
+    });
+  });
+}
+function requestMailData(plant,type){
+  const isOrder=type==="order";
+  const plantName=plant.master?.name||"Unbenannte Anlage";
+  const plantNumber=plant.master?.internalNumber||"nicht hinterlegt";
+  const operator=plant.operator?.name||"nicht hinterlegt";
+  const location=[plant.address?.postalCode,plant.address?.city].filter(Boolean).join(" ")||"nicht hinterlegt";
+  const sender=employeeDisplayName();
+  const senderCompany=employeeProfile.company||"";
+  const senderPhone=employeeProfile.mobile||employeeProfile.phone||"";
+  const senderMail=employeeProfile.email||"";
+  const subject=`${isOrder?"Bestellanforderung":"Angebotsanforderung"} – ${plantName} (${plantNumber})`;
+  const requestFields=isOrder
+    ?`Benötigtes Produkt / Ersatzteil:
+
+Material- oder Artikelnummer:
+
+Menge:
+
+Gewünschter Liefertermin:
+
+Lieferadresse / Ansprechpartner:
+
+Kostenstelle / Projekt:
+`
+    :`Angefragtes Produkt / Leistung:
+
+Ausgangssituation / Aufgabenstellung:
+
+Gewünschter Leistungsumfang:
+
+Benötigte Menge / Dimensionierung:
+
+Gewünschter Angebots- oder Ausführungstermin:
+
+Besondere technische Anforderungen:
+`;
+  const body=`Guten Tag,
+
+bitte ${isOrder?"prüfen und die folgende Bestellung veranlassen":"für die nachfolgende Anlage ein Angebot erstellen"}.
+
+ANLAGENDATEN
+Anlage: ${plantName}
+Anlagennummer: ${plantNumber}
+Betreiber / Kunde: ${operator}
+Standort: ${location}
+
+ANFRAGE
+${requestFields}
+Zusätzliche Hinweise:
+
+Vielen Dank.
+
+Freundliche Grüße
+${sender}${senderCompany?`
+${senderCompany}`:""}${senderPhone?`
+Telefon: ${senderPhone}`:""}${senderMail?`
+E-Mail: ${senderMail}`:""}`;
+  return {subject,body};
+}
+function renderCommercialMailActions(plant){
+  const order=requestMailData(plant,"order");
+  const offer=requestMailData(plant,"offer");
+  return `<section class="dashboard-section compact-section commercial-mail-actions">
+    <div class="section-heading"><div><p class="eyebrow">E-Mail-Schnellaktionen</p><h2>Anforderung vorbereiten</h2><p class="form-note">Öffnet das auf dem Gerät eingerichtete Standard-Mailprogramm. Empfänger und fehlende Angaben können dort ergänzt werden.</p></div></div>
+    <div class="commercial-action-grid">
+      <a class="commercial-action-card order" data-mail-action="order" href="${esc(mailtoHref(order))}"><span class="commercial-action-icon" aria-hidden="true">↗</span><div><strong>Bestellung anfordern</strong><small>Vorlage mit Anlagen-, Liefer- und Artikeldaten öffnen</small></div></a>
+      <a class="commercial-action-card offer" data-mail-action="offer" href="${esc(mailtoHref(offer))}"><span class="commercial-action-icon" aria-hidden="true">€</span><div><strong>Angebot anfordern</strong><small>Technische Angebotsanfrage mit Anlagenbezug öffnen</small></div></a>
+    </div>
+  </section>`;
 }
 function parseLegacyGps(gps=""){
   const match=String(gps).trim().match(/^\s*(-?\d+(?:[.,]\d+)?)\s*[,; ]\s*(-?\d+(?:[.,]\d+)?)\s*$/);
@@ -951,9 +1057,21 @@ function showDocuments(){state.view="global-documents";localStorage.setItem(STOR
  const render=()=>{const q=$("#documentSearch").value.trim().toLowerCase(),st=$("#documentStatusFilter").value,ty=$("#documentTypeFilter").value;const list=documents.filter(d=>(!st||d.status===st)&&(!ty||d.type===ty)&&(!q||[d.fileName,d.documentNumber,d.customer,d.sender,d.recipient,d.notes,...d.tags,...d.productIds.map(id=>productById(id)?.name||"")].join(" ").toLowerCase().includes(q)));$("#documentLibrary").innerHTML=list.length?`<div class="document-library-list">${list.map(d=>`<article><div class="document-icon">PDF</div><div class="document-main"><div class="document-meta"><span class="status-chip ${d.status==='approved'?'green':d.status==='review'?'amber':d.status==='archived'?'gray':'blue'}">${docStatusLabel(d.status)}</span><span>${docTypeLabel(d.type)}</span><span>${(d.size/1024/1024).toFixed(2)} MB</span><span>${d.storageState==='stored'?'offline gespeichert':d.storageState==='error'?'Speicherfehler':'wird gespeichert …'}</span></div><h2>${esc(d.fileName)}</h2><p>${[d.documentNumber,d.documentDate,d.customer,productNames(d.productIds)].filter(Boolean).map(esc).join(" · ")||"Noch keine fachliche Zuordnung"}</p></div><div class="document-list-actions"><button class="button secondary compact" data-open-document="${d.id}">Anzeigen</button><button class="button primary compact" data-review-document="${d.id}">${d.status==='imported'?'Prüfen':'Bearbeiten'}</button></div></article>`).join("")}</div>`:`<div class="empty-panel"><h2>Keine Dokumente gefunden</h2><p>Lade eine PDF hoch. Die Originaldatei wird vollständig in IndexedDB gespeichert und bleibt offline anzeigbar.</p></div>`;$$('[data-open-document]').forEach(b=>b.onclick=()=>showDocumentDetail(b.dataset.openDocument));$$('[data-review-document]').forEach(b=>b.onclick=()=>showDocumentReview(b.dataset.reviewDocument))};
  $("#documentPdfImport").onchange=e=>{importDocuments(e.target.files);e.target.value=""};$("#documentSearch").oninput=render;$("#documentStatusFilter").onchange=render;$("#documentTypeFilter").onchange=render;$$('[data-doc-status-card]').forEach(b=>b.onclick=()=>{$("#documentStatusFilter").value=b.dataset.docStatusCard;render()});$("#documentStorageInfo").onclick=async()=>{const e=await estimateStorage();alert(e?`Belegt: ${(e.usage/1024/1024).toFixed(1)} MB\nVerfügbares Kontingent: ${(e.quota/1024/1024).toFixed(1)} MB\n\nPDF-Dateien werden vollständig offline gespeichert.`:"Der Browser stellt keine Speicherstatistik bereit. PDF-Dateien werden dennoch lokal in IndexedDB gespeichert.")};render()}
 function productNames(ids=[]){return ids.map(id=>productById(id)?.name).filter(Boolean).join(", ")}
-async function showDocumentDetail(id){const d=documentById(id);if(!d)return showDocuments();state.view="document-detail";setView("document-detail");setBreadcrumb(`Dokumente › ${d.fileName}`);appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">${docTypeLabel(d.type)}</p><h1>${esc(d.fileName)}</h1><p class="subtitle">${docStatusLabel(d.status)} · offline gespeichert · ${(d.size/1024/1024).toFixed(2)} MB</p></div><div class="page-header-actions"><button class="button secondary" id="editDocument">Prüfen / bearbeiten</button><button class="button secondary" id="exportDocument">Original exportieren</button></div></section><div class="document-detail-layout"><section class="offline-pdf-panel"><div id="offlinePdfViewer"></div></section><aside class="record-card document-facts"><h2>Dokumentdaten</h2><dl class="product-data-list"><div><dt>Status</dt><dd>${docStatusLabel(d.status)}</dd></div><div><dt>Dokumenttyp</dt><dd>${docTypeLabel(d.type)}</dd></div><div><dt>Nummer</dt><dd>${esc(d.documentNumber||"–")}</dd></div><div><dt>Datum / Version</dt><dd>${esc([d.documentDate,d.version].filter(Boolean).join(" · ")||"–")}</dd></div><div><dt>Kunde</dt><dd>${esc(d.customer||"–")}</dd></div><div><dt>Anlage</dt><dd>${esc(plants.find(p=>p.id===d.plantId)?.master?.name||"–")}</dd></div><div><dt>Produkte</dt><dd>${esc(productNames(d.productIds)||"–")}</dd></div></dl><h3>Notizen</h3><p>${esc(d.notes||"Keine Notizen")}</p></aside></div>`;try{const blob=await documentRepository.getFile(d.id);if(blob){await mountPdfViewer($("#offlinePdfViewer"),blob,{fileName:d.fileName});$("#exportDocument").onclick=()=>{const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=d.fileName;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}}else{$("#offlinePdfViewer").innerHTML="<div class=\"empty-panel\"><h2>Datei nicht gefunden</h2><p>Die Metadaten sind vorhanden, der lokale PDF-Blob fehlt.</p></div>"}}catch(error){console.error(error);$("#offlinePdfViewer").innerHTML="<div class=\"empty-panel\"><h2>PDF konnte nicht geladen werden</h2><p>"+esc(error?.message||String(error))+"</p></div>"}$("#editDocument").onclick=()=>showDocumentReview(d.id)}
-function fieldValue(name,v=""){return `<label class="field-label">${name}<input name="${name}" value="${esc(v)}"></label>`}
-async function showDocumentReview(id){const d=documentById(id);if(!d)return showDocuments();state.view="document-review";setView("document-review");setBreadcrumb(`Dokumente › Prüfen`);const inferred=d.extracted||{};appView.innerHTML=`<form id="documentReviewForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Manueller Prüfmodus</p><h1>${esc(d.fileName)}</h1><p class="subtitle">Original bleibt unverändert offline gespeichert.</p></div><span class="status-chip amber">${docStatusLabel(d.status)}</span></section><div class="document-review-layout"><section class="offline-pdf-panel"><div id="reviewPdfViewer"></div></section><section class="review-fields"><div class="form-section"><h2>Dokument klassifizieren</h2><div class="form-grid"><label class="field-label">Dokumenttyp<select name="type">${DOCUMENT_TYPES.map(([v,l])=>`<option value="${v}" ${d.type===v?'selected':''}>${l}</option>`).join("")}</select></label><label class="field-label">Status<select name="status">${DOCUMENT_STATUSES.map(([v,l])=>`<option value="${v}" ${d.status===v?'selected':''}>${l}</option>`).join("")}</select></label>${field("documentNumber","Dokumentnummer",d.documentNumber)}${field("documentDate","Dokumentdatum",d.documentDate,"date")}${field("version","Version / Stand",d.version)}${field("language","Sprache",d.language)}${field("sender","Absender",d.sender)}${field("recipient","Empfänger",d.recipient)}${field("customer","Kunde",d.customer)}<label class="field-label">Anlage<select name="plantId"><option value="">Keine Zuordnung</option>${plants.map(p=>`<option value="${p.id}" ${d.plantId===p.id?'selected':''}>${esc(p.master.name||'Unbenannte Anlage')}</option>`).join("")}</select></label>${field("project","Projekt / Auftrag",d.project)}<label class="field-label span-2">Schlagwörter<input name="tags" value="${esc(d.tags.join(', '))}" placeholder="kommagetrennt"></label><label class="field-label span-2">Notizen<textarea name="notes">${esc(d.notes)}</textarea></label></div></div><div class="form-section"><h2>Produktbezug</h2><p class="muted-small">Produktdokumente können ein neues Produkt erzeugen oder bestehende Produkte ergänzen. Kaufmännische Dokumente werden nur verknüpft.</p><label class="field-label">Bestehende Produkte<select name="productIds" multiple size="5">${products.map(p=>`<option value="${p.id}" ${d.productIds.includes(p.id)?'selected':''}>${esc(p.name)}</option>`).join("")}</select></label><label class="field-label">Neues Produkt aus Dokument erzeugen<input name="newProductName" value="${esc(inferred.name||'')}" placeholder="leer lassen, wenn keines erzeugt werden soll"></label><div class="form-grid">${field("newMaterialNumber","Materialnummer",inferred.materialNumber||"")}${field("newProductCategory","Produktgruppe",inferred.category||"")}</div></div></section></div><div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelDocumentReview">Abbrechen</button><button class="button primary" type="submit">Dokument speichern</button></div></form>`;try{const blob=await documentRepository.getFile(d.id);if(blob)await mountPdfViewer($("#reviewPdfViewer"),blob,{fileName:d.fileName});else $("#reviewPdfViewer").innerHTML="<div class=\"empty-panel\"><h2>PDF nicht gefunden</h2><p>Die Metadaten sind vorhanden, aber die Offline-Datei fehlt.</p></div>"}catch(error){console.error(error);$("#reviewPdfViewer").innerHTML="<div class=\"empty-panel\"><h2>PDF konnte nicht geladen werden</h2><p>"+esc(error?.message||String(error))+"</p></div>"}$("#cancelDocumentReview").onclick=()=>showDocumentDetail(d.id);$("#documentReviewForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);d.type=String(fd.get("type"));d.status=String(fd.get("status"));for(const k of ["documentNumber","documentDate","version","language","sender","recipient","customer","plantId","project","notes"])d[k]=String(fd.get(k)||"").trim();d.tags=String(fd.get("tags")||"").split(",").map(x=>x.trim()).filter(Boolean);d.productIds=fd.getAll("productIds").map(String);const newName=String(fd.get("newProductName")||"").trim();if(newName){let p=products.find(x=>x.name.toLowerCase()===newName.toLowerCase());if(!p){p=normalizeProduct();p.name=newName;p.materialNumber=String(fd.get("newMaterialNumber")||"").trim();p.category=String(fd.get("newProductCategory")||"").trim()||"Sonstiges";products.push(p)}if(!d.productIds.includes(p.id))d.productIds.push(p.id);if(!p.documents.some(x=>x.id===d.id))p.documents.push({id:d.id,fileName:d.fileName,type:d.type,documentDate:d.documentDate,size:d.size,mimeType:d.mimeType,importedAt:d.importedAt,source:"Dokumentenzentrale",reviewStatus:d.status==='approved'?'confirmed':'review',textExtracted:d.textExtracted});p.updatedAt=new Date().toISOString();saveProducts()}for(const pid of d.productIds){const p=productById(pid);if(p&&!p.documents.some(x=>x.id===d.id)){p.documents.push({id:d.id,fileName:d.fileName,type:d.type,documentDate:d.documentDate,size:d.size,mimeType:d.mimeType,importedAt:d.importedAt,source:"Dokumentenzentrale",reviewStatus:d.status==='approved'?'confirmed':'review',textExtracted:d.textExtracted});p.updatedAt=new Date().toISOString()}}d.reviewedAt=new Date().toISOString();d.reviewer=employeeProfile?.name||"lokaler Benutzer";d.updatedAt=new Date().toISOString();saveProducts();saveDocuments();showDocumentDetail(d.id)}}
+async function showDocumentDetail(id){
+  const d=documentById(id);if(!d)return showDocuments();
+  state.view="document-detail";setView("document-detail");setBreadcrumb(`Dokumente › ${d.fileName}`);
+  appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">${docTypeLabel(d.type)}</p><h1>${esc(d.fileName)}</h1><p class="subtitle">${docStatusLabel(d.status)} · offline gespeichert · ${(d.size/1024/1024).toFixed(2)} MB</p></div><div class="page-header-actions"><button class="button secondary" id="editDocument">Prüfen / bearbeiten</button></div></section><div class="document-detail-layout"><section class="offline-pdf-panel"><div id="documentPdfViewer" class="document-pdf-viewer"></div></section><aside class="record-card document-facts"><h2>Dokumentdaten</h2><dl class="product-data-list"><div><dt>Status</dt><dd>${docStatusLabel(d.status)}</dd></div><div><dt>Dokumenttyp</dt><dd>${docTypeLabel(d.type)}</dd></div><div><dt>Nummer</dt><dd>${esc(d.documentNumber||"–")}</dd></div><div><dt>Datum / Version</dt><dd>${esc([d.documentDate,d.version].filter(Boolean).join(" · ")||"–")}</dd></div><div><dt>Kunde</dt><dd>${esc(d.customer||"–")}</dd></div><div><dt>Anlage</dt><dd>${esc(plants.find(p=>p.id===d.plantId)?.master?.name||"–")}</dd></div><div><dt>Produkte</dt><dd>${esc(productNames(d.productIds)||"–")}</dd></div></dl><h3>Notizen</h3><p>${esc(d.notes||"Keine Notizen")}</p></aside></div>`;
+  try{
+    const blob=await documentRepository.getFile(d.id);
+    if(!blob) throw new Error("Die Metadaten sind vorhanden, der lokale PDF-Blob fehlt.");
+    await mountPdfViewer($("#documentPdfViewer"),blob,{fileName:d.fileName});
+  }catch(error){
+    console.error(error);
+    $("#documentPdfViewer").innerHTML=`<div class="empty-panel"><h2>PDF konnte nicht geladen werden</h2><p>${esc(error?.message||String(error))}</p></div>`;
+  }
+  $("#editDocument").onclick=()=>showDocumentReview(d.id);
+}
+async function showDocumentReview(id){const d=documentById(id);if(!d)return showDocuments();state.view="document-review";setView("document-review");setBreadcrumb(`Dokumente › Prüfen`);const inferred=d.extracted||{};appView.innerHTML=`<form id="documentReviewForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Manueller Prüfmodus</p><h1>${esc(d.fileName)}</h1><p class="subtitle">Original bleibt unverändert offline gespeichert.</p></div><span class="status-chip amber">${docStatusLabel(d.status)}</span></section><div class="document-review-layout"><section class="offline-pdf-panel"><div id="reviewPdfViewer" class="document-pdf-viewer"></div></section><section class="review-fields"><div class="form-section"><h2>Dokument klassifizieren</h2><div class="form-grid"><label class="field-label">Dokumenttyp<select name="type">${DOCUMENT_TYPES.map(([v,l])=>`<option value="${v}" ${d.type===v?'selected':''}>${l}</option>`).join("")}</select></label><label class="field-label">Status<select name="status">${DOCUMENT_STATUSES.map(([v,l])=>`<option value="${v}" ${d.status===v?'selected':''}>${l}</option>`).join("")}</select></label>${field("documentNumber","Dokumentnummer",d.documentNumber)}${field("documentDate","Dokumentdatum",d.documentDate,"date")}${field("version","Version / Stand",d.version)}${field("language","Sprache",d.language)}${field("sender","Absender",d.sender)}${field("recipient","Empfänger",d.recipient)}${field("customer","Kunde",d.customer)}<label class="field-label">Anlage<select name="plantId"><option value="">Keine Zuordnung</option>${plants.map(p=>`<option value="${p.id}" ${d.plantId===p.id?'selected':''}>${esc(p.master.name||'Unbenannte Anlage')}</option>`).join("")}</select></label>${field("project","Projekt / Auftrag",d.project)}<label class="field-label span-2">Schlagwörter<input name="tags" value="${esc(d.tags.join(', '))}" placeholder="kommagetrennt"></label><label class="field-label span-2">Notizen<textarea name="notes">${esc(d.notes)}</textarea></label></div></div><div class="form-section"><h2>Produktbezug</h2><p class="muted-small">Produktdokumente können ein neues Produkt erzeugen oder bestehende Produkte ergänzen. Kaufmännische Dokumente werden nur verknüpft.</p><label class="field-label">Bestehende Produkte<select name="productIds" multiple size="5">${products.map(p=>`<option value="${p.id}" ${d.productIds.includes(p.id)?'selected':''}>${esc(p.name)}</option>`).join("")}</select></label><label class="field-label">Neues Produkt aus Dokument erzeugen<input name="newProductName" value="${esc(inferred.name||'')}" placeholder="leer lassen, wenn keines erzeugt werden soll"></label><div class="form-grid">${field("newMaterialNumber","Materialnummer",inferred.materialNumber||"")}${field("newProductCategory","Produktgruppe",inferred.category||"")}</div></div></section></div><div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelDocumentReview">Abbrechen</button><button class="button primary" type="submit">Dokument speichern</button></div></form>`;try{const blob=await documentRepository.getFile(d.id);if(!blob)throw new Error("Die Metadaten sind vorhanden, aber die Offline-Datei fehlt.");await mountPdfViewer($("#reviewPdfViewer"),blob,{fileName:d.fileName})}catch(error){console.error(error);$("#reviewPdfViewer").innerHTML=`<div class="empty-panel"><h2>PDF konnte nicht geladen werden</h2><p>${esc(error?.message||String(error))}</p></div>`}$("#cancelDocumentReview").onclick=()=>showDocumentDetail(d.id);$("#documentReviewForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);d.type=String(fd.get("type"));d.status=String(fd.get("status"));for(const k of ["documentNumber","documentDate","version","language","sender","recipient","customer","plantId","project","notes"])d[k]=String(fd.get(k)||"").trim();d.tags=String(fd.get("tags")||"").split(",").map(x=>x.trim()).filter(Boolean);d.productIds=fd.getAll("productIds").map(String);const newName=String(fd.get("newProductName")||"").trim();if(newName){let p=products.find(x=>x.name.toLowerCase()===newName.toLowerCase());if(!p){p=normalizeProduct();p.name=newName;p.materialNumber=String(fd.get("newMaterialNumber")||"").trim();p.category=String(fd.get("newProductCategory")||"").trim()||"Sonstiges";products.push(p)}if(!d.productIds.includes(p.id))d.productIds.push(p.id);if(!p.documents.some(x=>x.id===d.id))p.documents.push({id:d.id,fileName:d.fileName,type:d.type,documentDate:d.documentDate,size:d.size,mimeType:d.mimeType,importedAt:d.importedAt,source:"Dokumentenzentrale",reviewStatus:d.status==='approved'?'confirmed':'review',textExtracted:d.textExtracted});p.updatedAt=new Date().toISOString();saveProducts()}for(const pid of d.productIds){const p=productById(pid);if(p&&!p.documents.some(x=>x.id===d.id)){p.documents.push({id:d.id,fileName:d.fileName,type:d.type,documentDate:d.documentDate,size:d.size,mimeType:d.mimeType,importedAt:d.importedAt,source:"Dokumentenzentrale",reviewStatus:d.status==='approved'?'confirmed':'review',textExtracted:d.textExtracted});p.updatedAt=new Date().toISOString()}}d.reviewedAt=new Date().toISOString();d.reviewer=employeeProfile?.name||"lokaler Benutzer";d.updatedAt=new Date().toISOString();saveProducts();saveDocuments();showDocumentDetail(d.id)}}
 
 function showGlobalPage(page){
   const valid=new Set(["today","appointments","tasks-global","documents","products","projects","reports","backup","settings","system"]);
@@ -1495,12 +1613,19 @@ function showVisitForm(visitId=null){
       ${selectField("status","Status",visit.status,[["planned","Geplant"],["done","Erledigt"],["cancelled","Abgesagt"]])}
       ${field("start","Beginn",visit.start,"datetime-local")}
       ${field("end","Ende",visit.end,"datetime-local")}
+      ${selectField("visitType","Besuchsart",visit.visitType,[
+        ["process-optimization","Prozessoptimierung"],["product-trial","Produktversuch"],["inventory","Bestandsaufnahme / Rundgang"],["follow-up","Nachkontrolle"],["technical-service","Technischer Service"],["consulting","Beratung"],["other","Sonstiger Termin"]
+      ])}
+      ${selectField("processArea","Prozessbereich",visit.processArea,[
+        ["","Bitte auswählen"],["inlet","Zulauf / mechanische Stufe"],["biology","Biologische Stufe"],["secondary-clarifier","Nachklärung"],["phosphorus","Phosphatfällung"],["sludge-treatment","Schlammbehandlung"],["dewatering","Schlammentwässerung"],["digester","Faulturm"],["filtrate","Zentrat / Filtrat"],["channel","Kanal / Pumpwerk"],["odor","Abluft / Geruch"],["other","Sonstiger Bereich"]
+      ])}
       ${field("purpose","Anlass / Zweck",visit.purpose)}
       <label class="field-label">Ansprechpartner<select name="contact">
         <option value="">Kein Ansprechpartner</option>
         ${(plant.contacts||[]).map(c=>`<option value="${esc(c.name)}" ${visit.contact===c.name?"selected":""}>${esc(c.name)}${c.role?` – ${esc(c.role)}`:""}</option>`).join("")}
       </select></label>
-      <label class="field-label span-2">Notizen<textarea name="notes">${esc(visit.notes||"")}</textarea></label>
+      <label class="field-label span-2">Ziel des Besuchs<textarea name="objective">${esc(visit.objective||"")}</textarea></label>
+      <label class="field-label span-2">Vorabinformationen / Notizen<textarea name="notes">${esc(visit.notes||"")}</textarea></label>
     </div></section>
     <div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelVisit">Abbrechen</button><button type="submit" class="button primary">Termin speichern</button></div>
   </form>`;
@@ -1509,7 +1634,7 @@ function showVisitForm(visitId=null){
     e.preventDefault();
     const fd=new FormData(e.currentTarget);
     const saved=normalizeVisit(existing?{...existing,id:visit.id}:{id:visit.id});
-    for(const key of ["title","status","start","end","purpose","contact","notes"])saved[key]=fd.get(key)||"";
+    for(const key of ["title","status","start","end","visitType","processArea","purpose","contact","objective","notes"])saved[key]=fd.get(key)||"";
     const start=isoLocalToDate(saved.start), end=isoLocalToDate(saved.end);
     if(!start||!end||end<=start)return alert("Das Terminende muss nach dem Beginn liegen.");
     plant.visits=plant.visits||[];
@@ -1571,6 +1696,22 @@ function showVisitMode(visitId=null){
     <div class="visit-workspace">
       <section class="visit-panel"><div class="section-heading"><div><p class="eyebrow">Rundgang</p><h2>Besuchscheckliste</h2></div></div><div class="visit-checklist">${VISIT_CHECKLIST.map(([key,label])=>`<label><input type="checkbox" data-check="${key}" ${visit.checklist[key]?"checked":""}><span>${label}</span></label>`).join("")}</div></section>
       <section class="visit-panel"><div class="section-heading"><div><p class="eyebrow">Messwerte</p><h2>Vor-Ort-Werte</h2></div></div><div class="form-grid visit-measurements">${field("vm.flow","Volumenstrom [m³/d]",visit.measurements.flow,"number")}${field("vm.pOut","Pges Ablauf [mg/l]",visit.measurements.pOut,"number")}${field("vm.nh4Out","NH₄-N Ablauf [mg/l]",visit.measurements.nh4Out,"number")}${field("vm.cakeTs","Kuchen-TS [%]",visit.measurements.cakeTs,"number")}${field("vm.polymer","Polymer [kg WS/t TS]",visit.measurements.polymer,"number")}<label class="field-label">Weitere Messwerte<textarea name="vm.custom">${esc(visit.measurements.custom)}</textarea></label></div><button class="button secondary" id="saveMeasurements" type="button">Messwerte speichern</button></section>
+      <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Besuchsbericht</p><h2>Strukturierte Dokumentation</h2><p class="form-note">Diese Angaben bilden den späteren OneNote-Ersatz und bleiben auswertbar.</p></div></div><div class="form-grid">
+        <label class="field-label span-2">Ausgangssituation<textarea name="vr.initialSituation">${esc(visit.initialSituation)}</textarea></label>
+        <label class="field-label span-2">Durchgeführte Tätigkeiten<textarea name="vr.workPerformed">${esc(visit.workPerformed)}</textarea></label>
+        <label class="field-label">Änderungen an Chemie / Produkt<textarea name="vr.chemistryChanges">${esc(visit.chemistryChanges)}</textarea></label>
+        <label class="field-label">Änderungen an Einstellungen / Maschine<textarea name="vr.settingChanges">${esc(visit.settingChanges)}</textarea></label>
+        <label class="field-label span-2">Ergebnis<textarea name="vr.result">${esc(visit.result)}</textarea></label>
+        <label class="field-label">Empfehlung<textarea name="vr.recommendation">${esc(visit.recommendation)}</textarea></label>
+        <label class="field-label">Offene Punkte / nächste Schritte<textarea name="vr.nextSteps">${esc(visit.nextSteps)}</textarea></label>
+      </div><button class="button secondary" id="saveVisitReport" type="button">Besuchsbericht speichern</button></section>
+      <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Vorher / Nachher</p><h2>Vergleich der Optimierung</h2><p class="form-note">Optional; Produkte, Dosierung, Kosten und Ergebnisqualität direkt gegenüberstellen.</p></div></div><div class="form-grid">
+        ${field("vc.beforeProduct","Produkt vorher",visit.comparison.beforeProduct)}${field("vc.afterProduct","Produkt nachher",visit.comparison.afterProduct)}
+        ${field("vc.beforeDose","Dosierung vorher",visit.comparison.beforeDose)}${field("vc.afterDose","Dosierung nachher",visit.comparison.afterDose)}
+        ${field("vc.beforeCost","Kosten vorher",visit.comparison.beforeCost)}${field("vc.afterCost","Kosten nachher",visit.comparison.afterCost)}
+        <label class="field-label">Ergebnisqualität vorher<textarea name="vc.beforeQuality">${esc(visit.comparison.beforeQuality)}</textarea></label>
+        <label class="field-label">Ergebnisqualität nachher<textarea name="vc.afterQuality">${esc(visit.comparison.afterQuality)}</textarea></label>
+      </div><button class="button secondary" id="saveVisitComparison" type="button">Vergleich speichern</button></section>
       <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Heute aufgefallen</p><h2>Auffälligkeiten und Aufgaben</h2></div></div><form id="findingForm" class="finding-entry"><select name="severity"><option value="info">Hinweis</option><option value="warning">Beobachten</option><option value="critical">Handlungsbedarf</option><option value="task">Aufgabe</option></select><input name="text" required placeholder="Beobachtung oder Aufgabe eintragen"><button class="button primary" type="submit">Hinzufügen</button></form><div class="finding-list">${visit.findings.length?visit.findings.map(f=>`<article class="finding-item ${esc(f.severity)}"><div><span>${f.severity==="critical"?"Handlungsbedarf":f.severity==="warning"?"Beobachten":f.severity==="task"?"Aufgabe":"Hinweis"}</span><p>${esc(f.text)}</p><small>${formatDateTime(f.createdAt)}</small></div><button type="button" data-remove-finding="${f.id}" aria-label="Eintrag löschen">×</button></article>`).join(""):`<p class="muted-small">Noch keine Auffälligkeiten dokumentiert.</p>`}</div></section>
       <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Fotos</p><h2>Fotodokumentation</h2></div><label class="button secondary file-label-inline">Fotos hinzufügen<input id="visitPhotoInput" type="file" accept="image/*" capture="environment" multiple></label></div><p class="muted-small">Fotos werden ausschließlich lokal in dieser App gespeichert. Maximal 6 Fotos pro Besuch.</p><div class="visit-photo-grid">${visit.photos.length?visit.photos.map(ph=>`<figure><img src="${ph.dataUrl}" alt="Besuchsfoto"><figcaption>${esc(ph.name||"Foto")}<button type="button" data-remove-photo="${ph.id}">Löschen</button></figcaption></figure>`).join(""):`<div class="empty-panel compact"><p>Noch keine Fotos hinterlegt.</p></div>`}</div></section>
       <section class="visit-panel span-full"><div class="section-heading"><div><p class="eyebrow">Zusammenfassung</p><h2>Besuchsnotiz</h2></div></div><textarea id="visitSummary" rows="6" placeholder="Gespräch, Empfehlungen, nächste Schritte …">${esc(visit.summary||visit.notes||"")}</textarea><button class="button secondary" id="saveVisitSummary" type="button">Notiz speichern</button></section>
@@ -1580,6 +1721,8 @@ function showVisitMode(visitId=null){
     $("#finishVisit").onclick=()=>{visit.modeStatus=visit.modeStatus==="completed"?"active":"completed";visit.status=visit.modeStatus==="completed"?"done":"planned";visit.completedAt=visit.modeStatus==="completed"?new Date().toISOString():"";if(persist())render();};
     $$('[data-check]').forEach(el=>el.onchange=()=>{visit.checklist[el.dataset.check]=el.checked;persist();render();});
     $("#saveMeasurements").onclick=()=>{for(const key of ["flow","pOut","nh4Out","cakeTs","polymer","custom"]){const el=appView.querySelector(`[name="vm.${key}"]`);visit.measurements[key]=el?.value||"";}visit.checklist.measurements=true;if(persist())render();};
+    $("#saveVisitReport").onclick=()=>{for(const key of ["initialSituation","workPerformed","chemistryChanges","settingChanges","result","recommendation","nextSteps"]){visit[key]=appView.querySelector(`[name="vr.${key}"]`)?.value.trim()||"";}if(persist())alert("Besuchsbericht gespeichert.");};
+    $("#saveVisitComparison").onclick=()=>{for(const key of ["beforeProduct","afterProduct","beforeDose","afterDose","beforeCost","afterCost","beforeQuality","afterQuality"]){visit.comparison[key]=appView.querySelector(`[name="vc.${key}"]`)?.value.trim()||"";}if(persist())alert("Vorher-/Nachher-Vergleich gespeichert.");};
     $("#findingForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),text=String(fd.get("text")||"").trim();if(!text)return;const severity=fd.get("severity")||"info";visit.findings.unshift({id:makeId(),severity,text,createdAt:new Date().toISOString(),resolved:false});if(severity==="task"){visit.checklist.tasks=true;plant.actions=[...(plant.actions||[]),{id:makeId(),title:text,status:"open",priority:"normal",dueDate:"",component:"Besuch",sourceVisitId:visit.id,createdAt:new Date().toISOString(),completedAt:""}];}if(persist())render();};
     $$('[data-remove-finding]').forEach(b=>b.onclick=()=>{visit.findings=visit.findings.filter(f=>f.id!==b.dataset.removeFinding);if(persist())render();});
     $("#saveVisitSummary").onclick=()=>{visit.summary=$("#visitSummary").value.trim();visit.notes=visit.summary;if(persist())alert("Besuchsnotiz gespeichert.");};
@@ -1739,7 +1882,7 @@ function plantPageNavigation(active){
   return `<nav class="plant-subnav" aria-label="Bereiche der Anlagenakte">${pages.map(([id,label],i)=>`<button type="button" data-plant-page="${id}" class="${active===id?'active':''} ${i>3?'plant-subnav-more':''}">${label}</button>`).join('')}</nav>`;
 }
 function renderPlantOverviewPage(plant){
-  return `${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
+  return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderCommercialMailActions(plant)}${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
     <section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Schnellzugriff</p><h2>Wichtige Bereiche</h2></div></div>
     <div class="plant-jump-grid">
       <button type="button" data-jump-page="technology"><strong>Technik</strong><span>Komponenten, Betriebswerte und Ampel</span></button>
@@ -1755,6 +1898,7 @@ function renderPlantTechnologyPage(plant){
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Berechnungen für diese Anlage</h2></div><button class="button primary" id="openTraffic" type="button">Ampelübersicht</button></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
 }
+function renderPlantSchemaPage(plant){return renderProcessSchema3D(plant);}
 function renderPlantVisitsPage(plant){return `${renderVisits(plant)}${renderPlantTimeline(plant)}`;}
 function renderPlantTasksPage(plant){return renderActionCenter(plant);}
 function renderPlantSalesPage(plant){
@@ -1779,12 +1923,13 @@ function renderPlantSystemPage(plant){
   <article class="release-notes"><h2>Release Notes 0.9.1a</h2><h3>Neu</h3><ul><li>Unterseiten für Übersicht, Technik, Einsätze, Vertrieb, Aufgaben und Akte</li><li>Persistente Anlagen-Navigation mit mobilem horizontalem Scrollen</li><li>Info-&-System-Bereich mit Copyright und Datenschutz</li></ul><h3>Verbessert</h3><ul><li>Deutlich kürzere Seiten und weniger Scrollen</li><li>Klare Trennung von Überblick, Bearbeitung und Historie</li><li>Vorbereitung für Dokumenten- und Produktbibliothek</li></ul></article></section>`;
 }
 function renderPlantPage(plant,page){
-  const renderers={overview:renderPlantOverviewPage,technology:renderPlantTechnologyPage,visits:renderPlantVisitsPage,sales:renderPlantSalesPage,tasks:renderPlantTasksPage,record:renderPlantRecordPage};
+  const renderers={overview:renderPlantOverviewPage,schema:renderPlantSchemaPage,technology:renderPlantTechnologyPage,visits:renderPlantVisitsPage,sales:renderPlantSalesPage,tasks:renderPlantTasksPage,record:renderPlantRecordPage};
   return (renderers[page]||renderers.overview)(plant);
 }
 function showPlantDashboard(page){
   const plant=activePlant();if(!plant)return showPlantForm();
   const valid=new Set(["overview","technology","visits","sales","tasks","record"]);
+  if(page==="schema"||localStorage.getItem(STORAGE_PLANT_PAGE)==="schema")page="overview";
   page=valid.has(page)?page:(valid.has(localStorage.getItem(STORAGE_PLANT_PAGE))?localStorage.getItem(STORAGE_PLANT_PAGE):"overview");
   localStorage.setItem(STORAGE_PLANT_PAGE,page);
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1806,6 +1951,8 @@ function showPlantDashboard(page){
   $$('[data-ics-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
   $$('[data-delete-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.deleteVisit);if(confirm(`Termin „${v?.title||"Besuch"}“ wirklich löschen?`)){plant.visits=(plant.visits||[]).filter(x=>x.id!==b.dataset.deleteVisit);savePlants();showPlantDashboard("visits");}});
   if(page==="technology")bindProcedureCard(appView);
+  if(page==="overview")bindCommercialMailActions(plant);
+  if(page==="overview"||page==="schema")bindProcessSchema3D(appView);
   bindDashboardActions();
 }
 
