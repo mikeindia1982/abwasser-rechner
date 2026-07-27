@@ -5,7 +5,7 @@ import {recentAudit} from "./services/audit-service.js";
 import {mountPdfViewer} from "./components/pdf-viewer.js";
 import {renderProcessSchema3D,bindProcessSchema3D} from "./process/process-schema-3d.js";
 
-const VERSION="0.11.0-alpha.8";
+const VERSION="0.11.0-alpha.10";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -269,7 +269,10 @@ function normalizePlant(value={}){
     tankSystems:Array.isArray(source.tankSystems)?source.tankSystems.map(tankDefaults):[],
     contacts:Array.isArray(source.contacts)?source.contacts:[],
     visits:Array.isArray(source.visits)?source.visits.map(normalizeVisit):[],
-    actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||""})):[],
+    actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||""})):
+      [],
+    communications:Array.isArray(source.communications)?source.communications.map(c=>({id:c.id||makeId(),type:c.type||"mail",title:c.title||"Kommunikation gestartet",recipient:c.recipient||"",subject:c.subject||"",note:c.note||"",createdAt:c.createdAt||new Date().toISOString(),employee:c.employee||""})):
+      [],
     limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
   };
   normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
@@ -520,17 +523,51 @@ function openMailClient(mailData){
   // Safari/iOS/iPadOS, macOS-Browsern und Windows-Browsern am zuverlässigsten.
   window.location.assign(href);
 }
+function addCommunicationEntry(plant,{type,title,recipient="",subject="",note=""}){
+  plant.communications=[...(plant.communications||[]),{
+    id:makeId(),type,title,recipient,subject,note,
+    createdAt:new Date().toISOString(),
+    employee:employeeDisplayName()
+  }];
+  savePlants();
+}
+function bindCommunicationLinks(plant){
+  $$('a[href^="tel:"]').forEach(link=>{
+    if(link.dataset.communicationBound)return;
+    link.dataset.communicationBound="true";
+    link.addEventListener("click",()=>{
+      const number=decodeURIComponent((link.getAttribute("href")||"").replace(/^tel:/i,""));
+      addCommunicationEntry(plant,{type:"phone",title:"Anruf gestartet",recipient:number,note:link.textContent.trim()});
+    });
+  });
+  $$('a[href^="mailto:"]:not([data-mail-action])').forEach(link=>{
+    if(link.dataset.communicationBound)return;
+    link.dataset.communicationBound="true";
+    link.addEventListener("click",()=>{
+      const href=link.getAttribute("href")||"";
+      const recipient=decodeURIComponent(href.replace(/^mailto:/i,"").split("?")[0]);
+      addCommunicationEntry(plant,{type:"mail",title:"E-Mail geöffnet",recipient,note:link.textContent.trim()});
+    });
+  });
+}
 function bindCommercialMailActions(plant){
   const actions={
     order:requestMailData(plant,"order"),
     offer:requestMailData(plant,"offer")
   };
   $$('[data-mail-action]').forEach(link=>{
-    const data=actions[link.dataset.mailAction];
+    const actionType=link.dataset.mailAction;
+    const data=actions[actionType];
     if(!data)return;
     link.href=mailtoHref(data);
     link.addEventListener("click",event=>{
       event.preventDefault();
+      addCommunicationEntry(plant,{
+        type:"mail",
+        title:actionType==="order"?"Bestellanforderung geöffnet":"Angebotsanforderung geöffnet",
+        recipient:data.to||"",
+        subject:data.subject
+      });
       openMailClient(data);
     });
   });
@@ -1809,6 +1846,7 @@ function renderPlantTimeline(plant){
   const entries=[];
   (plant.visits||[]).forEach(v=>entries.push({date:v.completedAt||v.start||v.startedAt,type:"visit",title:v.title||"Besuch",text:v.summary||v.purpose||`${v.findings?.length||0} Auffälligkeiten · ${v.photos?.length||0} Fotos`}));
   (plant.actions||[]).filter(a=>a.status==="done").forEach(a=>entries.push({date:a.completedAt||a.createdAt,type:"action",title:"Aufgabe erledigt",text:a.title}));
+  (plant.communications||[]).forEach(c=>entries.push({date:c.createdAt,type:c.type==="phone"?"phone":"mail",title:c.title,text:[c.recipient,c.subject,c.employee].filter(Boolean).join(" · ")}));
   entries.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Entwicklung der Anlage</p><h2>Zeitleiste</h2></div></div><div class="plant-timeline">${entries.length?entries.slice(0,12).map(e=>`<article><div class="timeline-dot ${e.type}"></div><div><time>${formatDateTime(e.date)}</time><strong>${esc(e.title)}</strong><p>${esc(e.text)}</p></div></article>`).join(''):`<div class="empty-panel compact"><p>Noch keine Ereignisse vorhanden.</p></div>`}</div></section>`;
 }
@@ -1952,6 +1990,7 @@ function showPlantDashboard(page){
   $$('[data-delete-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.deleteVisit);if(confirm(`Termin „${v?.title||"Besuch"}“ wirklich löschen?`)){plant.visits=(plant.visits||[]).filter(x=>x.id!==b.dataset.deleteVisit);savePlants();showPlantDashboard("visits");}});
   if(page==="technology")bindProcedureCard(appView);
   if(page==="overview")bindCommercialMailActions(plant);
+  bindCommunicationLinks(plant);
   if(page==="overview"||page==="schema")bindProcessSchema3D(appView);
   bindDashboardActions();
 }
