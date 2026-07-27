@@ -2376,10 +2376,7 @@ async function showDocumentReview(id) {
       throw new Error(
         "Die Metadaten sind vorhanden, aber die Offline-Datei fehlt.",
       );
-    const viewer = new PdfViewer($("#reviewPdfViewer"), {
-      fileName: d.fileName,
-    });
-    await viewer.load(blob, d.fileName);
+    await mountPdfViewer($("#reviewPdfViewer"), blob, { fileName: d.fileName });
   } catch (error) {
     console.error(error);
     $("#reviewPdfViewer").innerHTML =
