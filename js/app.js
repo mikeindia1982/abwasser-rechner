@@ -3,8 +3,12 @@ import { calculators } from "./calculators.js";
 import { documentRepository } from "./repositories/document-repository.js";
 import { recentAudit } from "./services/audit-service.js";
 import { mountPdfViewer } from "./components/pdf-viewer.js";
+import {
+  renderProcessSchema3D,
+  bindProcessSchema3D,
+} from "./process/process-schema-3d.js";
 
-const VERSION = "0.11.0-alpha.2";
+const VERSION = "0.11.0-alpha.8";
 const STORAGE_FAVORITES = "abwasser-favorites-v07";
 const STORAGE_MENU = "abwasser-menu-v07";
 const STORAGE_PLANTS = "abwasser-plants-v07";
@@ -1326,6 +1330,122 @@ function mailLink(value = "") {
   return value
     ? `<a class="contact-link" href="mailto:${esc(value)}">${esc(value)}</a>`
     : "–";
+}
+function mailtoHref({ to = "", subject = "", body = "" } = {}) {
+  const recipient = String(to || "").trim();
+  const params = [];
+  if (subject) params.push(`subject=${encodeURIComponent(String(subject))}`);
+  if (body) {
+    const normalizedBody = String(body).replace(/\r?\n/g, "\r\n");
+    params.push(`body=${encodeURIComponent(normalizedBody)}`);
+  }
+  return `mailto:${recipient}${params.length ? `?${params.join("&")}` : ""}`;
+}
+function openMailClient(mailData) {
+  const href = mailtoHref(mailData);
+  // Direkte Navigation innerhalb des echten Klickereignisses funktioniert in
+  // Safari/iOS/iPadOS, macOS-Browsern und Windows-Browsern am zuverlässigsten.
+  window.location.assign(href);
+}
+function bindCommercialMailActions(plant) {
+  const actions = {
+    order: requestMailData(plant, "order"),
+    offer: requestMailData(plant, "offer"),
+  };
+  $$("[data-mail-action]").forEach((link) => {
+    const data = actions[link.dataset.mailAction];
+    if (!data) return;
+    link.href = mailtoHref(data);
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openMailClient(data);
+    });
+  });
+}
+function requestMailData(plant, type) {
+  const isOrder = type === "order";
+  const plantName = plant.master?.name || "Unbenannte Anlage";
+  const plantNumber = plant.master?.internalNumber || "nicht hinterlegt";
+  const operator = plant.operator?.name || "nicht hinterlegt";
+  const location =
+    [plant.address?.postalCode, plant.address?.city]
+      .filter(Boolean)
+      .join(" ") || "nicht hinterlegt";
+  const sender = employeeDisplayName();
+  const senderCompany = employeeProfile.company || "";
+  const senderPhone = employeeProfile.mobile || employeeProfile.phone || "";
+  const senderMail = employeeProfile.email || "";
+  const subject = `${isOrder ? "Bestellanforderung" : "Angebotsanforderung"} – ${plantName} (${plantNumber})`;
+  const requestFields = isOrder
+    ? `Benötigtes Produkt / Ersatzteil:
+
+Material- oder Artikelnummer:
+
+Menge:
+
+Gewünschter Liefertermin:
+
+Lieferadresse / Ansprechpartner:
+
+Kostenstelle / Projekt:
+`
+    : `Angefragtes Produkt / Leistung:
+
+Ausgangssituation / Aufgabenstellung:
+
+Gewünschter Leistungsumfang:
+
+Benötigte Menge / Dimensionierung:
+
+Gewünschter Angebots- oder Ausführungstermin:
+
+Besondere technische Anforderungen:
+`;
+  const body = `Guten Tag,
+
+bitte ${isOrder ? "prüfen und die folgende Bestellung veranlassen" : "für die nachfolgende Anlage ein Angebot erstellen"}.
+
+ANLAGENDATEN
+Anlage: ${plantName}
+Anlagennummer: ${plantNumber}
+Betreiber / Kunde: ${operator}
+Standort: ${location}
+
+ANFRAGE
+${requestFields}
+Zusätzliche Hinweise:
+
+Vielen Dank.
+
+Freundliche Grüße
+${sender}${
+    senderCompany
+      ? `
+${senderCompany}`
+      : ""
+  }${
+    senderPhone
+      ? `
+Telefon: ${senderPhone}`
+      : ""
+  }${
+    senderMail
+      ? `
+E-Mail: ${senderMail}`
+      : ""
+  }`;
+  return { subject, body };
+}
+function renderCommercialMailActions(plant) {
+  const order = requestMailData(plant, "order");
+  const offer = requestMailData(plant, "offer");
+  return `<section class="dashboard-section compact-section commercial-mail-actions">
+    <div class="section-heading"><div><p class="eyebrow">E-Mail-Schnellaktionen</p><h2>Anforderung vorbereiten</h2><p class="form-note">Öffnet das auf dem Gerät eingerichtete Standard-Mailprogramm. Empfänger und fehlende Angaben können dort ergänzt werden.</p></div></div>
+    <div class="commercial-action-grid">
+      <a class="commercial-action-card order" data-mail-action="order" href="${esc(mailtoHref(order))}"><span class="commercial-action-icon" aria-hidden="true">↗</span><div><strong>Bestellung anfordern</strong><small>Vorlage mit Anlagen-, Liefer- und Artikeldaten öffnen</small></div></a>
+      <a class="commercial-action-card offer" data-mail-action="offer" href="${esc(mailtoHref(offer))}"><span class="commercial-action-icon" aria-hidden="true">€</span><div><strong>Angebot anfordern</strong><small>Technische Angebotsanfrage mit Anlagenbezug öffnen</small></div></a>
+    </div>
+  </section>`;
 }
 function parseLegacyGps(gps = "") {
   const match = String(gps)
@@ -4758,7 +4878,7 @@ function plantPageNavigation(active) {
   return `<nav class="plant-subnav" aria-label="Bereiche der Anlagenakte">${pages.map(([id, label], i) => `<button type="button" data-plant-page="${id}" class="${active === id ? "active" : ""} ${i > 3 ? "plant-subnav-more" : ""}">${label}</button>`).join("")}</nav>`;
 }
 function renderPlantOverviewPage(plant) {
-  return `${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
+  return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderCommercialMailActions(plant)}${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
     <section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Schnellzugriff</p><h2>Wichtige Bereiche</h2></div></div>
     <div class="plant-jump-grid">
       <button type="button" data-jump-page="technology"><strong>Technik</strong><span>Komponenten, Betriebswerte und Ampel</span></button>
@@ -4804,6 +4924,9 @@ function renderPlantTechnologyPage(plant) {
     })
     .join("")}</div></section>`;
 }
+function renderPlantSchemaPage(plant) {
+  return renderProcessSchema3D(plant);
+}
 function renderPlantVisitsPage(plant) {
   return `${renderVisits(plant)}${renderPlantTimeline(plant)}`;
 }
@@ -4836,6 +4959,7 @@ function renderPlantSystemPage(plant) {
 function renderPlantPage(plant, page) {
   const renderers = {
     overview: renderPlantOverviewPage,
+    schema: renderPlantSchemaPage,
     technology: renderPlantTechnologyPage,
     visits: renderPlantVisitsPage,
     sales: renderPlantSalesPage,
@@ -4855,6 +4979,11 @@ function showPlantDashboard(page) {
     "tasks",
     "record",
   ]);
+  if (
+    page === "schema" ||
+    localStorage.getItem(STORAGE_PLANT_PAGE) === "schema"
+  )
+    page = "overview";
   page = valid.has(page)
     ? page
     : valid.has(localStorage.getItem(STORAGE_PLANT_PAGE))
@@ -4961,6 +5090,8 @@ function showPlantDashboard(page) {
       }),
   );
   if (page === "technology") bindProcedureCard(appView);
+  if (page === "overview") bindCommercialMailActions(plant);
+  if (page === "overview" || page === "schema") bindProcessSchema3D(appView);
   bindDashboardActions();
 }
 
