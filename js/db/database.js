@@ -1,8 +1,10 @@
 export const DB_NAME = 'abwasser-rechner-v011';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const STORES = Object.freeze({
   documents:'documents', files:'files', products:'products', plants:'plants', customers:'customers',
-  projects:'projects', relations:'relations', auditLog:'auditLog', settings:'settings'
+  projects:'projects', relations:'relations', auditLog:'auditLog', settings:'settings',
+  tenderNotices:'tenderNotices', tenderMatches:'tenderMatches', tenderScanRuns:'tenderScanRuns',
+  tenderRawNotices:'tenderRawNotices', tenderFeedback:'tenderFeedback', tenderNotifications:'tenderNotifications'
 });
 let dbPromise;
 export function openDatabase(){
@@ -13,8 +15,31 @@ export function openDatabase(){
       const db=request.result;
       for(const name of Object.values(STORES)){
         if(db.objectStoreNames.contains(name)) continue;
-        if(name===STORES.auditLog) db.createObjectStore(name,{keyPath:'id',autoIncrement:true});
+        if(name===STORES.auditLog||name===STORES.tenderFeedback) db.createObjectStore(name,{keyPath:'id'});
         else db.createObjectStore(name,{keyPath:'id'});
+      }
+      if(db.objectStoreNames.contains(STORES.tenderNotices)){
+        const store=request.transaction.objectStore(STORES.tenderNotices);
+        if(!store.indexNames.contains('by_uniqueKey')) store.createIndex('by_uniqueKey','uniqueKey',{unique:true});
+        if(!store.indexNames.contains('by_source')) store.createIndex('by_source','source',{unique:false});
+        if(!store.indexNames.contains('by_publishedAt')) store.createIndex('by_publishedAt','publishedAt',{unique:false});
+      }
+      if(db.objectStoreNames.contains(STORES.tenderMatches)){
+        const store=request.transaction.objectStore(STORES.tenderMatches);
+        if(!store.indexNames.contains('by_tenderNoticeId')) store.createIndex('by_tenderNoticeId','tenderNoticeId',{unique:true});
+        if(!store.indexNames.contains('by_relevanceLevel')) store.createIndex('by_relevanceLevel','relevanceLevel',{unique:false});
+        if(!store.indexNames.contains('by_status')) store.createIndex('by_status','status',{unique:false});
+        if(!store.indexNames.contains('by_isRead')) store.createIndex('by_isRead','isRead',{unique:false});
+      }
+      if(db.objectStoreNames.contains(STORES.tenderScanRuns)){
+        const store=request.transaction.objectStore(STORES.tenderScanRuns);
+        if(!store.indexNames.contains('by_startedAt')) store.createIndex('by_startedAt','startedAt',{unique:false});
+        if(!store.indexNames.contains('by_status')) store.createIndex('by_status','status',{unique:false});
+      }
+      if(db.objectStoreNames.contains(STORES.tenderFeedback)){
+        const store=request.transaction.objectStore(STORES.tenderFeedback);
+        if(!store.indexNames.contains('by_tenderMatchId')) store.createIndex('by_tenderMatchId','tenderMatchId',{unique:false});
+        if(!store.indexNames.contains('by_changedAt')) store.createIndex('by_changedAt','changedAt',{unique:false});
       }
     };
     request.onsuccess=()=>resolve(request.result);

@@ -2,10 +2,15 @@ import {$,$$} from "./utils.js";
 import {calculators} from "./calculators.js";
 import {documentRepository} from "./repositories/document-repository.js";
 import {recentAudit} from "./services/audit-service.js";
+import {operatorLookupService} from "./services/operator-lookup-service.js";
 import {mountPdfViewer} from "./components/pdf-viewer.js";
-import {renderProcessSchema3D,bindProcessSchema3D} from "./process/process-schema-3d.js";
+import {renderProductImage,isChemicalProduct} from "./components/product-image.js";
+import {renderProcessSchema3D,bindProcessSchema3D,defaultFlowSchema,normalizeFlowSchema} from "./process/process-schema-3d.js";
+import * as requestModule from "./product-requests.js";
+import {renderTenderRadarPage,getTenderUnreadCount} from "./tenders/tender-radar-ui.js";
+import {tenderScanService} from "./tenders/services/tender-scan-service.js";
 
-const VERSION="0.11.0-alpha.10";
+const VERSION="0.11.0-alpha.13";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
 const STORAGE_PLANTS="abwasser-plants-v07";
@@ -17,6 +22,8 @@ const STORAGE_PLANT_PAGE="abwasser-plant-page-v091a";
 const STORAGE_GLOBAL_PAGE="abwasser-global-page-v091b";
 const STORAGE_PRODUCTS="abwasser-products-v092";
 const STORAGE_DOCUMENTS="abwasser-documents-v010";
+const STORAGE_REVERSE_GEOCODE_CACHE="abwasser-reverse-geocode-v01";
+const STORAGE_SALES_REMINDER_NOTICE="abwasser-sales-reminder-notice-v01";
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -28,6 +35,26 @@ const categoryMeta={
   "Chemikalien":{icon:"CH",description:"Dosierströme, Bestände und Chemikalienverbrauch"},
   "Wirtschaftlichkeit":{icon:"€",description:"Kosten, Vergleiche und Einsparpotenziale"}
 };
+const SALES_FUNNEL_STAGES=[
+  ["analysis","Analyse"],
+  ["trial","Versuch"],
+  ["offer","Angebot"],
+  ["order","Auftrag"],
+  ["aftercare","Nachbetreuung"]
+];
+const SALES_STAGE_PROBABILITY={analysis:0.2,trial:0.4,offer:0.65,order:1,aftercare:1};
+const SALES_REMINDER_WARNING_DAYS=45;
+const SALES_REMINDER_CRITICAL_DAYS=70;
+const VISIT_FOLLOW_UP_DAYS=2;
+const TASK_FOLLOW_UP_DAYS=14;
+const TANK_CRITICAL_OVERRUN_YEARS=5;
+const TANK_APPROVAL_RULES=[
+  {label:"Eisen(III)-chlorid",match:/eisen[-\s]*\(?iii\)?[-\s]*chlorid|ferric\s*chloride|fecl3/i,maxYears:20},
+  {label:"PAC (Polyaluminiumchlorid)",match:/\bpac\b|polyaluminium[-\s]*chlorid|aluminium[-\s]*chlorid/i,maxYears:18},
+  {label:"Natronlauge",match:/natronlauge|sodium\s*hydroxide|naoh|aetznatron|ätznatron/i,maxYears:22},
+  {label:"Schwefelsäure",match:/schwefels(a|ä)ure|sulfuric\s*acid|h2so4/i,maxYears:20},
+  {label:"Fällmittel (allgemein)",match:/f(a|ä)llmittel|precipitant/i,maxYears:18}
+];
 
 
 const mainProcessOptions=[
@@ -196,6 +223,87 @@ function makeId(){
   return globalThis.crypto?.randomUUID?.()||`id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 }
 
+function defaultSalesFunnel(){
+  return {
+    stage:"analysis",
+    potentialValue:"",
+    nextStep:"",
+    lastContactDate:"",
+    targetCloseDate:"",
+    notes:"",
+    history:[]
+  };
+}
+function normalizeSalesFunnel(value={}){
+  const source=value&&typeof value==="object"?value:{};
+  const stage=SALES_FUNNEL_STAGES.some(([id])=>id===source.stage)?source.stage:"analysis";
+  return {
+    ...defaultSalesFunnel(),
+    ...source,
+    stage,
+    history:Array.isArray(source.history)
+      ? source.history
+          .map(item=>({
+            stage:SALES_FUNNEL_STAGES.some(([id])=>id===item.stage)?item.stage:"analysis",
+            changedAt:item.changedAt||new Date().toISOString(),
+            note:item.note||""
+          }))
+          .slice(-20)
+      :[]
+  };
+}
+function defaultSalesOpportunity(){
+  return {
+    id:makeId(),
+    title:"Neue Chance",
+    stage:"analysis",
+    potentialValue:"",
+    nextStep:"",
+    lastContactDate:"",
+    lastOrderDate:"",
+    lastDeliveryDate:"",
+    targetCloseDate:"",
+    notes:"",
+    history:[],
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+}
+function normalizeSalesOpportunity(value={}){
+  const source=value&&typeof value==="object"?value:{};
+  const normalized=normalizeSalesFunnel(source);
+  return {
+    ...defaultSalesOpportunity(),
+    ...normalized,
+    id:source.id||makeId(),
+    title:String(source.title||"").trim()||"Unbenannte Chance",
+    createdAt:source.createdAt||new Date().toISOString(),
+    updatedAt:source.updatedAt||new Date().toISOString()
+  };
+}
+function defaultSalesPipeline(){
+  const first=defaultSalesOpportunity();
+  return {
+    activeOpportunityId:first.id,
+    opportunities:[first]
+  };
+}
+function normalizeSalesPipeline(value={},legacyFunnel={}){
+  const source=value&&typeof value==="object"?value:{};
+  let opportunities=Array.isArray(source.opportunities)?source.opportunities.map(normalizeSalesOpportunity):[];
+  if(!opportunities.length){
+    const migrated=normalizeSalesOpportunity({
+      ...normalizeSalesFunnel(legacyFunnel),
+      id:makeId(),
+      title:"Hauptchance"
+    });
+    opportunities=[migrated];
+  }
+  const ids=new Set(opportunities.map(item=>item.id));
+  const activeOpportunityId=ids.has(source.activeOpportunityId)?source.activeOpportunityId:opportunities[0].id;
+  return {activeOpportunityId,opportunities};
+}
+
 const emptyPlant=()=>({
   schemaVersion:7,
   id:makeId(),
@@ -207,7 +315,12 @@ const emptyPlant=()=>({
   },
   address:{street:"",postalCode:"",city:"",state:"Brandenburg",country:"Deutschland",gps:"",latitude:"",longitude:"",accuracy:"",capturedAt:"",geocodedAt:"",deliveryAddress:""},
   access:{parking:"",gate:"",accessCode:"",openingHours:"",registration:"",ppe:"",truckAccess:"",deliveryNotes:"",siteNotes:""},
-  operator:{name:"",legalForm:"",customerNumber:"",street:"",postalCode:"",city:"",phone:"",email:"",website:""},
+    operator:{
+      name:"",legalForm:"",customerNumber:"",association:"",owner:"",operatingCompany:"",
+      street:"",postalCode:"",city:"",municipality:"",district:"",state:"",municipalityKey:"",
+      phone:"",email:"",website:"",lookupSource:"",lookupDate:"",lookupStatus:"IDLE"
+    },
+  operatorLookup:{status:"idle",provider:"",checkedAt:"",coordinates:"",error:"",found:false},
   contacts:[],
   visits:[],
   sludgeDewatering:{
@@ -217,11 +330,14 @@ const emptyPlant=()=>({
   },
   dosingSystems:[],
   tankSystems:[],
+  salesFunnel:defaultSalesFunnel(),
+  salesPipeline:defaultSalesPipeline(),
   parameters:{
     flow:"",pIn:"",pOut:"",pTarget:"",nh4Out:"",basinVolume:"",mlss:"",svi:"",
     sludgeAge:"",sludgeFlow:"",sludgeTs:"",cakeTs:"",retention:"",polymer:"",
     disposalPrice:"",precipitantPrice:"",operatingDays:"365"
   },
+  flowSchema:defaultFlowSchema(),
   limits:structuredClone(defaultLimits)
 });
 
@@ -263,16 +379,20 @@ function normalizePlant(value={}){
     address:{...base.address,...(source.address||{})},
     access:{...base.access,...(source.access||{})},
     operator:{...base.operator,...(source.operator||{})},
+    operatorLookup:{...base.operatorLookup,...(source.operatorLookup||{})},
     parameters:{...base.parameters,...(source.parameters||{})},
     sludgeDewatering:dewateringDefaults(source.sludgeDewatering||{}),
     dosingSystems:Array.isArray(source.dosingSystems)?source.dosingSystems.map(dosingDefaults):[],
     tankSystems:Array.isArray(source.tankSystems)?source.tankSystems.map(tankDefaults):[],
+    salesFunnel:normalizeSalesFunnel(source.salesFunnel||{}),
+    salesPipeline:normalizeSalesPipeline(source.salesPipeline||{},source.salesFunnel||{}),
     contacts:Array.isArray(source.contacts)?source.contacts:[],
     visits:Array.isArray(source.visits)?source.visits.map(normalizeVisit):[],
-    actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||""})):
+    actions:Array.isArray(source.actions)?source.actions.map(a=>({id:a.id||makeId(),title:a.title||"Aufgabe",status:a.status||"open",priority:a.priority||"normal",dueDate:a.dueDate||"",component:a.component||"",sourceVisitId:a.sourceVisitId||"",createdAt:a.createdAt||new Date().toISOString(),completedAt:a.completedAt||"",autoGenerated:Boolean(a.autoGenerated),followUpType:a.followUpType||"",followUpSourceId:a.followUpSourceId||""})):
       [],
     communications:Array.isArray(source.communications)?source.communications.map(c=>({id:c.id||makeId(),type:c.type||"mail",title:c.title||"Kommunikation gestartet",recipient:c.recipient||"",subject:c.subject||"",note:c.note||"",createdAt:c.createdAt||new Date().toISOString(),employee:c.employee||""})):
       [],
+    flowSchema:normalizeFlowSchema(source.flowSchema||defaultFlowSchema()),
     limits:Array.isArray(source.limits)&&source.limits.length?source.limits:structuredClone(defaultLimits)
   };
   normalized.master.processStages=Array.isArray(normalized.master.processStages)?normalized.master.processStages:[];
@@ -316,15 +436,17 @@ function downloadVCard(){const blob=new Blob([employeeVCard()],{type:"text/vcard
 
 const seededProducts=[
   {
-    id:"product-aquafix-70-plus",name:"VTA Aquafix® 70 plus",materialNumber:"33",category:"Fällungs- und Flockungsmittel",status:"active",
-    shortDescription:"Flüssiges Fällungs- und Flockungsmittel in wässriger Lösung.",applications:["Fällung","Flockung"],problems:[],benefits:[],
+    id:"product-aquafix-70-plus",name:"VTA Aquafix® 70 plus",materialNumber:"33",productType:"chemical",category:"Fällungs- und Flockungsmittel",status:"active",isActive:true,
+    packageSizes:["25 kg Sack","60 kg Fass","1.000 kg IBC","Tanklastzug"],
+    notes:"Flüssiges Fällungs- und Flockungsmittel in wässriger Lösung.",applications:["Fällung","Flockung"],problems:[],benefits:[],
     technical:{state:"flüssig",color:"gelb, grün",ph:"< 2",density:"ca. 1,3 g/cm³",solubility:"vollständig mischbar",storageStability:"12 Monate"},
     safety:{signalWord:"Gefahr",hazardStatements:["H290","H318"],unNumber:"UN1760",transportClass:"8",waterHazardClass:"1"},
     documents:[],createdAt:"2026-07-26T00:00:00.000Z",updatedAt:"2026-07-26T00:00:00.000Z",reviewStatus:"seeded"
   },
   {
-    id:"product-biokat",name:"VTA Biokat®",materialNumber:"",category:"Biologische Prozessunterstützung",status:"active",
-    shortDescription:"Maßgeschneiderte Bio-Kost zur Stabilisierung und Aktivierung der biologischen Reinigungsleistung.",
+    id:"product-biokat",name:"VTA Biokat®",materialNumber:"",productType:"chemical",category:"Biologische Prozessunterstützung",status:"active",isActive:true,
+    packageSizes:["25 kg Sack","60 kg Fass","1.000 kg IBC","Tanklastzug"],
+    notes:"Maßgeschneiderte Bio-Kost zur Stabilisierung und Aktivierung der biologischen Reinigungsleistung.",
     applications:["Biologische Abwasserreinigung","Belebungsanlage"],
     problems:["Blähschlamm","Schwimmschlamm","starke Fädigkeit","lockere und instabile Flocken","gestörte Reinigungsleistung"],
     benefits:["Verbessert Reinigungsleistung und Schlammeigenschaften","Kompakte und stabile Flocken","Reduziert Energie- und Produktverbrauch","Biologisch verträglich"],
@@ -333,16 +455,198 @@ const seededProducts=[
   }
 ];
 function normalizeProduct(x={}){
-  return {id:x.id||makeId(),name:x.name||"",materialNumber:x.materialNumber||"",category:x.category||"Sonstiges",status:x.status||"active",shortDescription:x.shortDescription||"",applications:Array.isArray(x.applications)?x.applications:[],problems:Array.isArray(x.problems)?x.problems:[],benefits:Array.isArray(x.benefits)?x.benefits:[],technical:{state:"",color:"",ph:"",density:"",solubility:"",storageStability:"",...(x.technical||{})},safety:{signalWord:"",hazardStatements:[],unNumber:"",transportClass:"",waterHazardClass:"",...(x.safety||{})},documents:Array.isArray(x.documents)?x.documents:[],createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||new Date().toISOString(),reviewStatus:x.reviewStatus||"draft"};
+  const category=String(x.category||"").trim();
+  const productType=x.productType==="technical"?"technical":x.productType==="chemical"?"chemical":(isChemicalProduct({productType:x.productType,category})?"chemical":"technical");
+  return {
+    id:x.id||makeId(),
+    name:x.name||"",
+    materialNumber:x.materialNumber||"",
+    productType,
+    packageSizes:Array.isArray(x.packageSizes)?x.packageSizes:["25 kg Sack","60 kg Fass","1.000 kg IBC","Tanklastzug"],
+    isActive:typeof x.isActive==="boolean"?x.isActive:true,
+    category:category||"Sonstiges",
+    notes:x.notes||"",
+    status:x.status||"active",
+    shortDescription:x.shortDescription||"",
+    imageUrl:x.imageUrl||"",
+    applications:Array.isArray(x.applications)?x.applications:[],
+    problems:Array.isArray(x.problems)?x.problems:[],
+    benefits:Array.isArray(x.benefits)?x.benefits:[],
+    technical:{state:"",color:"",ph:"",density:"",solubility:"",storageStability:"",...(x.technical||{})},
+    safety:{signalWord:"",hazardStatements:[],unNumber:"",transportClass:"",waterHazardClass:"",...(x.safety||{})},
+    documents:Array.isArray(x.documents)?x.documents:[],
+    createdAt:x.createdAt||new Date().toISOString(),
+    updatedAt:x.updatedAt||new Date().toISOString(),
+    reviewStatus:x.reviewStatus||"draft"
+  };
 }
 function loadProducts(){
   try{const raw=localStorage.getItem(STORAGE_PRODUCTS);if(!raw){localStorage.setItem(STORAGE_PRODUCTS,JSON.stringify(seededProducts));return seededProducts.map(normalizeProduct)}const data=JSON.parse(raw);return Array.isArray(data)?data.map(normalizeProduct):seededProducts.map(normalizeProduct)}catch{return seededProducts.map(normalizeProduct)}
 }
 let products=loadProducts();
+let productRequestState={
+  type:"order",
+  search:"",
+  productTypeFilter:"",
+  positions:[],
+  selectedProductId:"",
+  packageSize:"",
+  quantity:1,
+  urgency:"Standard",
+  desiredDate:"",
+  remark:""
+};
 function saveProducts(){try{localStorage.setItem(STORAGE_PRODUCTS,JSON.stringify(products));return true}catch(error){console.error(error);alert("Produktdaten konnten nicht gespeichert werden.");return false}}
 function productById(id){return products.find(x=>x.id===id)||null}
 function splitKnowledge(value=""){return String(value).split(/\n|;/).map(x=>x.trim()).filter(Boolean)}
 function unique(values){return [...new Set(values.filter(Boolean))]}
+function parseCsvText(csvText){
+  const rows=[];
+  let current="";
+  let record=[];
+  let inQuotes=false;
+  const text=String(csvText).replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  for(let i=0;i<text.length;i++){
+    const char=text[i];
+    if(inQuotes){
+      if(char==='"'){
+        if(text[i+1]==='"'){current+='"';i++;continue;}
+        inQuotes=false;
+      } else {
+        current+=char;
+      }
+    } else {
+      if(char==='"'){
+        inQuotes=true;
+      } else if(char===","||char===';'){
+        record.push(current);current="";
+      } else if(char==='\n'){
+        record.push(current);rows.push(record);record=[];current="";
+      } else {
+        current+=char;
+      }
+    }
+  }
+  if(inQuotes){
+    record.push(current);
+  } else if(current!==""||record.length){
+    record.push(current);
+  }
+  if(record.length) rows.push(record);
+  return rows;
+}
+function mapCsvHeaders(headers){
+  return headers.map(h=>{const key=String(h||"").trim().toLowerCase();
+    if(/^(name|produktname|product|artikelname)$/i.test(key)) return "name";
+    if(/^(materialnummer|material number|nr|number)$/i.test(key)) return "materialNumber";
+    if(/^(kategorie|category|produktgruppe|category name)$/i.test(key)) return "category";
+    if(/^(imageurl|bild-url|bild url|bild|image)$/i.test(key)) return "imageUrl";
+    if(/^(kurzbeschreibung|shortdescription|description|beschreibung)$/i.test(key)) return "shortDescription";
+    if(/^(anwendungen|applications)$/i.test(key)) return "applications";
+    if(/^(probleme|problems)$/i.test(key)) return "problems";
+    if(/^(nutzen|benefits|vorteile)$/i.test(key)) return "benefits";
+    if(/^(signalwort|signal word)$/i.test(key)) return "signalWord";
+    if(/^(unnumber|un nummer|un-number|un nummer|un)$/i.test(key)) return "unNumber";
+    if(/^(zustand|state|aggregatzustand|aggregatzustand)$/i.test(key)) return "state";
+    if(/^(ph|ph-wert)$/i.test(key)) return "ph";
+    if(/^(dichte|density)$/i.test(key)) return "density";
+    if(/^(löslichkeit|loeslichkeit|solubility)$/i.test(key)) return "solubility";
+    if(/^(lagerstabilität|lagerstabilitaet|storage stability|storagestability)$/i.test(key)) return "storageStability";
+    if(/^(produktart|product type|type)$/i.test(key)) return "productType";
+    if(/^(gebinde|gebindegrößen|gebinde groessen|package sizes|packagesizes)$/i.test(key)) return "packageSizes";
+    return null;
+  });
+}
+function parseProductCsvRecords(text){
+  const rows=parseCsvText(text).filter(r=>r.some(cell=>String(cell||"").trim()));
+  if(!rows.length) return {records:[],errors:["Leere Datei"]};
+  let headers=mapCsvHeaders(rows[0]);
+  let dataRows=rows.slice(1);
+  if(headers.every(h=>!h) && rows[0].length===1){
+    headers=["name"];
+    dataRows=rows;
+  }
+  const records=[];
+  const errors=[];
+  for(let i=0;i<dataRows.length;i++){
+    const row=dataRows[i];
+    const record={};
+    for(let j=0;j<headers.length;j++){
+      const header=headers[j];
+      if(!header) continue;
+      record[header]=String(row[j]||"").trim();
+    }
+    if(!record.name){
+      errors.push(`Zeile ${i+1 + (dataRows===rows?0:1)}: Produktname fehlt`);
+      continue;
+    }
+    const normalized={
+      name:record.name,
+      materialNumber:record.materialNumber||"",
+      category:record.category||"Sonstiges",
+      imageUrl:record.imageUrl||"",
+      shortDescription:record.shortDescription||"",
+      applications:splitKnowledge(record.applications||""),
+      problems:splitKnowledge(record.problems||""),
+      benefits:splitKnowledge(record.benefits||""),
+      technical:{
+        state:record.state||"",
+        ph:record.ph||"",
+        density:record.density||"",
+        solubility:record.solubility||"",
+        storageStability:record.storageStability||""
+      },
+      safety:{
+        signalWord:record.signalWord||"",
+        unNumber:record.unNumber||"",
+        hazardStatements:[]
+      },
+      productType:record.productType?(/^(technical|technik|technical product|technisch)$/i.test(record.productType)?"technical":"chemical"):"chemical",
+      packageSizes:splitKnowledge(record.packageSizes||"")
+    };
+    if(!normalized.packageSizes.length) normalized.packageSizes=["25 kg Sack","60 kg Fass","1.000 kg IBC","Tanklastzug"];
+    records.push(normalized);
+  }
+  return {records,errors};
+}
+function importProductsFromCsvFiles(files){
+  const csvs=[...files].filter(f=>/\.csv$/i.test(f.name));
+  if(!csvs.length) return alert("Bitte mindestens eine CSV-Datei mit Produktdaten auswählen.");
+  const imported=[];
+  const errors=[];
+  return Promise.all(csvs.map(async file=>{
+    try{
+      const text=await file.text();
+      const {records,errors:errs}=parseProductCsvRecords(text);
+      errs.forEach(e=>errors.push(`${file.name}: ${e}`));
+      for(const raw of records){
+        const exists=products.find(p=>p.name.toLowerCase()===raw.name.toLowerCase()&&(raw.materialNumber&&p.materialNumber===raw.materialNumber));
+        if(exists) continue;
+        const product=normalizeProduct(raw);
+        product.createdAt=new Date().toISOString();
+        product.updatedAt=product.createdAt;
+        products.push(product);
+        imported.push(product);
+      }
+    }catch(error){
+      errors.push(`${file.name}: ${error.message||String(error)}`);
+    }
+  })).then(()=>{
+    if(imported.length){
+      saveProducts();
+      showProducts();
+    }
+    const summary=[];
+    if(imported.length) summary.push(`${imported.length} Produkt${imported.length===1?"":"e"} importiert.`);
+    if(errors.length) summary.push(`Fehler: ${errors.join("; ")}`);
+    alert(summary.join(" ")||"Keine Produkte importiert.");
+  });
+}
+function handleProductCsvImport(event){
+  const files=event.target.files;if(!files?.length) return;
+  importProductsFromCsvFiles(files);
+  event.target.value="";
+}
 function detectDocumentType(text,name=""){
   const hay=`${name}\n${text}`.toLowerCase();
   if(hay.includes("sicherheitsdatenblatt")||hay.includes("abschnitt 1:")||hay.includes("verordnung (eg) nr. 1907/2006"))return "sds";
@@ -447,6 +751,9 @@ const state={
   openCategories:new Set(JSON.parse(localStorage.getItem(STORAGE_MENU)||"[]")),
   recent:JSON.parse(localStorage.getItem(STORAGE_RECENT)||"[]")
 };
+
+let isRestoringHistoryNavigation=false;
+let historyNavigationInitialized=false;
 
 const categories=[...new Set(calculators.map(item=>item.category))];
 const workspace=$("#workspace");
@@ -803,6 +1110,19 @@ function updatePrimaryNavigation(){
     const active=(target==="today"&&state.view==="dashboard")||state.view===`global-${target}`;
     button.classList.toggle("active",active);
   });
+  refreshGlobalNavigationBadges();
+}
+async function refreshGlobalNavigationBadges(){
+  const badge=$("#tenderUnreadBadge");
+  if(!badge) return;
+  try{
+    const unread=await getTenderUnreadCount();
+    badge.textContent=String(unread||0);
+    badge.classList.toggle("hidden",!unread);
+  }catch{
+    badge.textContent="0";
+    badge.classList.add("hidden");
+  }
 }
 function toggleFavorite(id){
   state.favorites.has(id)?state.favorites.delete(id):state.favorites.add(id);
@@ -831,10 +1151,82 @@ function setView(view){
   state.view=view;
   $("#dashboard").classList.toggle("hidden",view!=="dashboard");
   $("#calculatorView").classList.toggle("hidden",view!=="calculators");
-  const applicationVisible=["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm"].includes(view)||view.startsWith("global-");
+  const applicationVisible=["plants","plantForm","plantDashboard","limits","traffic","profile","profileForm","product-editor","product-detail","product-import"].includes(view)||view.startsWith("global-");
   appView.classList.toggle("hidden",!applicationVisible);
   $("#printButton").classList.toggle("hidden",view!=="calculators"||!state.selected);
   updatePrimaryNavigation();
+  syncBrowserHistory(view);
+}
+
+function currentHistoryNavigationState(view=state.view){
+  return {
+    appNav:true,
+    view,
+    activePlantId:activePlantId||"",
+    globalPage:localStorage.getItem(STORAGE_GLOBAL_PAGE)||"today",
+    plantPage:localStorage.getItem(STORAGE_PLANT_PAGE)||"overview",
+    category:state.category||"",
+    query:state.query||"",
+    selected:state.selected||"",
+    favoritesOnly:Boolean(state.favoritesOnly)
+  };
+}
+function historyNavigationKey(nav){
+  return JSON.stringify([
+    nav.view,
+    nav.activePlantId,
+    nav.globalPage,
+    nav.plantPage,
+    nav.category,
+    nav.query,
+    nav.selected,
+    nav.favoritesOnly
+  ]);
+}
+function syncBrowserHistory(view){
+  if(typeof window==="undefined"||!window.history||isRestoringHistoryNavigation)return;
+  const nav=currentHistoryNavigationState(view);
+  const key=historyNavigationKey(nav);
+  const currentKey=window.history.state?.appNavKey;
+  if(!historyNavigationInitialized){
+    window.history.replaceState({...nav,appNavKey:key},"");
+    historyNavigationInitialized=true;
+    return;
+  }
+  if(currentKey===key)return;
+  window.history.pushState({...nav,appNavKey:key},"");
+}
+function restoreNavigationFromHistory(nav){
+  if(!nav?.appNav)return;
+  isRestoringHistoryNavigation=true;
+  try{
+    if(nav.activePlantId&&plants.some(p=>p.id===nav.activePlantId)){
+      activePlantId=nav.activePlantId;
+      savePlants();
+    }
+    if(nav.view==="dashboard")return showHome();
+    if(nav.view==="calculators"){
+      state.query=nav.query||"";
+      $("#searchInput").value=state.query;
+      if(nav.favoritesOnly)return showFavorites();
+      if(nav.selected&&calculators.some(c=>c.id===nav.selected))return selectCalculator(nav.selected);
+      if(nav.category)return showCategory(nav.category);
+      return state.query?showSearchResults():showAllCalculators();
+    }
+    if(nav.view.startsWith("global-"))return showGlobalPage(nav.view.slice(7));
+    if(nav.view==="plants")return showApplication("plants");
+    if(nav.view==="plantForm")return showPlantForm();
+    if(nav.view==="plantDashboard")return showPlantDashboard(nav.plantPage||"overview");
+    if(nav.view==="limits")return showLimits();
+    if(nav.view==="traffic")return showTraffic();
+    if(nav.view==="profile")return showProfile();
+    if(nav.view==="profileForm")return showProfileForm();
+    if(nav.view==="global-documents")return showDocuments();
+    if(nav.view==="global-products")return showProducts();
+    showGlobalPage(nav.globalPage||"today");
+  }finally{
+    isRestoringHistoryNavigation=false;
+  }
 }
 function showHome(){
   state.category=null;state.query="";state.selected=null;state.favoritesOnly=false;
@@ -974,70 +1366,117 @@ function closePlantSheet(){
 }
 function renderDashboard(){
   const plant=activePlant();
-  const recentList=state.recent.map(id=>calculators.find(item=>item.id===id)).filter(Boolean).slice(0,4);
-  const favoriteList=calculators.filter(item=>state.favorites.has(item.id)).slice(0,4);
-  const visits=upcomingVisits(4);
-  const tally=dashboardTrafficTally();
-  const totalStatus=Math.max(plants.length,1);
-  const greenDeg=tally.green/totalStatus*360;
-  const yellowDeg=(tally.green+tally.yellow)/totalStatus*360;
-  const redDeg=(tally.green+tally.yellow+tally.red)/totalStatus*360;
-  const capacity=plant?.master?.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"Ausbaugröße nicht hinterlegt";
-  const plantType=plant?.master?.type==="industrial"?"Industrielle Kläranlage":plant?.master?.type==="mixed"?"Kommunale Anlage mit Industrieanteil":"Kommunale Kläranlage";
+  const now=new Date();
+  const dayKey=now.toISOString().slice(0,10);
+  const startOfDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const displayName=employeeProfile.firstName?.trim()||employeeDisplayName();
+  const personalName=displayName&&displayName!="Profil"?displayName:"Kollegin/Kollege";
+  const visits=upcomingVisits(6);
+  const visitsToday=visits.filter(item=>item.date.toISOString().slice(0,10)===dayKey);
+  const nextVisit=visits[0]||null;
+  const openTasks=plants.flatMap(plantItem=>(plantItem.actions||[])
+    .filter(action=>action.status!=="done")
+    .map(action=>({
+      plant:plantItem,
+      action,
+      due:action.dueDate?new Date(`${action.dueDate}T12:00:00`):null
+    })))
+    .sort((a,b)=>{
+      const aTime=a.due?.getTime()??Number.POSITIVE_INFINITY;
+      const bTime=b.due?.getTime()??Number.POSITIVE_INFINITY;
+      return aTime-bTime;
+    });
+  const tasksToday=openTasks.filter(item=>item.action.dueDate===dayKey);
+  const overdueTasks=openTasks.filter(item=>item.due&&item.due.getTime()<startOfDay);
+  const highPriorityTasks=openTasks.filter(item=>item.action.priority==="high");
+  const salesReminders=salesReminderAlerts(4);
+  const agenda=[
+    ...visitsToday.map(item=>({
+      kind:"visit",
+      ts:item.date.getTime(),
+      label:`${item.date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} · ${item.plant.master.name||"Kläranlage"}`,
+      detail:item.visit.title||item.visit.purpose||"Besuchstermin",
+      plantId:item.plant.id,
+      page:"visits"
+    })),
+    ...tasksToday.map(item=>({
+      kind:"task",
+      ts:startOfDay+12*60*60*1000,
+      label:`Heute fällig · ${item.plant.master.name||"Kläranlage"}`,
+      detail:item.action.title,
+      plantId:item.plant.id,
+      page:"tasks"
+    })),
+    ...overdueTasks.slice(0,2).map(item=>({
+      kind:"overdue",
+      ts:startOfDay-1,
+      label:`Überfällig seit ${formatDate(item.action.dueDate)}`,
+      detail:item.action.title,
+      plantId:item.plant.id,
+      page:"tasks"
+    }))
+  ].sort((a,b)=>a.ts-b.ts).slice(0,7);
   $("#dashboard").innerHTML=`
-    <section class="cockpit-heading">
-      <div><h1>${greeting()}.</h1><p>Hier ist dein Überblick für den heutigen Arbeitstag.</p></div>
-      <div class="cockpit-date"><span>${new Date().toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"long",year:"numeric"})}</span><strong>${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></div>
-    </section>
-
-    <section class="plant-visual-card">
-      ${renderPlantAnimation()}
-      <div class="active-plant-overlay">
-        <div><p class="eyebrow">Aktive Anlage</p><h2>${esc(plant?.master?.name||"Noch keine Anlage ausgewählt")}</h2>
-          <span>${esc(plant?.master?.internalNumber||"")}</span><p>${plant?plantType:"Lege eine Anlagenakte an, um das Cockpit zu aktivieren."}</p><strong>${plant?capacity:""}</strong></div>
-        <div class="active-plant-buttons">
-          <button class="button primary" data-dashboard-action="${plant?"plantDashboard":"plantForm"}" type="button">${plant?"Anlage öffnen":"Anlage anlegen"}</button>
-          <button class="text-button" data-dashboard-action="plants" type="button">Anlage wechseln ↔</button>
-        </div>
+    <section class="today-dashboard-hero">
+      <div>
+        <p class="eyebrow">Persönliches Dashboard</p>
+        <h1>${greeting()}, ${esc(personalName)}.</h1>
+        <p>Dein kompakter Tagesfokus mit Terminen, Aufgaben und direktem Zugriff auf die wichtigsten Aktionen.</p>
+      </div>
+      <div class="today-dashboard-meta">
+        <span>${now.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span>
+        <strong>${now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong>
+      </div>
+      <div class="today-dashboard-actions">
+        <button class="button primary" data-dashboard-action="${plant?"plantDashboard":"plantForm"}" type="button">${plant?"Aktive Anlage öffnen":"Anlage anlegen"}</button>
+        <button class="button secondary" data-dashboard-action="global:appointments" type="button">Termine anzeigen</button>
+        <button class="button secondary" data-dashboard-action="global:tasks-global" type="button">Aufgaben anzeigen</button>
       </div>
     </section>
 
-    <section class="quick-access-grid" aria-label="Schnellzugriff">
-      <button data-dashboard-action="allCalculators" type="button"><span>∑</span><strong>Rechner</strong><small>Berechnungen durchführen</small></button>
-      <button data-dashboard-action="${plant?"plantDashboard":"plantForm"}" type="button"><span>KA</span><strong>Anlagenakte</strong><small>Stammdaten bearbeiten</small></button>
-      <button data-dashboard-action="${plant?"plantDashboard":"plants"}" type="button"><span>▣</span><strong>Termine</strong><small>Besuche und Notizen</small></button>
-      <button data-dashboard-action="favorites" type="button"><span>★</span><strong>Favoriten</strong><small>Wichtige Rechner</small></button>
-      <button data-dashboard-action="search" type="button"><span>⌕</span><strong>Suche</strong><small>Werkzeuge schnell finden</small></button>
+    <section class="plant-visual-card today-plant-visual-card">
+      ${renderPlantAnimation()}
     </section>
 
-    <section class="cockpit-columns">
+    <section class="today-kpi-grid" aria-label="Tageskennzahlen">
+      <article class="today-kpi-card">
+        <span>Termine heute</span>
+        <strong>${visitsToday.length}</strong>
+        <small>${nextVisit?`Nächster Termin um ${nextVisit.date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}`:"Heute keine weiteren Termine"}</small>
+      </article>
+      <article class="today-kpi-card">
+        <span>Offene Aufgaben</span>
+        <strong>${openTasks.length}</strong>
+        <small>${highPriorityTasks.length} mit hoher Priorität</small>
+      </article>
+      <article class="today-kpi-card warning">
+        <span>Überfällig</span>
+        <strong>${overdueTasks.length}</strong>
+        <small>${overdueTasks.length?"Bitte heute priorisieren":"Keine überfälligen Punkte"}</small>
+      </article>
+    </section>
+
+    <section class="cockpit-panel sales-reminder-panel">
+      <div class="panel-title"><div><p class="eyebrow">Kundenbindung</p><h2>Wiederbestell-Reminder</h2></div></div>
+      ${salesReminders.length?`<div class="today-alerts">${salesReminders.map(item=>`<button type="button" class="today-alert ${item.level} today-alert-button" data-dashboard-open-plant="${item.plantId}" data-dashboard-open-page="sales"><b>${item.level==="red"?"!":"•"}</b><div><strong>${esc(item.plantName)}</strong><span>${esc(item.opportunityTitle)} · Letzte ${esc(item.referenceLabel)} am ${esc(item.referenceDateLabel)} (${esc(item.referenceDaysLabel)})</span></div></button>`).join("")}</div>`:`<div class="today-ok">Keine aktiven Wiederbestell-Reminder aus Bestellung und Belieferung.</div>`}
+    </section>
+
+    <section class="today-personal-grid">
       <article class="cockpit-panel">
-        <div class="panel-title"><div><p class="eyebrow">Schnellzugriff</p><h2>${recentList.length?"Zuletzt verwendete Rechner":"Favorisierte Rechner"}</h2></div><button data-dashboard-action="allCalculators" type="button">Alle Rechner →</button></div>
-        <div class="compact-list">${(recentList.length?recentList:favoriteList).length?(recentList.length?recentList:favoriteList).map(item=>`<button data-dashboard-calculator="${item.id}" type="button"><span class="list-icon">${categoryMeta[item.category]?.icon||"∑"}</span><span><strong>${item.name}</strong><small>${item.category}</small></span><b>›</b></button>`).join(""):`<div class="dashboard-empty">Noch keine Rechner verwendet. Öffne einen Rechner über den Direktzugriff.</div>`}</div>
+        <div class="panel-title"><div><p class="eyebrow">Mein Tag</p><h2>Agenda</h2></div></div>
+        <div class="today-agenda-list">
+          ${agenda.length?agenda.map(item=>`<button type="button" class="today-agenda-item ${item.kind}" data-dashboard-open-plant="${item.plantId}" data-dashboard-open-page="${item.page}"><span>${item.kind==="visit"?"Termin":item.kind==="task"?"Aufgabe":"Überfällig"}</span><strong>${esc(item.label)}</strong><small>${esc(item.detail)}</small></button>`).join(""):`<div class="dashboard-empty">Für heute sind noch keine Termine oder fälligen Aufgaben geplant.</div>`}
+        </div>
       </article>
 
       <article class="cockpit-panel">
-        <div class="panel-title"><div><p class="eyebrow">Kalender</p><h2>Nächste Termine</h2></div><button data-dashboard-action="${plant?"plantDashboard":"plants"}" type="button">Alle Termine →</button></div>
-        <div class="appointment-list">${visits.length?visits.map(({plant,visit,date})=>`<div><time>${date.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})}<strong>${date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></time><span><strong>${esc(plant.master.name||"Kläranlage")}</strong><small>${esc(visit.title||visit.purpose||"Besuchstermin")}</small></span></div>`).join(""):`<div class="dashboard-empty">Keine zukünftigen Termine hinterlegt.</div>`}</div>
+        <div class="panel-title"><div><p class="eyebrow">Priorität</p><h2>Aufgabenfokus</h2></div><button data-dashboard-action="global:tasks-global" type="button">Alle Aufgaben →</button></div>
+        <div class="today-focus-list">
+          ${openTasks.slice(0,5).length?openTasks.slice(0,5).map(({plant:taskPlant,action})=>`<button type="button" class="today-focus-item ${action.priority==="high"?"high":""}" data-dashboard-open-plant="${taskPlant.id}" data-dashboard-open-page="tasks"><strong>${esc(action.title)}</strong><small>${esc(taskPlant.master.name||"Kläranlage")} · ${action.dueDate?`Fällig ${formatDate(action.dueDate)}`:"Ohne Fälligkeit"}</small></button>`).join(""):`<div class="dashboard-empty">Keine offenen Aufgaben vorhanden.</div>`}
+        </div>
       </article>
     </section>
 
-    <section class="cockpit-columns lower">
-      <article class="cockpit-panel status-panel">
-        <div class="panel-title"><div><p class="eyebrow">Überwachung</p><h2>Anlagenstatus</h2></div><button data-dashboard-action="plants" type="button">Alle Anlagen →</button></div>
-        <div class="status-overview"><div class="status-donut" style="--green:${greenDeg}deg;--yellow:${yellowDeg}deg;--red:${redDeg}deg"><span><strong>${plants.length}</strong><small>Anlagen</small></span></div>
-          <div class="status-legend"><span><i class="green"></i><strong>${tally.green}</strong> im Ziel</span><span><i class="yellow"></i><strong>${tally.yellow}</strong> beobachten</span><span><i class="red"></i><strong>${tally.red}</strong> prüfen</span><span><i class="gray"></i><strong>${tally.gray}</strong> ohne Daten</span></div></div>
-      </article>
-      <article class="cockpit-panel metrics-panel">
-        <div class="panel-title"><div><p class="eyebrow">Übersicht</p><h2>Kennzahlen</h2></div></div>
-        <div class="cockpit-metrics"><div><strong>${plants.length}</strong><span>Anlagen gespeichert</span></div><div><strong>${calculators.length}</strong><span>Rechner verfügbar</span></div><div><strong>${plants.reduce((n,p)=>n+(p.visits||[]).length,0)}</strong><span>Besuche dokumentiert</span></div><div><strong>${state.favorites.size}</strong><span>Favoriten gespeichert</span></div></div>
-      </article>
-    </section>
-
-    <section class="dashboard-section calculator-categories-home">
-      <div class="section-heading"><div><p class="eyebrow">Direktzugriff</p><h2>Rechnerkategorien</h2></div><button class="text-button" data-dashboard-action="allCalculators" type="button">Alle Rechner</button></div>
-      <div class="category-home-grid">${categories.map(category=>{const meta=categoryMeta[category]||{icon:"∑",description:""};return `<button type="button" data-dashboard-action="${category}"><span>${meta.icon}</span><strong>${category}</strong><small>${categoryCount(category)} Rechner</small></button>`}).join("")}</div>
-    </section>
     ${renderPlantSheet()}`;
   bindDashboardActions();
   const animationToggle=$("#animationToggle");
@@ -1052,6 +1491,7 @@ function renderDashboard(){
 function bindDashboardActions(){
   $$('[data-dashboard-action]').forEach(button=>button.onclick=()=>{
     const action=button.dataset.dashboardAction;
+    if(action?.startsWith("global:"))return showGlobalPage(action.slice(7));
     if(action==="favorites")showFavorites();
     else if(action==="allCalculators")showAllCalculators();
     else if(action==="search"){showAllCalculators();$("#searchInput").focus();}
@@ -1059,6 +1499,13 @@ function bindDashboardActions(){
     else showCategory(action);
   });
   $$('[data-dashboard-calculator]').forEach(button=>button.onclick=()=>selectCalculator(button.dataset.dashboardCalculator));
+  $$('[data-dashboard-open-plant]').forEach(button=>button.onclick=()=>{
+    const plantId=button.dataset.dashboardOpenPlant;
+    if(!plantId)return;
+    activePlantId=plantId;
+    savePlants();
+    showPlantDashboard(button.dataset.dashboardOpenPage||"overview");
+  });
 }
 
 function globalPageHeader(eyebrow,title,subtitle=""){
@@ -1111,11 +1558,11 @@ async function showDocumentDetail(id){
 async function showDocumentReview(id){const d=documentById(id);if(!d)return showDocuments();state.view="document-review";setView("document-review");setBreadcrumb(`Dokumente › Prüfen`);const inferred=d.extracted||{};appView.innerHTML=`<form id="documentReviewForm" class="record-form"><section class="page-header"><div><p class="eyebrow">Manueller Prüfmodus</p><h1>${esc(d.fileName)}</h1><p class="subtitle">Original bleibt unverändert offline gespeichert.</p></div><span class="status-chip amber">${docStatusLabel(d.status)}</span></section><div class="document-review-layout"><section class="offline-pdf-panel"><div id="reviewPdfViewer" class="document-pdf-viewer"></div></section><section class="review-fields"><div class="form-section"><h2>Dokument klassifizieren</h2><div class="form-grid"><label class="field-label">Dokumenttyp<select name="type">${DOCUMENT_TYPES.map(([v,l])=>`<option value="${v}" ${d.type===v?'selected':''}>${l}</option>`).join("")}</select></label><label class="field-label">Status<select name="status">${DOCUMENT_STATUSES.map(([v,l])=>`<option value="${v}" ${d.status===v?'selected':''}>${l}</option>`).join("")}</select></label>${field("documentNumber","Dokumentnummer",d.documentNumber)}${field("documentDate","Dokumentdatum",d.documentDate,"date")}${field("version","Version / Stand",d.version)}${field("language","Sprache",d.language)}${field("sender","Absender",d.sender)}${field("recipient","Empfänger",d.recipient)}${field("customer","Kunde",d.customer)}<label class="field-label">Anlage<select name="plantId"><option value="">Keine Zuordnung</option>${plants.map(p=>`<option value="${p.id}" ${d.plantId===p.id?'selected':''}>${esc(p.master.name||'Unbenannte Anlage')}</option>`).join("")}</select></label>${field("project","Projekt / Auftrag",d.project)}<label class="field-label span-2">Schlagwörter<input name="tags" value="${esc(d.tags.join(', '))}" placeholder="kommagetrennt"></label><label class="field-label span-2">Notizen<textarea name="notes">${esc(d.notes)}</textarea></label></div></div><div class="form-section"><h2>Produktbezug</h2><p class="muted-small">Produktdokumente können ein neues Produkt erzeugen oder bestehende Produkte ergänzen. Kaufmännische Dokumente werden nur verknüpft.</p><label class="field-label">Bestehende Produkte<select name="productIds" multiple size="5">${products.map(p=>`<option value="${p.id}" ${d.productIds.includes(p.id)?'selected':''}>${esc(p.name)}</option>`).join("")}</select></label><label class="field-label">Neues Produkt aus Dokument erzeugen<input name="newProductName" value="${esc(inferred.name||'')}" placeholder="leer lassen, wenn keines erzeugt werden soll"></label><div class="form-grid">${field("newMaterialNumber","Materialnummer",inferred.materialNumber||"")}${field("newProductCategory","Produktgruppe",inferred.category||"")}</div></div></section></div><div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelDocumentReview">Abbrechen</button><button class="button primary" type="submit">Dokument speichern</button></div></form>`;try{const blob=await documentRepository.getFile(d.id);if(!blob)throw new Error("Die Metadaten sind vorhanden, aber die Offline-Datei fehlt.");await mountPdfViewer($("#reviewPdfViewer"),blob,{fileName:d.fileName})}catch(error){console.error(error);$("#reviewPdfViewer").innerHTML=`<div class="empty-panel"><h2>PDF konnte nicht geladen werden</h2><p>${esc(error?.message||String(error))}</p></div>`}$("#cancelDocumentReview").onclick=()=>showDocumentDetail(d.id);$("#documentReviewForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);d.type=String(fd.get("type"));d.status=String(fd.get("status"));for(const k of ["documentNumber","documentDate","version","language","sender","recipient","customer","plantId","project","notes"])d[k]=String(fd.get(k)||"").trim();d.tags=String(fd.get("tags")||"").split(",").map(x=>x.trim()).filter(Boolean);d.productIds=fd.getAll("productIds").map(String);const newName=String(fd.get("newProductName")||"").trim();if(newName){let p=products.find(x=>x.name.toLowerCase()===newName.toLowerCase());if(!p){p=normalizeProduct();p.name=newName;p.materialNumber=String(fd.get("newMaterialNumber")||"").trim();p.category=String(fd.get("newProductCategory")||"").trim()||"Sonstiges";products.push(p)}if(!d.productIds.includes(p.id))d.productIds.push(p.id);if(!p.documents.some(x=>x.id===d.id))p.documents.push({id:d.id,fileName:d.fileName,type:d.type,documentDate:d.documentDate,size:d.size,mimeType:d.mimeType,importedAt:d.importedAt,source:"Dokumentenzentrale",reviewStatus:d.status==='approved'?'confirmed':'review',textExtracted:d.textExtracted});p.updatedAt=new Date().toISOString();saveProducts()}for(const pid of d.productIds){const p=productById(pid);if(p&&!p.documents.some(x=>x.id===d.id)){p.documents.push({id:d.id,fileName:d.fileName,type:d.type,documentDate:d.documentDate,size:d.size,mimeType:d.mimeType,importedAt:d.importedAt,source:"Dokumentenzentrale",reviewStatus:d.status==='approved'?'confirmed':'review',textExtracted:d.textExtracted});p.updatedAt=new Date().toISOString()}}d.reviewedAt=new Date().toISOString();d.reviewer=employeeProfile?.name||"lokaler Benutzer";d.updatedAt=new Date().toISOString();saveProducts();saveDocuments();showDocumentDetail(d.id)}}
 
 function showGlobalPage(page){
-  const valid=new Set(["today","appointments","tasks-global","documents","products","projects","reports","backup","settings","system"]);
+  const valid=new Set(["today","appointments","tasks-global","documents","products","tenders","projects","reports","backup","settings","system"]);
   page=valid.has(page)?page:"today";localStorage.setItem(STORAGE_GLOBAL_PAGE,page);
   if(page==="today")return showHome();
   setView(`global-${page}`);
-  const titles={appointments:"Termine",'tasks-global':"Aufgaben",documents:"Dokumente",products:"Produkte",projects:"Optimierungsprojekte",reports:"Berichte",backup:"Backup",settings:"Einstellungen",system:"Info & System"};
+  const titles={appointments:"Termine",'tasks-global':"Aufgaben",documents:"Dokumente",products:"Produkte",tenders:"Ausschreibungsradar",projects:"Optimierungsprojekte",reports:"Berichte",backup:"Backup",settings:"Einstellungen",system:"Info & System"};
   setBreadcrumb(titles[page]||"Abwasser-Rechner");
   if(page==="appointments"){
     const items=upcomingVisits(50);
@@ -1137,20 +1584,34 @@ function showGlobalPage(page){
     }).catch(console.error);
   }else if(page==="documents") return showDocuments();
   else if(page==="products") return showProducts();
+  else if(page==="tenders") return showTenderRadar();
   else if(page==="projects") appView.innerHTML=renderGlobalPlaceholder("📈","Optimierungsprojekte","Anlagenübergreifende Pipeline für Analysen, Versuche, Angebote und Aufträge.","Die Projektlogik wird nach der Dokumenten- und Produktbasis umgesetzt.");
   else if(page==="reports") appView.innerHTML=renderGlobalPlaceholder("📊","Berichte","Besuchsberichte, Jahresübersichten und technische Auswertungen.","Berichte werden schrittweise aus Anlagen-, Besuchs- und Projektdaten erzeugt.");
   else if(page==="settings") appView.innerHTML=renderGlobalPlaceholder("⚙","Einstellungen","Appweite Einstellungen für Darstellung, Backup-Erinnerungen und zukünftige Benutzeroptionen.","Die lokale Benutzer- und PIN-Sperre ist als späterer Foundation-Baustein vorgesehen.");
   $$('[data-global-open-plant]').forEach(b=>b.onclick=()=>{activePlantId=b.dataset.globalOpenPlant;savePlants();showPlantDashboard(b.dataset.globalPlantPage||"overview");});
 }
 
+function showTenderRadar(){
+  state.view="global-tenders";
+  localStorage.setItem(STORAGE_GLOBAL_PAGE,"tenders");
+  setView("global-tenders");
+  setBreadcrumb("Ausschreibungsradar");
+  updatePrimaryNavigation();
+  const profileName=employeeDisplayName?.()||"";
+  renderTenderRadarPage(appView,{globalPageHeader,currentUserName:profileName}).then(refreshGlobalNavigationBadges).catch(error=>{
+    console.error(error);
+    appView.innerHTML=`${globalPageHeader("Beschaffung","Ausschreibungsradar","Import und Bewertung oeffentlicher Ausschreibungen.")}<div class="empty-panel"><h2>Radar konnte nicht geladen werden</h2><p>${esc(error?.message||String(error))}</p></div>`;
+  });
+}
+
 
 function showProducts(){
   state.view="global-products";localStorage.setItem(STORAGE_GLOBAL_PAGE,"products");setView("global-products");setBreadcrumb("Produkte");updatePrimaryNavigation();
   appView.innerHTML=`${globalPageHeader("Produkte","Produktwissen","Sicherheitsdatenblätter und Factsheets lokal importieren, prüfen und Produkten zuordnen.")}
-  <section class="product-toolbar"><label class="button primary file-label-inline">PDF importieren<input id="productPdfImport" type="file" accept="application/pdf,.pdf" multiple></label><button class="button secondary" id="newProductManual" type="button">Produkt manuell anlegen</button><label class="product-search">Produkte durchsuchen<input id="productSearch" type="search" placeholder="Name, Kategorie oder Problem"></label></section>
+  <section class="product-toolbar"><label class="button primary file-label-inline">PDF importieren<input id="productPdfImport" type="file" accept="application/pdf,.pdf" multiple></label><label class="button primary file-label-inline">Produktliste importieren<input id="productCsvImport" type="file" accept=".csv,text/csv" multiple></label><button class="button secondary" id="newProductManual" type="button">Produkt manuell anlegen</button><label class="product-search">Produkte durchsuchen<input id="productSearch" type="search" placeholder="Name, Kategorie oder Problem"></label></section>
   <div id="productImportStatus"></div><div id="productLibrary"></div>`;
-  const render=(query="")=>{const q=query.trim().toLowerCase();const list=products.filter(p=>!q||[p.name,p.materialNumber,p.category,p.shortDescription,...p.applications,...p.problems,...p.benefits].join(" ").toLowerCase().includes(q));$("#productLibrary").innerHTML=list.length?`<div class="product-grid">${list.map(p=>`<article class="product-card"><div class="product-card-head"><span class="status-chip blue">${esc(p.category)}</span><span>${p.documents.length} Dokument${p.documents.length===1?"":"e"}</span></div><h2>${esc(p.name||"Unbenanntes Produkt")}</h2><p>${esc(p.shortDescription||"Noch keine Kurzbeschreibung hinterlegt.")}</p><div class="product-tags">${p.problems.slice(0,4).map(x=>`<span>${esc(x)}</span>`).join("")}</div><dl><div><dt>Materialnummer</dt><dd>${esc(p.materialNumber||"–")}</dd></div><div><dt>Prüfstatus</dt><dd>${p.reviewStatus==="confirmed"?"Geprüft":p.reviewStatus==="seeded"?"Vorbelegt":"Entwurf"}</dd></div></dl><button class="button secondary" type="button" data-open-product="${p.id}">Produkt öffnen</button></article>`).join("")}</div>`:`<div class="empty-panel"><h2>Keine Produkte gefunden</h2><p>Importiere ein PDF oder lege ein Produkt manuell an.</p></div>`;$$('[data-open-product]').forEach(b=>b.onclick=()=>showProductDetail(b.dataset.openProduct));};
-  render();renderProductImportQueueStatus();$("#productSearch").oninput=e=>render(e.target.value);$("#productPdfImport").onchange=handleProductPdfImport;$("#newProductManual").onclick=()=>showProductEditor();
+  const render=(query="")=>{const q=query.trim().toLowerCase();const list=products.filter(p=>!q||[p.name,p.materialNumber,p.category,p.shortDescription,...p.applications,...p.problems,...p.benefits].join(" ").toLowerCase().includes(q));$("#productLibrary").innerHTML=list.length?`<div class="product-grid">${list.map(p=>`<article class="product-card" data-open-product="${p.id}"><div class="product-image">${productPreviewVisual(p,"card")}</div><div class="product-card-head"><span class="status-chip blue">${esc(p.category)}</span><span>${p.documents.length} Dokument${p.documents.length===1?"":"e"}</span></div><h2>${esc(p.name||"Unbenanntes Produkt")}</h2><p>${esc(p.shortDescription||"Noch keine Kurzbeschreibung hinterlegt.")}</p><div class="product-tags">${p.problems.slice(0,4).map(x=>`<span>${esc(x)}</span>`).join("")}</div><dl><div><dt>Materialnummer</dt><dd>${esc(p.materialNumber||"–")}</dd></div><div><dt>Prüfstatus</dt><dd>${p.reviewStatus==="confirmed"?"Geprüft":p.reviewStatus==="seeded"?"Vorbelegt":"Entwurf"}</dd></div></dl></article>`).join("")}</div>`:`<div class="empty-panel"><h2>Keine Produkte gefunden</h2><p>Importiere ein PDF oder lege ein Produkt manuell an.</p></div>`;$$('[data-open-product]').forEach(b=>b.onclick=()=>showProductDetail(b.dataset.openProduct));};
+  render();renderProductImportQueueStatus();$("#productSearch").oninput=e=>render(e.target.value);$("#productPdfImport").onchange=handleProductPdfImport;$("#productCsvImport").onchange=handleProductCsvImport;$("#newProductManual").onclick=()=>showProductEditor();
 }
 async function handleProductPdfImport(event){
   const files=event.target.files;if(!files?.length)return;enqueueProductPdfs(files);event.target.value="";
@@ -1172,14 +1633,14 @@ async function showProductImportReview(file,type,inferred,rawText,queueItem=null
 function showProductDetail(id){
   const p=productById(id);if(!p)return showProducts();state.view="product-detail";setView("product-detail");setBreadcrumb(`Produkte › ${p.name}`);
   appView.innerHTML=`<section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>${esc(p.name)}</h1><p class="subtitle">${esc(p.category)}${p.materialNumber?` · Materialnummer ${esc(p.materialNumber)}`:""}</p></div><div class="page-header-actions"><button class="button secondary" id="editProduct">Bearbeiten</button><label class="button primary file-label-inline">PDF hinzufügen<input id="addProductPdf" type="file" accept="application/pdf,.pdf" multiple></label></div></section>
-  <div class="product-detail-grid"><article class="record-card"><h2>Übersicht</h2><p>${esc(p.shortDescription||"Keine Kurzbeschreibung vorhanden.")}</p><dl class="product-data-list"><div><dt>Anwendungen</dt><dd>${p.applications.map(esc).join(", ")||"–"}</dd></div><div><dt>Adressierte Probleme</dt><dd>${p.problems.map(esc).join(", ")||"–"}</dd></div><div><dt>Nutzen</dt><dd>${p.benefits.map(esc).join(" · ")||"–"}</dd></div></dl></article><article class="record-card"><h2>Technische Daten</h2><dl class="product-data-list"><div><dt>Aggregatzustand</dt><dd>${esc(p.technical.state||"–")}</dd></div><div><dt>pH-Wert</dt><dd>${esc(p.technical.ph||"–")}</dd></div><div><dt>Dichte</dt><dd>${esc(p.technical.density||"–")}</dd></div><div><dt>Löslichkeit</dt><dd>${esc(p.technical.solubility||"–")}</dd></div><div><dt>Lagerstabilität</dt><dd>${esc(p.technical.storageStability||"–")}</dd></div></dl></article><article class="record-card"><h2>Sicherheit</h2><dl class="product-data-list"><div><dt>Signalwort</dt><dd>${esc(p.safety.signalWord||"–")}</dd></div><div><dt>H-Sätze</dt><dd>${p.safety.hazardStatements.map(esc).join(", ")||"–"}</dd></div><div><dt>UN-Nummer</dt><dd>${esc(p.safety.unNumber||"–")}</dd></div><div><dt>Transportklasse</dt><dd>${esc(p.safety.transportClass||"–")}</dd></div></dl></article></div>
+  <div class="product-detail-grid"><article class="record-card product-detail-image"><div class="product-image">${productPreviewVisual(p,"detail")}</div><h2>Übersicht</h2><p>${esc(p.shortDescription||"Keine Kurzbeschreibung vorhanden.")}</p><dl class="product-data-list"><div><dt>Anwendungen</dt><dd>${p.applications.map(esc).join(", ")||"–"}</dd></div><div><dt>Adressierte Probleme</dt><dd>${p.problems.map(esc).join(", ")||"–"}</dd></div><div><dt>Nutzen</dt><dd>${p.benefits.map(esc).join(" · ")||"–"}</dd></div></dl></article><article class="record-card"><h2>Technische Daten</h2><dl class="product-data-list"><div><dt>Aggregatzustand</dt><dd>${esc(p.technical.state||"–")}</dd></div><div><dt>pH-Wert</dt><dd>${esc(p.technical.ph||"–")}</dd></div><div><dt>Dichte</dt><dd>${esc(p.technical.density||"–")}</dd></div><div><dt>Löslichkeit</dt><dd>${esc(p.technical.solubility||"–")}</dd></div><div><dt>Lagerstabilität</dt><dd>${esc(p.technical.storageStability||"–")}</dd></div></dl></article><article class="record-card"><h2>Sicherheit</h2><dl class="product-data-list"><div><dt>Signalwort</dt><dd>${esc(p.safety.signalWord||"–")}</dd></div><div><dt>H-Sätze</dt><dd>${p.safety.hazardStatements.map(esc).join(", ")||"–"}</dd></div><div><dt>UN-Nummer</dt><dd>${esc(p.safety.unNumber||"–")}</dd></div><div><dt>Transportklasse</dt><dd>${esc(p.safety.transportClass||"–")}</dd></div></dl></article></div>
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Quellen</p><h2>Dokumente</h2></div></div>${p.documents.length?`<div class="document-list">${p.documents.map(d=>`<article><div><span class="status-chip blue">${documentTypeLabel(d.type)}</span><h3>${esc(d.fileName)}</h3><p>${d.documentDate?`Stand ${esc(d.documentDate)} · `:""}${(d.size/1024/1024).toFixed(2)} MB · ${d.textExtracted?"Text erkannt":"manuell geprüft"}</p></div><div class="document-actions"><button type="button" data-open-product-document="${d.id}">Öffnen</button><button type="button" class="danger-link" data-delete-product-document="${d.id}">Entfernen</button></div></article>`).join("")}</div>`:`<div class="empty-panel compact"><p>Noch keine Dokumente zugeordnet.</p></div>`}</section>`;
   $("#editProduct").onclick=()=>showProductEditor(p.id);$("#addProductPdf").onchange=handleProductPdfImport;$$('[data-open-product-document]').forEach(b=>b.onclick=async()=>{const blob=await documentRepository.getFile(b.dataset.openProductDocument)||await getProductFile(b.dataset.openProductDocument);if(!blob)return alert("Die lokale PDF-Datei wurde nicht gefunden.");const url=URL.createObjectURL(blob);window.open(url,"_blank","noopener");setTimeout(()=>URL.revokeObjectURL(url),60000)});$$('[data-delete-product-document]').forEach(b=>b.onclick=async()=>{if(!confirm("Dokument wirklich aus der Produktakte entfernen?"))return;await deleteProductFile(b.dataset.deleteProductDocument);p.documents=p.documents.filter(d=>d.id!==b.dataset.deleteProductDocument);saveProducts();showProductDetail(p.id)});
 }
 function showProductEditor(id=""){
   let p=id?productById(id):normalizeProduct();if(!p)return showProducts();state.view="product-editor";setView("product-editor");setBreadcrumb(id?`Produkte › ${p.name} › Bearbeiten`:"Produkte › Neues Produkt");
-  appView.innerHTML=`<form id="productEditor" class="record-form"><section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>${id?"Produkt bearbeiten":"Produkt anlegen"}</h1></div></section><section class="form-section"><div class="form-grid">${field("name","Produktname",p.name)}${field("materialNumber","Materialnummer",p.materialNumber)}${field("category","Produktgruppe",p.category)}<label class="field-label span-2">Kurzbeschreibung<textarea name="shortDescription">${esc(p.shortDescription)}</textarea></label><label class="field-label">Anwendungsbereiche<textarea name="applications">${esc(p.applications.join("\n"))}</textarea></label><label class="field-label">Adressierte Probleme<textarea name="problems">${esc(p.problems.join("\n"))}</textarea></label><label class="field-label span-2">Nutzen / Vorteile<textarea name="benefits">${esc(p.benefits.join("\n"))}</textarea></label>${field("state","Aggregatzustand",p.technical.state)}${field("ph","pH-Wert",p.technical.ph)}${field("density","Dichte",p.technical.density)}${field("solubility","Löslichkeit",p.technical.solubility)}${field("storageStability","Lagerstabilität",p.technical.storageStability)}${field("signalWord","Signalwort",p.safety.signalWord)}${field("unNumber","UN-Nummer",p.safety.unNumber)}<label class="field-label">H-Sätze<textarea name="hazardStatements">${esc(p.safety.hazardStatements.join("\n"))}</textarea></label></div></section><div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelProductEditor">Abbrechen</button><button class="button primary" type="submit">Produkt speichern</button></div></form>`;
-  $("#cancelProductEditor").onclick=()=>id?showProductDetail(id):showProducts();$("#productEditor").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);p.name=String(fd.get("name")||"").trim();p.materialNumber=String(fd.get("materialNumber")||"").trim();p.category=String(fd.get("category")||"").trim()||"Sonstiges";p.shortDescription=String(fd.get("shortDescription")||"").trim();p.applications=splitKnowledge(fd.get("applications"));p.problems=splitKnowledge(fd.get("problems"));p.benefits=splitKnowledge(fd.get("benefits"));for(const k of ["state","ph","density","solubility","storageStability"])p.technical[k]=String(fd.get(k)||"").trim();p.safety.signalWord=String(fd.get("signalWord")||"").trim();p.safety.unNumber=String(fd.get("unNumber")||"").trim();p.safety.hazardStatements=splitKnowledge(fd.get("hazardStatements"));p.updatedAt=new Date().toISOString();p.reviewStatus="confirmed";if(!id)products.push(p);if(saveProducts())showProductDetail(p.id)};
+  appView.innerHTML=`<form id="productEditor" class="record-form"><section class="page-header"><div><p class="eyebrow">Produktakte</p><h1>${id?"Produkt bearbeiten":"Produkt anlegen"}</h1></div></section><section class="form-section"><div class="form-grid">${field("name","Produktname",p.name)}${field("materialNumber","Materialnummer",p.materialNumber)}${field("category","Produktgruppe",p.category)}${field("imageUrl","Bild-URL",p.imageUrl,"url","https://...")}<label class="field-label span-2">Kurzbeschreibung<textarea name="shortDescription">${esc(p.shortDescription)}</textarea></label><label class="field-label">Anwendungsbereiche<textarea name="applications">${esc(p.applications.join("\n"))}</textarea></label><label class="field-label">Adressierte Probleme<textarea name="problems">${esc(p.problems.join("\n"))}</textarea></label><label class="field-label span-2">Nutzen / Vorteile<textarea name="benefits">${esc(p.benefits.join("\n"))}</textarea></label>${field("state","Aggregatzustand",p.technical.state)}${field("ph","pH-Wert",p.technical.ph)}${field("density","Dichte",p.technical.density)}${field("solubility","Löslichkeit",p.technical.solubility)}${field("storageStability","Lagerstabilität",p.technical.storageStability)}${field("signalWord","Signalwort",p.safety.signalWord)}${field("unNumber","UN-Nummer",p.safety.unNumber)}<label class="field-label">H-Sätze<textarea name="hazardStatements">${esc(p.safety.hazardStatements.join("\n"))}</textarea></label></div></section><div class="sticky-form-actions"><button class="button secondary" type="button" id="cancelProductEditor">Abbrechen</button><button class="button primary" type="submit">Produkt speichern</button></div></form>`;
+  $("#cancelProductEditor").onclick=()=>id?showProductDetail(id):showProducts();$("#productEditor").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);p.name=String(fd.get("name")||"").trim();p.materialNumber=String(fd.get("materialNumber")||"").trim();p.category=String(fd.get("category")||"").trim()||"Sonstiges";p.imageUrl=String(fd.get("imageUrl")||"").trim();p.shortDescription=String(fd.get("shortDescription")||"").trim();p.applications=splitKnowledge(fd.get("applications"));p.problems=splitKnowledge(fd.get("problems"));p.benefits=splitKnowledge(fd.get("benefits"));for(const k of ["state","ph","density","solubility","storageStability"])p.technical[k]=String(fd.get(k)||"").trim();p.safety.signalWord=String(fd.get("signalWord")||"").trim();p.safety.unNumber=String(fd.get("unNumber")||"").trim();p.safety.hazardStatements=splitKnowledge(fd.get("hazardStatements"));p.updatedAt=new Date().toISOString();p.reviewStatus="confirmed";if(!id)products.push(p);if(saveProducts())showProductDetail(p.id)};
 }
 
 function showApplication(view){
@@ -1246,15 +1707,60 @@ function tankDefaults(value={}){
 function statusText(status){return status==="active"?"In Betrieb":status==="reserve"?"Reserve":status==="planned"?"Geplant":"Außer Betrieb"}
 function dewateringProcessText(value){return ({"screw-press":"Schneckenpresse","belt-press":"Siebbandpresse","filter-press":"Kammerfilterpresse",centrifuge:"Zentrifuge",mobile:"Mobile Entwässerung",dryingBed:"Trockenbeet",other:"Sonstiges"})[value]||"Nicht festgelegt"}
 function dosingPurposeText(value){return ({polymer:"Polymer",precipitant:"Fällmittel",carbon:"Kohlenstoffquelle",neutralization:"Neutralisationsmittel",defoamer:"Entschäumer",other:"Sonstiges"})[value]||"Dosierung"}
+function tankApprovalRuleForMedium(medium=""){
+  const label=String(medium||"").trim();
+  if(!label) return null;
+  return TANK_APPROVAL_RULES.find(rule=>rule.match.test(label))||null;
+}
+function tankAgeFromYear(year=""){
+  const parsed=Number(String(year||"").trim());
+  if(!Number.isInteger(parsed)||parsed<1950) return null;
+  const age=new Date().getFullYear()-parsed;
+  return age>=0?age:null;
+}
+function tankOfferSignals(plant){
+  return (plant.tankSystems||[])
+    .map(tank=>{
+      const rule=tankApprovalRuleForMedium(tank.medium);
+      const age=tankAgeFromYear(tank.year);
+      if((tank.status||"active")==="inactive") return null;
+      if(!rule||age===null) return null;
+      if(age<=rule.maxYears) return null;
+      const overrun=age-rule.maxYears;
+      const level=overrun>TANK_CRITICAL_OVERRUN_YEARS?"red":"yellow";
+      return {
+        id:tank.id,
+        name:tank.name||"Tankanlage",
+        medium:tank.medium,
+        buildYear:String(tank.year),
+        age,
+        limit:rule.maxYears,
+        overrun,
+        ruleLabel:rule.label,
+        level,
+        levelLabel:level==="red"?"Kritisch":"Beobachten"
+      };
+    })
+    .filter(Boolean)
+    .sort((a,b)=>{
+      const rank=item=>item.level==="red"?2:1;
+      return rank(b)-rank(a)||b.overrun-a.overrun;
+    });
+}
+function renderOperationsDataSection(plant){
+  return `<section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Zentrale Datenbasis</p><h2>Betriebswerte</h2><p class="form-note">Zentrale Kennwerte für Außendienst, Technik und Vertrieb auf einen Blick.</p></div><button class="text-button" id="editParameters">Werte bearbeiten</button></div>
+  <div class="kpi-grid">${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}</div></section>`;
+}
 function renderTechnicalAssets(plant){
   const d=dewateringDefaults(plant.sludgeDewatering||{});
   const systems=Array.isArray(plant.dosingSystems)?plant.dosingSystems:[];
   const tanks=Array.isArray(plant.tankSystems)?plant.tankSystems:[];
+  const tankSignals=tankOfferSignals(plant);
   return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Technische Anlagenbereiche</p><h2>Technik separat verwalten</h2><p class="form-note">Schlammentwässerung, Dosierstationen und Tankanlagen besitzen jeweils eine eigene Bearbeitungsmaske.</p></div></div>
   <div class="technical-assets-grid three-columns">
     <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">▦</span><div><h3>Schlammentwässerung</h3><span class="status-chip ${d.enabled?'green':'gray'}">${d.enabled?statusText(d.status):'Nicht vorhanden'}</span></div></div>${d.enabled?`<dl><div><dt>Verfahren</dt><dd>${esc(dewateringProcessText(d.process))}</dd></div><div><dt>Fabrikat</dt><dd>${esc([d.manufacturer,d.model].filter(Boolean).join(' ')||'–')}</dd></div><div><dt>Baujahr</dt><dd>${esc(d.year||'–')}</dd></div></dl>`:'<p>Noch nicht erfasst.</p>'}<button type="button" class="button secondary asset-edit-button" id="editDewatering">Schlammentwässerung bearbeiten</button></article>
     <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">DS</span><div><h3>Dosiertechnik</h3><span class="status-chip ${systems.length?'blue':'gray'}">${systems.length} ${systems.length===1?'Station':'Stationen'}</span></div></div>${systems.length?`<div class="dosing-summary-list">${systems.map(x=>`<div><strong>${esc(x.name||dosingPurposeText(x.purpose))}</strong><span>${esc(dosingPurposeText(x.purpose))} · ${esc(statusText(x.status))}</span><small>${esc(x.productName||'Medium nicht hinterlegt')}</small></div>`).join('')}</div>`:'<p>Noch keine Dosierstation erfasst.</p>'}<button type="button" class="button secondary asset-edit-button" id="editDosing">Dosiertechnik bearbeiten</button></article>
-    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">TA</span><div><h3>Tankanlagen</h3><span class="status-chip ${tanks.length?'blue':'gray'}">${tanks.length} ${tanks.length===1?'Tank':'Tanks'}</span></div></div>${tanks.length?`<div class="dosing-summary-list">${tanks.map(x=>`<div><strong>${esc(x.name||'Tankanlage')}</strong><span>${esc(x.medium||'Medium nicht hinterlegt')} · ${esc(statusText(x.status))}</span><small>${x.volume?`${esc(x.volume)} l`: 'Volumen nicht hinterlegt'}${x.year?` · Baujahr ${esc(x.year)}`:''}</small></div>`).join('')}</div>`:'<p>Noch keine Tankanlage erfasst.</p>'}<button type="button" class="button secondary asset-edit-button" id="editTanks">Tankanlagen bearbeiten</button></article>
+    <article class="technical-summary-card"><div class="technical-card-head"><span class="asset-icon">TA</span><div><h3>Tankanlagen</h3><span class="status-chip ${tanks.length?'blue':'gray'}">${tanks.length} ${tanks.length===1?'Tank':'Tanks'}</span></div></div>${tanks.length?`<div class="dosing-summary-list">${tanks.map(x=>`<div><strong>${esc(x.name||'Tankanlage')}</strong><span>${esc(x.medium||'Medium nicht hinterlegt')} · ${esc(statusText(x.status))}</span><small>${x.volume?`${esc(x.volume)} l`: 'Volumen nicht hinterlegt'}${x.year?` · Baujahr ${esc(x.year)}`:''}</small></div>`).join('')}</div>`:'<p>Noch keine Tankanlage erfasst.</p>'}${tankSignals.length?`<div class="info-box warning"><strong>Angebotschance erkannt:</strong> ${tankSignals.length} Tankanlage(n) über der hinterlegten Zulassungszeit.<ul class="plant-missing-list">${tankSignals.slice(0,4).map(item=>`<li><span class="status-chip ${item.level}">${esc(item.levelLabel)}</span> ${esc(item.name)} · ${esc(item.ruleLabel)} · Baujahr ${esc(item.buildYear)} · ${item.age} Jahre (Grenze ${item.limit} Jahre, +${item.overrun})</li>`).join("")}</ul><div class="section-actions"><button type="button" class="button primary" data-jump-page="sales">Angebot im Vertrieb vorbereiten</button></div></div>`:""}<button type="button" class="button secondary asset-edit-button" id="editTanks">Tankanlagen bearbeiten</button></article>
   </div></section>`;
 }
 
@@ -1326,12 +1832,23 @@ function showPlantForm(id=null){
       ${field("operator.name","Betreibername",p.operator.name)}
       ${field("operator.legalForm","Rechtsform",p.operator.legalForm)}
       ${field("operator.customerNumber","Kundennummer",p.operator.customerNumber)}
+      ${field("operator.association","Zweckverband",p.operator.association)}
+      ${field("operator.owner","Eigentümer",p.operator.owner)}
+      ${field("operator.operatingCompany","Betriebsführer",p.operator.operatingCompany)}
       ${field("operator.street","Straße und Hausnummer",p.operator.street)}
       ${field("operator.postalCode","Postleitzahl",p.operator.postalCode)}
       ${field("operator.city","Ort",p.operator.city)}
+      ${field("operator.municipality","Gemeinde",p.operator.municipality)}
+      ${field("operator.district","Landkreis",p.operator.district)}
+      ${field("operator.state","Bundesland",p.operator.state)}
+      ${field("operator.municipalityKey","Gemeindeschlüssel",p.operator.municipalityKey)}
       ${phoneField("operator.phoneParts","Telefon",p.operator.phone||"")}
       ${field("operator.email","Zentrale E-Mail",p.operator.email,"email")}
       ${field("operator.website","Internetseite",p.operator.website,"url")}
+      <label class="field-label">Quelle der Ermittlung<input name="operator.lookupSource" type="text" value="${esc(p.operator.lookupSource||"")}" readonly></label>
+      <label class="field-label">Datum der Ermittlung<input name="operator.lookupDate" type="text" value="${esc(p.operator.lookupDate||"")}" readonly></label>
+      <label class="field-label">Trefferstatus<input name="operator.lookupStatus" type="text" value="${esc(p.operator.lookupStatus||"IDLE")}" readonly></label>
+      <div id="operatorLookupStatus" class="operator-lookup-status"></div>
     </div></section>
 
     <section class="form-section"><div class="section-heading"><h2>Ansprechpartner</h2><button type="button" class="button secondary" id="addContact">Ansprechpartner hinzufügen</button></div>
@@ -1456,18 +1973,138 @@ function showPlantForm(id=null){
   const formInput=name=>plantForm.elements.namedItem(name);
   const setInput=(name,value)=>{const input=formInput(name);if(input)input.value=value??""};
   const getInput=name=>String(formInput(name)?.value||"").trim();
-  const formatCapturedAt=iso=>iso?new Intl.DateTimeFormat("de-DE",{dateStyle:"short",timeStyle:"short"}).format(new Date(iso)):"";
-  const renderLocationPreview=()=>{
-    const lat=Number(getInput("address.latitude").replace(",","."));
-    const lon=Number(getInput("address.longitude").replace(",","."));
-    if(!Number.isFinite(lat)||!Number.isFinite(lon)){locationPreview.hidden=true;locationPreview.innerHTML="";return;}
-    const query=encodeURIComponent(`${lat},${lon}`);
-    locationPreview.hidden=false;
-    locationPreview.innerHTML=`<div class="location-preview-head"><div><strong>Standort prüfen</strong><span>${lat.toFixed(6)}, ${lon.toFixed(6)}</span></div><a class="button secondary" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noopener">In Karte öffnen</a></div><iframe class="location-preview-map" title="Erfasster Anlagenstandort" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=${query}&output=embed"></iframe><p class="location-attribution">Die automatisch ermittelte Adresse ist ein Vorschlag und sollte vor dem Speichern geprüft werden.</p>`;
+  const parseCoordinate=value=>{
+    const raw=String(value??"").trim().replace(",", ".");
+    if(raw==="")return null;
+    const n=Number(raw);
+    return Number.isFinite(n)?n:null;
   };
   const setLocationStatus=(message,kind="info")=>{
     locationStatus.className=`location-status ${kind}`;
     locationStatus.textContent=message;
+  };
+  const formatCapturedAt=iso=>iso?new Intl.DateTimeFormat("de-DE",{dateStyle:"short",timeStyle:"short"}).format(new Date(iso)):"";
+  const renderLocationPreview=()=>{
+    const lat=parseCoordinate(getInput("address.latitude"));
+    const lon=parseCoordinate(getInput("address.longitude"));
+    if(lat===null||lon===null){locationPreview.hidden=true;locationPreview.innerHTML="";return;}
+    const query=encodeURIComponent(`${lat},${lon}`);
+    locationPreview.hidden=false;
+    locationPreview.innerHTML=`<div class="location-preview-head"><div><strong>Standort prüfen</strong><span>${lat.toFixed(6)}, ${lon.toFixed(6)}</span></div><a class="button secondary" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noopener">In Karte öffnen</a></div><iframe class="location-preview-map" title="Erfasster Anlagenstandort" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=${query}&output=embed"></iframe><p class="location-attribution">Die automatisch ermittelte Adresse ist ein Vorschlag und sollte vor dem Speichern geprüft werden.</p>`;
+  };
+  const operatorLookupStatus=$("operatorLookupStatus");
+  const setOperatorLookupStatus=(message,kind="info")=>{
+    if(!operatorLookupStatus) return;
+    operatorLookupStatus.className=`location-status operator-lookup-status ${kind}`;
+    operatorLookupStatus.textContent=message;
+  };
+  const getFormCoordinates=()=>{
+    const lat=parseCoordinate(formInput("address.latitude")?.value||"");
+    const lon=parseCoordinate(formInput("address.longitude")?.value||"");
+    return {latitude:lat,longitude:lon};
+  };
+  const formatCoordinateKey=(latitude,longitude)=>{
+    const lat=parseCoordinate(latitude);
+    const lon=parseCoordinate(longitude);
+    if(lat===null||lon===null)return "";
+    return `${lat.toFixed(6)},${lon.toFixed(6)}`;
+  };
+  const loadReverseGeocodeCache=()=>{
+    try{
+      const data=JSON.parse(localStorage.getItem(STORAGE_REVERSE_GEOCODE_CACHE)||"{}");
+      return data&&typeof data==="object"?data:{};
+    }catch{return {}}
+  };
+  const saveReverseGeocodeCache=cache=>{
+    try{localStorage.setItem(STORAGE_REVERSE_GEOCODE_CACHE,JSON.stringify(cache));}catch{}
+  };
+  let geocodeResolveTimer=null;
+  let lastResolvedCoordinate="";
+  const selectLookupMatch=matches=>{
+    if(!Array.isArray(matches)||matches.length<=1)return matches?.[0]||null;
+    const options=matches.map((match,index)=>`${index+1}: ${match.operator||"Unbekannt"}${match.municipality?` (${match.municipality})`:""}`).join("\n");
+    const raw=prompt(`Mehrere mögliche Betreiber gefunden\n\n${options}\n\nBitte Nummer eingeben:`);
+    const index=Number(raw)-1;
+    return Number.isInteger(index)&&index>=0&&index<matches.length?matches[index]:matches[0];
+  };
+  const populateOperatorFieldsIfBlank=operator=>{
+    if(!operator) return;
+    if(!getInput("operator.name")&&operator.operator)setInput("operator.name",operator.operator);
+    if(!getInput("operator.association")&&operator.association)setInput("operator.association",operator.association);
+    if(!getInput("operator.owner")&&operator.owner)setInput("operator.owner",operator.owner);
+    if(!getInput("operator.operatingCompany")&&operator.operatingCompany)setInput("operator.operatingCompany",operator.operatingCompany);
+    if(!getInput("operator.municipality")&&operator.municipality)setInput("operator.municipality",operator.municipality);
+    if(!getInput("operator.district")&&operator.district)setInput("operator.district",operator.district);
+    if(!getInput("operator.state")&&operator.state)setInput("operator.state",operator.state);
+    if(!getInput("operator.municipalityKey")&&operator.municipalityKey)setInput("operator.municipalityKey",operator.municipalityKey);
+    if(!getInput("operator.email")&&operator.email)setInput("operator.email",operator.email);
+    if(!getInput("operator.website")&&operator.website)setInput("operator.website",operator.website);
+    if(!getInput("operator.lookupSource")&&operator.lookupSource)setInput("operator.lookupSource",operator.lookupSource);
+    if(!getInput("operator.lookupDate")&&operator.lookupDate)setInput("operator.lookupDate",operator.lookupDate);
+    if(!getInput("operator.lookupStatus")&&operator.lookupStatus)setInput("operator.lookupStatus",operator.lookupStatus);
+    if(operator.phone&&!getInput("operator.phoneParts.number")){
+      const parts=phoneParts(operator.phone);
+      setInput("operator.phoneParts.code",parts.code);
+      setInput("operator.phoneParts.number",parts.number);
+    }
+  };
+  const performOperatorLookup=async({force=false}={})=>{
+    const {latitude,longitude}=getFormCoordinates();
+    const coordinates=formatCoordinateKey(latitude,longitude);
+    if(!coordinates){
+      setOperatorLookupStatus("Koordinaten fehlen. Betreiber/Verband kann nicht automatisch gesucht werden.","warning");
+      return null;
+    }
+    if(!navigator.onLine){
+      setOperatorLookupStatus("Keine Internetverbindung. Betreiber-Suche kann später ausgeführt werden.","warning");
+      return null;
+    }
+    const currentLookup=p.operatorLookup||{};
+    if(!force && currentLookup.coordinates===coordinates && currentLookup.status!=="idle" && currentLookup.status!=="error"){
+      if(currentLookup.status==="found"){
+        setOperatorLookupStatus(`Betreiber zuletzt gefunden: ${currentLookup.operator?.name||"Unbekannt"}`,"success");
+      } else if(currentLookup.status==="not-found"){
+        setOperatorLookupStatus("Kein Betreiber automatisch gefunden.","warning");
+      } else {
+        setOperatorLookupStatus(`Betreiber-Suche zuletzt ausgeführt: ${currentLookup.status}`,"info");
+      }
+      return currentLookup;
+    }
+    setOperatorLookupStatus("Betreiber/Verband wird automatisch gesucht …","loading");
+    p.operatorLookup={status:"loading",provider:"osm-nominatim",checkedAt:"",coordinates,found:false,error:"",operator:currentLookup.operator||{}};
+    try{
+      const lookup=await operatorLookupService.lookupByCoordinates(latitude,longitude);
+      p.operatorLookup={
+        status:lookup.lookupStatus==="AUTO"?"found":"not-found",
+        provider:lookup.lookupSource||"osm-nominatim",
+        checkedAt:lookup.lookupDate||new Date().toISOString(),
+        coordinates,
+        found:lookup.lookupStatus==="AUTO",
+        error:"",
+        operator:{
+          name:lookup.operator||"",
+          phone:lookup.phone||"",
+          email:lookup.email||"",
+          website:lookup.website||""
+        }
+      };
+      if(lookup.lookupStatus==="AUTO"){
+        const selected=selectLookupMatch(lookup.matches)||lookup;
+        populateOperatorFieldsIfBlank(selected);
+        setInput("operator.lookupStatus","AUTO");
+        setOperatorLookupStatus(`Betreiber gefunden: ${selected.operator}${selected.municipality?`, ${selected.municipality}`:""}`,"success");
+      } else {
+        setInput("operator.lookupStatus","NOT_FOUND");
+        setOperatorLookupStatus("Kein Betreiber automatisch gefunden. Bitte manuell ergänzen.","warning");
+      }
+      return lookup;
+    }catch(error){
+      p.operatorLookup={status:"error",provider:"osm-nominatim",checkedAt:new Date().toISOString(),coordinates,found:false,error:String(error?.message||error),operator:currentLookup.operator||{}};
+      setInput("operator.lookupStatus","NOT_FOUND");
+      setOperatorLookupStatus("Betreiber-Suche fehlgeschlagen. Bitte prüfen Sie die Verbindung.","error");
+      console.warn("Operator lookup failed",error);
+      return p.operatorLookup;
+    }
   };
   const reverseGeocode=async(latitude,longitude)=>{
     const endpoint=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=de&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`;
@@ -1488,6 +2125,42 @@ function showPlantForm(id=null){
     const nameInput=formInput("master.name");
     if(nameInput&&!nameInput.value.trim()&&city)nameInput.value=`Kläranlage ${city}`;
   };
+  const hydrateAddressFromCoordinates=async({forceNetwork=false,silent=false}={})=>{
+    const {latitude,longitude}=getFormCoordinates();
+    const coordinates=formatCoordinateKey(latitude,longitude);
+    if(!coordinates)return false;
+    const cache=loadReverseGeocodeCache();
+    const cached=cache[coordinates];
+    if(cached?.data){
+      applyReverseAddress(cached.data);
+      if(cached.cachedAt){
+        p.address.geocodedAt=cached.cachedAt;
+      }
+      if(!silent)setLocationStatus("Adresse aus lokalem Zwischenspeicher übernommen.","info");
+    }
+    if(!forceNetwork && cached?.data){
+      lastResolvedCoordinate=coordinates;
+      return true;
+    }
+    if(!navigator.onLine){
+      if(!cached?.data&&!silent)setLocationStatus("Keine Internetverbindung. Adresse kann später ergänzt werden.","warning");
+      return Boolean(cached?.data);
+    }
+    const data=await reverseGeocode(latitude,longitude);
+    applyReverseAddress(data);
+    const cachedAt=new Date().toISOString();
+    p.address.geocodedAt=cachedAt;
+    cache[coordinates]={cachedAt,data};
+    const keys=Object.keys(cache);
+    if(keys.length>160){
+      keys.sort((a,b)=>String(cache[a]?.cachedAt||"").localeCompare(String(cache[b]?.cachedAt||"")));
+      keys.slice(0,keys.length-120).forEach(key=>delete cache[key]);
+    }
+    saveReverseGeocodeCache(cache);
+    lastResolvedCoordinate=coordinates;
+    if(!silent)setLocationStatus("Standort und Adresse wurden übernommen. Bitte die Angaben vor dem Speichern prüfen.","success");
+    return true;
+  };
   locationButton.onclick=()=>{
     if(!window.isSecureContext){setLocationStatus("Die Standortermittlung ist nur über HTTPS oder localhost verfügbar. Bitte die bereitgestellte Web-App öffnen, nicht die HTML-Datei direkt.","error");return;}
     if(!navigator.geolocation){setLocationStatus("Dieses Gerät oder dieser Browser unterstützt keine Standortermittlung.","error");return;}
@@ -1507,10 +2180,8 @@ function showPlantForm(id=null){
       if(!navigator.onLine){setLocationStatus(`Koordinaten gespeichert (Genauigkeit ± ${Math.round(accuracy)} m). Keine Internetverbindung – die Adresse kann später manuell ergänzt werden.`,"warning");locationButton.disabled=false;locationButton.textContent="Standort erneut erfassen";return;}
       setLocationStatus(`Koordinaten erfasst (Genauigkeit ± ${Math.round(accuracy)} m). Adresse wird ermittelt …`,"loading");
       try{
-        const data=await reverseGeocode(latitude,longitude);
-        applyReverseAddress(data);
-        p.address.geocodedAt=new Date().toISOString();
-        setLocationStatus("Standort und Adresse wurden übernommen. Bitte die Angaben vor dem Speichern prüfen.","success");
+        await hydrateAddressFromCoordinates({forceNetwork:true});
+        await performOperatorLookup({force:true});
       }catch(error){
         console.warn("Rückwärts-Geokodierung fehlgeschlagen",error);
         setLocationStatus("Die Koordinaten wurden gespeichert, aber die Adresse konnte nicht automatisch ermittelt werden. Sie kann manuell ergänzt werden.","warning");
@@ -1525,8 +2196,39 @@ function showPlantForm(id=null){
       locationButton.textContent="Standort erneut erfassen";
     },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
   };
-  ["address.latitude","address.longitude"].forEach(name=>formInput(name)?.addEventListener("input",renderLocationPreview));
+  ["address.latitude","address.longitude"].forEach(name=>{
+    const input=formInput(name);
+    if(!input)return;
+    input.addEventListener("input",()=>{
+      renderLocationPreview();
+      if(geocodeResolveTimer)clearTimeout(geocodeResolveTimer);
+      geocodeResolveTimer=setTimeout(()=>{
+        hydrateAddressFromCoordinates({silent:true})
+          .then(resolved=>{if(resolved)return performOperatorLookup();})
+          .catch(error=>console.warn("Automatische Adressauflösung fehlgeschlagen",error));
+      },700);
+    });
+    input.addEventListener("blur",()=>{
+      const coordinates=formatCoordinateKey(getInput("address.latitude"),getInput("address.longitude"));
+      if(!coordinates||coordinates===lastResolvedCoordinate)return;
+      hydrateAddressFromCoordinates({silent:false})
+        .then(resolved=>{if(resolved)return performOperatorLookup();})
+        .catch(error=>console.warn("Adressauflösung beim Verlassen des Feldes fehlgeschlagen",error));
+    });
+  });
+  [
+    "operator.name","operator.legalForm","operator.customerNumber","operator.association","operator.owner","operator.operatingCompany",
+    "operator.street","operator.postalCode","operator.city","operator.municipality","operator.district","operator.state","operator.municipalityKey",
+    "operator.email","operator.website"
+  ].forEach(name=>formInput(name)?.addEventListener("input",()=>setInput("operator.lookupStatus","MANUAL")));
+  formInput("operator.phoneParts.number")?.addEventListener("input",()=>setInput("operator.lookupStatus","MANUAL"));
   renderLocationPreview();
+  const initialCoordinates=getFormCoordinates();
+  if(initialCoordinates.latitude!==null && initialCoordinates.longitude!==null){
+    hydrateAddressFromCoordinates({silent:true})
+      .then(()=>performOperatorLookup())
+      .catch(error=>console.warn("Automatische Adress-/Betreibersuche beim Laden der Anlage fehlgeschlagen",error));
+  }
   $("#cancelPlant").onclick=()=>existing?showPlantDashboard():showApplication("plants");
   plantForm.addEventListener("invalid",event=>{
     event.preventDefault();
@@ -1561,6 +2263,47 @@ function showPlantForm(id=null){
     result.address.accuracy=p.address.accuracy||String(result.address.accuracy||"").replace(/[^0-9.,]/g,"");
     result.address.capturedAt=p.address.capturedAt||result.address.capturedAt||"";
     result.address.geocodedAt=p.address.geocodedAt||result.address.geocodedAt||"";
+    result.operatorLookup=result.operatorLookup||p.operatorLookup||{};
+    const previousCoordinates=formatCoordinateKey(
+      Number((existing?.address?.latitude||"").trim().replace(",",".")),
+      Number((existing?.address?.longitude||"").trim().replace(",","."))
+    );
+    const currentCoordinates=formatCoordinateKey(latitude,longitude);
+    const shouldLookup=Boolean(currentCoordinates)&&currentCoordinates!==previousCoordinates;
+    if(shouldLookup){
+      result.operatorLookup={...result.operatorLookup,coordinates:currentCoordinates,status:"pending",provider:"osm-nominatim",checkedAt:"",found:false,error:""};
+      performOperatorLookup().then(lookup=>{
+        if(lookup?.lookupStatus==="AUTO"){
+          result.operator={
+            ...result.operator,
+            name:lookup.operator||result.operator.name,
+            association:lookup.association||result.operator.association,
+            owner:lookup.owner||result.operator.owner,
+            operatingCompany:lookup.operatingCompany||result.operator.operatingCompany,
+            municipality:lookup.municipality||result.operator.municipality,
+            district:lookup.district||result.operator.district,
+            state:lookup.state||result.operator.state,
+            municipalityKey:lookup.municipalityKey||result.operator.municipalityKey,
+            website:lookup.website||result.operator.website,
+            phone:lookup.phone||result.operator.phone,
+            email:lookup.email||result.operator.email,
+            lookupSource:lookup.lookupSource||"osm-nominatim",
+            lookupDate:lookup.lookupDate||new Date().toISOString(),
+            lookupStatus:"AUTO"
+          };
+          result.operatorLookup={...result.operatorLookup,status:"found",checkedAt:result.operator.lookupDate,found:true,error:""};
+        }else{
+          result.operator.lookupStatus="NOT_FOUND";
+          result.operatorLookup={...result.operatorLookup,status:"not-found",checkedAt:new Date().toISOString(),found:false,error:""};
+        }
+        result.updatedAt=new Date().toISOString();
+        if(savePlants())showPlantDashboard();
+      }).catch(error=>{
+        result.operator.lookupStatus="NOT_FOUND";
+        result.operatorLookup={...result.operatorLookup,status:"error",checkedAt:new Date().toISOString(),found:false,error:String(error?.message||error)};
+        console.warn("Operator-Lookup beim Speichern fehlgeschlagen",error);
+      });
+    }
     const dewatering=dewateringDefaults(result.sludgeDewatering||p.sludgeDewatering||{});
     dewatering.enabled=fd.has("sludgeDewatering.enabled");
     for(const key of Object.keys(dewatering)){
@@ -1573,6 +2316,9 @@ function showPlantForm(id=null){
     result.dosingSystems=structuredClone(dosingSystems).map(dosingDefaults);
     result.tankSystems=Array.isArray(result.tankSystems)?result.tankSystems.map(tankDefaults):[];
     result.operator.phone=combinePhone(fd,"operator.phoneParts");
+    result.operator.lookupStatus=String(fd.get("operator.lookupStatus")||result.operator.lookupStatus||"IDLE");
+    result.operator.lookupSource=String(fd.get("operator.lookupSource")||result.operator.lookupSource||"");
+    result.operator.lookupDate=String(fd.get("operator.lookupDate")||result.operator.lookupDate||"");
     result.contacts=contacts.map((c,i)=>{
       const obj={};
       for(const prop of ["name","role","department","email","preferred","notes"]){
@@ -1624,6 +2370,79 @@ function visitStatusLabel(status){
 function visitStatusClass(status){
   return status==="done"?"green":status==="cancelled"?"gray":"blue";
 }
+function isoDateOffset(days){
+  const date=new Date();
+  date.setHours(0,0,0,0);
+  date.setDate(date.getDate()+days);
+  return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
+}
+function hasFollowUpAction(plant,followUpType,followUpSourceId){
+  return (plant.actions||[]).some(action=>action.followUpType===followUpType&&action.followUpSourceId===followUpSourceId);
+}
+function createFollowUpAction(plant,payload){
+  const followUpType=payload.followUpType||"";
+  const followUpSourceId=payload.followUpSourceId||"";
+  if(followUpType&&followUpSourceId&&hasFollowUpAction(plant,followUpType,followUpSourceId)) return false;
+  plant.actions=[...(plant.actions||[]),{
+    id:makeId(),
+    title:payload.title,
+    status:"open",
+    priority:payload.priority||"normal",
+    dueDate:payload.dueDate||"",
+    component:payload.component||"",
+    sourceVisitId:payload.sourceVisitId||"",
+    createdAt:new Date().toISOString(),
+    completedAt:"",
+    autoGenerated:true,
+    followUpType,
+    followUpSourceId
+  }];
+  return true;
+}
+function ensureTankOfferFollowUps(plant){
+  const signals=tankOfferSignals(plant);
+  let created=false;
+  signals.forEach(signal=>{
+    const dueDays=signal.level==="red"?3:7;
+    const offerTitle=`Tankerneuerung anbieten: ${signal.name} (${signal.medium})`;
+    const wasCreated=createFollowUpAction(plant,{
+      title:offerTitle,
+      priority:signal.level==="red"?"high":"normal",
+      dueDate:isoDateOffset(dueDays),
+      component:"Vertrieb",
+      sourceVisitId:"",
+      followUpType:"tank-approval-offer",
+      followUpSourceId:signal.id
+    });
+    if(wasCreated) created=true;
+  });
+  return created;
+}
+function ensureVisitCompletionFollowUp(plant,visit){
+  const visitTitle=String(visit?.title||"Besuch").trim();
+  return createFollowUpAction(plant,{
+    title:`Nachbereitung ${visitTitle}: Ergebnisse prüfen und nächste Bestellung anstoßen`,
+    priority:"normal",
+    dueDate:isoDateOffset(VISIT_FOLLOW_UP_DAYS),
+    component:"Nachbereitung",
+    sourceVisitId:visit?.id||"",
+    followUpType:"visit-completion",
+    followUpSourceId:visit?.id||""
+  });
+}
+function ensureTaskCompletionFollowUp(plant,task){
+  if(task?.autoGenerated) return false;
+  const taskTitle=String(task?.title||"Aufgabe").trim();
+  return createFollowUpAction(plant,{
+    title:`Wirksamkeit prüfen: ${taskTitle}`,
+    priority:"normal",
+    dueDate:isoDateOffset(TASK_FOLLOW_UP_DAYS),
+    component:"Follow-up",
+    sourceVisitId:task?.sourceVisitId||"",
+    followUpType:"task-completion",
+    followUpSourceId:task?.id||""
+  });
+}
 function formatDateTime(value){
   const d=isoLocalToDate(value);
   return d?d.toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}):"–";
@@ -1671,11 +2490,15 @@ function showVisitForm(visitId=null){
     e.preventDefault();
     const fd=new FormData(e.currentTarget);
     const saved=normalizeVisit(existing?{...existing,id:visit.id}:{id:visit.id});
+    const wasDone=Boolean(existing?.status==="done");
     for(const key of ["title","status","start","end","visitType","processArea","purpose","contact","objective","notes"])saved[key]=fd.get(key)||"";
     const start=isoLocalToDate(saved.start), end=isoLocalToDate(saved.end);
     if(!start||!end||end<=start)return alert("Das Terminende muss nach dem Beginn liegen.");
+    if(saved.status==="done"&&!saved.completedAt)saved.completedAt=new Date().toISOString();
+    if(saved.status!=="done")saved.completedAt="";
     plant.visits=plant.visits||[];
     plant.visits=existing?plant.visits.map(v=>v.id===saved.id?saved:v):[...plant.visits,saved];
+    if(saved.status==="done"&&!wasDone)ensureVisitCompletionFollowUp(plant,saved);
     plant.visits.sort((a,b)=>String(a.start).localeCompare(String(b.start)));
     plant.updatedAt=new Date().toISOString();savePlants();showPlantDashboard();
   };
@@ -1755,12 +2578,12 @@ function showVisitMode(visitId=null){
     </div>`;
     enableDecimalInputs(appView);
     $("#leaveVisit").onclick=showPlantDashboard;
-    $("#finishVisit").onclick=()=>{visit.modeStatus=visit.modeStatus==="completed"?"active":"completed";visit.status=visit.modeStatus==="completed"?"done":"planned";visit.completedAt=visit.modeStatus==="completed"?new Date().toISOString():"";if(persist())render();};
+    $("#finishVisit").onclick=()=>{const wasDone=visit.status==="done";visit.modeStatus=visit.modeStatus==="completed"?"active":"completed";visit.status=visit.modeStatus==="completed"?"done":"planned";visit.completedAt=visit.modeStatus==="completed"?new Date().toISOString():"";if(visit.status==="done"&&!wasDone)ensureVisitCompletionFollowUp(plant,visit);if(persist())render();};
     $$('[data-check]').forEach(el=>el.onchange=()=>{visit.checklist[el.dataset.check]=el.checked;persist();render();});
     $("#saveMeasurements").onclick=()=>{for(const key of ["flow","pOut","nh4Out","cakeTs","polymer","custom"]){const el=appView.querySelector(`[name="vm.${key}"]`);visit.measurements[key]=el?.value||"";}visit.checklist.measurements=true;if(persist())render();};
     $("#saveVisitReport").onclick=()=>{for(const key of ["initialSituation","workPerformed","chemistryChanges","settingChanges","result","recommendation","nextSteps"]){visit[key]=appView.querySelector(`[name="vr.${key}"]`)?.value.trim()||"";}if(persist())alert("Besuchsbericht gespeichert.");};
     $("#saveVisitComparison").onclick=()=>{for(const key of ["beforeProduct","afterProduct","beforeDose","afterDose","beforeCost","afterCost","beforeQuality","afterQuality"]){visit.comparison[key]=appView.querySelector(`[name="vc.${key}"]`)?.value.trim()||"";}if(persist())alert("Vorher-/Nachher-Vergleich gespeichert.");};
-    $("#findingForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),text=String(fd.get("text")||"").trim();if(!text)return;const severity=fd.get("severity")||"info";visit.findings.unshift({id:makeId(),severity,text,createdAt:new Date().toISOString(),resolved:false});if(severity==="task"){visit.checklist.tasks=true;plant.actions=[...(plant.actions||[]),{id:makeId(),title:text,status:"open",priority:"normal",dueDate:"",component:"Besuch",sourceVisitId:visit.id,createdAt:new Date().toISOString(),completedAt:""}];}if(persist())render();};
+    $("#findingForm").onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),text=String(fd.get("text")||"").trim();if(!text)return;const severity=fd.get("severity")||"info";visit.findings.unshift({id:makeId(),severity,text,createdAt:new Date().toISOString(),resolved:false});if(severity==="task"){visit.checklist.tasks=true;plant.actions=[...(plant.actions||[]),{id:makeId(),title:text,status:"open",priority:"normal",dueDate:"",component:"Besuch",sourceVisitId:visit.id,createdAt:new Date().toISOString(),completedAt:"",autoGenerated:false,followUpType:"",followUpSourceId:""}];}if(persist())render();};
     $$('[data-remove-finding]').forEach(b=>b.onclick=()=>{visit.findings=visit.findings.filter(f=>f.id!==b.dataset.removeFinding);if(persist())render();});
     $("#saveVisitSummary").onclick=()=>{visit.summary=$("#visitSummary").value.trim();visit.notes=visit.summary;if(persist())alert("Besuchsnotiz gespeichert.");};
     $("#visitPhotoInput").onchange=async e=>{const files=[...e.target.files].slice(0,Math.max(0,6-visit.photos.length));for(const file of files){if(file.size>1500000){alert(`${file.name}: Foto ist größer als 1,5 MB und wurde nicht gespeichert.`);continue;}const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});visit.photos.push({id:makeId(),name:file.name,createdAt:new Date().toISOString(),dataUrl});}if(files.length)visit.checklist.photos=true;if(persist())render();};
@@ -1919,37 +2742,468 @@ function plantPageNavigation(active){
   const pages=[["overview","Übersicht"],["technology","Technik"],["visits","Einsätze"],["sales","Vertrieb"],["tasks","Aufgaben"],["record","Akte"]];
   return `<nav class="plant-subnav" aria-label="Bereiche der Anlagenakte">${pages.map(([id,label],i)=>`<button type="button" data-plant-page="${id}" class="${active===id?'active':''} ${i>3?'plant-subnav-more':''}">${label}</button>`).join('')}</nav>`;
 }
+function formatShortDate(value){
+  const date=new Date(value||"");
+  return Number.isNaN(date.getTime())?"–":date.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+}
+function missingRecordFields(plant){
+  const primary=plant.contacts?.[0]||{};
+  const checks=[
+    [plant.master?.internalNumber,"Anlagennummer"],
+    [plant.master?.mainProcess,"Hauptverfahren"],
+    [plant.address?.street,"Straße"],
+    [plant.address?.postalCode,"Postleitzahl"],
+    [plant.address?.city,"Ort"],
+    [plant.operator?.name,"Betreibername"],
+    [plant.operator?.association,"Zweckverband"],
+    [plant.operator?.email,"Betreiber E-Mail"],
+    [plant.operator?.phone,"Betreiber Telefon"],
+    [primary?.name,"Hauptansprechpartner"],
+    [primary?.mobile||primary?.phone,"Ansprechpartner Telefon"],
+    [plant.access?.gate,"Tor / Zugang"],
+    [plant.access?.openingHours,"Besuchszeiten"],
+    [plant.access?.ppe,"PSA Hinweise"]
+  ];
+  return checks.filter(([value])=>!String(value||"").trim()).map(([,label])=>label);
+}
+function renderOverviewRecordSnapshot(plant){
+  const primary=plant.contacts?.[0]||{};
+  const missing=missingRecordFields(plant);
+  const mapUrls=googleMapsUrls(plant);
+  const hasLocation=Boolean(locationQuery(plant));
+  const lookupStatus=plant.operator?.lookupStatus||"IDLE";
+  return `<section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Akte-Kompakt</p><h2>Wichtige Stammdaten auf einen Blick</h2><p class="form-note">Kompaktauszug aus der Akte für schnelle Orientierung in der Übersicht.</p></div><div class="plant-overview-actions"><button type="button" class="button secondary" data-jump-page="record">Akte öffnen</button><button type="button" class="button secondary" data-jump-page="tasks">Aufgaben ${openPlantActions(plant).length}</button></div></div>
+  <div class="record-grid plant-overview-record-grid">
+    <article class="record-card"><h2>Anlage</h2><dl><div><dt>Anlagennummer</dt><dd>${esc(plant.master?.internalNumber||"–")}</dd></div><div><dt>Anlagentyp</dt><dd>${esc(plant.master?.type==="industrial"?"Industriell":plant.master?.type==="mixed"?"Kommunal + Industrie":"Kommunal")}</dd></div><div><dt>Ausbaugröße</dt><dd>${plant.master?.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"–"}</dd></div><div><dt>Hauptverfahren</dt><dd>${esc(processLabel(plant.master?.mainProcess||plant.master?.process))}</dd></div><div><dt>Weitere Stufen</dt><dd>${esc(processStageLabels(plant.master?.processStages).slice(0,2).join(", ")||"–")}</dd></div></dl></article>
+    <article class="record-card"><h2>Betreiber & Kontakt</h2><dl><div><dt>Betreiber</dt><dd>${esc(plant.operator?.name||"–")}</dd></div><div><dt>Zweckverband</dt><dd>${esc(plant.operator?.association||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(plant.operator?.phone||"")}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(plant.operator?.email||"")}</dd></div><div><dt>Hauptansprechpartner</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Kontakt Person</dt><dd>${telLink(primary?.mobile||primary?.phone||"")} · ${mailLink(primary?.email||"")}</dd></div></dl></article>
+    <article class="record-card"><h2>Standort & Zugang</h2><dl><div><dt>Adresse</dt><dd>${esc([plant.address?.street,[plant.address?.postalCode,plant.address?.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"–")}</dd></div><div><dt>Koordinaten</dt><dd>${plant.address?.latitude&&plant.address?.longitude?`${esc(plant.address.latitude)}, ${esc(plant.address.longitude)}`:"–"}</dd></div><div><dt>Tor / Zugang</dt><dd>${esc(plant.access?.gate||"–")}</dd></div><div><dt>Besuchszeiten</dt><dd>${esc(plant.access?.openingHours||"–")}</dd></div><div><dt>PSA</dt><dd>${esc(plant.access?.ppe||"–")}</dd></div><div><dt>Letzte Aktualisierung</dt><dd>${formatShortDate(plant.updatedAt)}</dd></div></dl>${hasLocation?`<div class="plant-overview-link-row"><a class="button secondary" href="${mapUrls.navigate}" target="_blank" rel="noopener">Navigation</a><a class="button secondary" href="${mapUrls.show}" target="_blank" rel="noopener">Karte</a></div>`:""}</article>
+    <article class="record-card"><h2>Datenqualität Akte</h2><p class="form-note">Status Betreiberermittlung: <strong>${esc(lookupStatus)}</strong></p>${missing.length?`<ul class="plant-missing-list">${missing.slice(0,6).map(label=>`<li>${esc(label)}</li>`).join("")}</ul><button type="button" class="button primary" data-jump-page="record">Fehlende Daten ergänzen</button>`:`<div class="empty-panel compact"><p>Die wichtigsten Akte-Daten sind vorhanden.</p></div>`}</article>
+  </div></section>`;
+}
 function renderPlantOverviewPage(plant){
-  return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderCommercialMailActions(plant)}${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
+  return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderOverviewRecordSnapshot(plant)}${renderOperationsDataSection(plant)}${renderCommercialMailActions(plant)}${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
     <section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Schnellzugriff</p><h2>Wichtige Bereiche</h2></div></div>
     <div class="plant-jump-grid">
-      <button type="button" data-jump-page="technology"><strong>Technik</strong><span>Komponenten, Betriebswerte und Ampel</span></button>
+      <button type="button" data-jump-page="technology"><strong>Technik</strong><span>Komponenten und Zulassungs-Check</span></button>
       <button type="button" data-jump-page="visits"><strong>Einsätze</strong><span>Besuche, Messungen und Historie</span></button>
       <button type="button" data-jump-page="tasks"><strong>Aufgaben</strong><span>${openPlantActions(plant).length} offene Punkte</span></button>
       <button type="button" data-jump-page="record"><strong>Akte</strong><span>Stammdaten, Kontakte und Standort</span></button>
     </div></section>`;
 }
 function renderPlantTechnologyPage(plant){
-  return `${procedureCard(plant)}${renderTechnicalAssets(plant)}${renderTrafficSummary(plant)}
-  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Zentrale Datenbasis</p><h2>Betriebswerte</h2></div><button class="text-button" id="editParameters">Werte bearbeiten</button></div>
-  <div class="kpi-grid">${[["Volumenstrom",plant.parameters.flow,"m³/d"],["Pges Ablauf",plant.parameters.pOut,"mg/l"],["NH₄-N Ablauf",plant.parameters.nh4Out,"mg/l"],["SVI",plant.parameters.svi,"ml/g"],["Schlammalter",plant.parameters.sludgeAge,"d"],["Kuchen-TS",plant.parameters.cakeTs,"%"],["Feststoffrückhalt",plant.parameters.retention,"%"],["Polymer",plant.parameters.polymer,"kg WS/t TS"]].map(([l,v,u])=>`<article class="kpi-card"><span>${l}</span><strong>${fmt(v)}</strong><small>${u}</small></article>`).join("")}</div></section>
-  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Berechnungen für diese Anlage</h2></div><button class="button primary" id="openTraffic" type="button">Ampelübersicht</button></div>
+  return `${procedureCard(plant)}${renderTechnicalAssets(plant)}
+  <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Berechnungen für diese Anlage</h2><p class="form-note">Technik ohne Ampelansicht: Fokus auf Komponenten, Prüfstatus und Angebotschancen.</p></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
+}
+function requestProductFilterOptions(query="",productType=""){
+  const q=String(query||"").trim().toLowerCase();
+  return products.filter(p=>{
+    if(!p.isActive) return false;
+    if(productType&&p.productType!==productType) return false;
+    if(!q) return true;
+    return [p.name,p.materialNumber,p.category,p.shortDescription,...p.applications,...p.problems].join(" ").toLowerCase().includes(q);
+  });
+}
+function formatRequestProductType(type){
+  return type==="technical"?"Technisches Produkt":"Chemisches Produkt";
+}
+function detectPackageSizeType(size=""){
+  const label=String(size||"").toLowerCase();
+  if(/ibc/.test(label)) return "ibc";
+  if(/tank(last)?zug|tankwagen|tanker|tank truck/.test(label)) return "tanker";
+  if(/fass|drum|barrel/.test(label)) return "drum";
+  if(/kanister|jerry|kanister/.test(label)) return "jerrycan";
+  if(/sack|bag/.test(label)) return "bag";
+  return "box";
+}
+function packageSizeIconSvg(type){
+  const icons={
+    bag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v1h1.5c.83 0 1.5.67 1.5 1.5v2.5c0 3.03-2.47 5.5-5.5 5.5h-3c-3.03 0-5.5-2.47-5.5-5.5V8.5c0-.83.67-1.5 1.5-1.5H8V7z"/><path d="M9 8h6"/></svg>`,
+    drum:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 8c0 1.1 3.58 2 8 2s8-.9 8-2"/><path d="M4 16c0-1.1 3.58-2 8-2s8 .9 8 2"/></svg>`,
+    jerrycan:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 5v4"/><path d="M15 5v4"/><path d="M9 14h6"/><path d="M7 9h2"/><path d="M17 9h2"/></svg>`,
+    ibc:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20h12V8H6v12z"/><path d="M6 8l6-4 6 4"/><path d="M9 8v12"/><path d="M15 8v12"/><path d="M6 12h12"/></svg>`,
+    tanker:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15h13l4 4v-8l-4-4H3v8z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M9 5V3h6v2"/></svg>`,
+    box:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8-4 8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4"/><path d="M12 3v14"/></svg>`
+  };
+  return icons[type]||icons.box;
+}
+function renderPackageSizePreview(size,imageUrl=""){
+  if(!size) return "";
+  const type=detectPackageSizeType(size);
+  const visual=imageUrl?`<img src="${esc(imageUrl)}" alt="Produktbild">`:packageSizeIconSvg(type);
+  return `<div class="package-size-preview"><span class="package-size-icon">${visual}</span><span>${esc(size)}</span></div>`;
+}
+function productPreviewVisual(p,contextClass=""){
+  return renderProductImage(p,{contextClass});
+}
+function renderRequestPositionList(positions=[]){
+  if(!positions.length) return `<div class="empty-panel compact"><p>Keine Positionen hinzugefügt.</p></div>`;
+  return `<div class="request-position-list">${positions.map((position,index)=>{
+    const visual=productPreviewVisual({
+      name:position.productName,
+      productName:position.productName,
+      productType:position.productType,
+      imageUrl:position.productImageUrl
+    },"request-position");
+    return `<article><div class="request-position-heading"><span class="request-position-icon">${visual}</span><div><strong>${esc(position.productName)}</strong><p>${position.productType==="chemical"?`Gebinde: ${esc(position.packageSize||"–")}`:"Technisches Produkt"}</p></div></div><div class="request-position-meta"><span>${esc(String(position.quantity))}${position.productType==="technical"?" Stück":""}</span><button class="button compact secondary" type="button" data-remove-request-position="${index}">Entfernen</button></div></article>`;
+  }).join("")}</div>`;
+}
+function renderProductRequestSection(plant){
+  const filteredProducts=requestProductFilterOptions(productRequestState.search,productRequestState.productTypeFilter);
+  const selectedProduct=productById(productRequestState.selectedProductId)||filteredProducts[0]||null;
+  const availableProducts=selectedProduct&&selectedProduct.id&&!filteredProducts.some(p=>p.id===selectedProduct.id)?[selectedProduct,...filteredProducts]:filteredProducts;
+  const productOptions=availableProducts.length?availableProducts.map(p=>`<option value="${esc(p.id)}" ${p.id===productRequestState.selectedProductId?"selected":""}>${esc(p.name)}${p.materialNumber?` · ${esc(p.materialNumber)}`:""} (${formatRequestProductType(p.productType)})</option>`).join(""):`<option value="">Keine passenden Produkte</option>`;
+  const packageSizeField=selectedProduct&&selectedProduct.productType==="chemical"?`<label class="field-label">Gebindegröße<select name="requestPackageSize" id="requestPackageSize"><option value="">Bitte wählen</option>${selectedProduct.packageSizes.map(size=>`<option value="${esc(size)}" ${size===productRequestState.packageSize?"selected":""}>${esc(size)}</option>`).join("")}</select></label>`:"";
+  const selectedProductPreview=selectedProduct?`<div class="request-product-preview"><div class="request-product-image">${productPreviewVisual(selectedProduct,"request-preview")}</div><div><strong>${esc(selectedProduct.name)}</strong><p>${formatRequestProductType(selectedProduct.productType)}</p></div></div>`:"";
+  const packagePreview=selectedProduct&&selectedProduct.productType==="chemical"&&productRequestState.packageSize?renderPackageSizePreview(productRequestState.packageSize,selectedProduct.imageUrl):"";
+  return `<section class="dashboard-section request-builder"><div class="section-heading"><div><p class="eyebrow">Interne Anfrage</p><h2>Interne Angebots- / Bestellanforderung</h2><p>Öffnet eine E-Mail an ${esc(requestModule.INTERNAL_REQUEST_EMAIL)} mit Anlagen- und Produktpositionen. Es handelt sich um eine interne Anfrage, kein direkter Lieferauftrag.</p></div></div>
+    <form id="productRequestForm"><div class="request-grid"><div>${selectField("requestType","Anfragetyp",productRequestState.type,Object.entries(requestModule.REQUEST_TYPES).map(([k,v])=>[k,v.label]))}${selectField("requestUrgency","Dringlichkeit",productRequestState.urgency,requestModule.URGENCIES.map(v=>[v,v]))}${field("requestDesiredDate","Gewünschter Termin",productRequestState.desiredDate,"date")}</div><div>${productTypeFilterField(productRequestState.productTypeFilter)}${field("requestSearch","Produkt suchen",productRequestState.search)}<label class="field-label">Produkt auswählen<select name="requestProductId" id="requestProductId">${productOptions}</select></label>${selectedProductPreview}${packageSizeField}${packagePreview}${field("requestQuantity","Anzahl",productRequestState.quantity,"number")}</div></div>
+      <div class="sticky-form-actions"><button class="button secondary" type="button" id="addRequestPosition">Position hinzufügen</button><button class="button primary" type="submit">E-Mail-Vorlage öffnen</button></div>
+      <section class="form-section"><h2>Positionen</h2>${renderRequestPositionList(productRequestState.positions)}</section>
+      <section class="form-section"><h2>Zusätzliche Hinweise</h2><label class="field-label span-2">Bemerkung<textarea name="requestRemark" id="requestRemark">${esc(productRequestState.remark)}</textarea></label></section>
+    </form></section>`;
+}
+function productTypeFilterField(value=""){return selectField("requestProductTypeFilter","Produktart",value,[["","Alle"],["chemical","Chemie"],["technical","Technik"]]);}
+function bindProductRequestForm(plant){
+  const form=document.querySelector("#productRequestForm");
+  if(!form) return;
+  const updateModal=()=>{
+    const content=document.querySelector("#requestModalContent");
+    if(!content) return;
+    content.innerHTML=renderProductRequestSection(plant);
+    bindProductRequestForm(plant);
+  };
+  form.querySelector("[name=requestType]")?.addEventListener("change",event=>{productRequestState.type=event.target.value;});
+  form.querySelector("[name=requestUrgency]")?.addEventListener("change",event=>{productRequestState.urgency=event.target.value;});
+  form.querySelector("[name=requestDesiredDate]")?.addEventListener("change",event=>{productRequestState.desiredDate=event.target.value;});
+  form.querySelector("[name=requestSearch]")?.addEventListener("input",event=>{productRequestState.search=event.target.value;updateModal();});
+  form.querySelector("[name=requestProductTypeFilter]")?.addEventListener("change",event=>{productRequestState.productTypeFilter=event.target.value;updateModal();});
+  form.querySelector("[name=requestProductId]")?.addEventListener("change",event=>{productRequestState.selectedProductId=event.target.value;productRequestState.packageSize="";updateModal();});
+  form.querySelector("[name=requestPackageSize]")?.addEventListener("change",event=>{productRequestState.packageSize=event.target.value;updateModal();});
+  form.querySelector("[name=requestQuantity]")?.addEventListener("input",event=>{productRequestState.quantity=Math.max(1,Number(event.target.value)||1);});
+  form.querySelector("#requestRemark")?.addEventListener("input",event=>{productRequestState.remark=event.target.value;});
+  form.querySelector("#addRequestPosition")?.addEventListener("click",()=>{
+    const productId=String(form.querySelector("[name=requestProductId]")?.value||"").trim();
+    const product=productById(productId);
+    if(!product){alert("Bitte ein Produkt auswählen.");return;}
+    const position=requestModule.normalizeRequestPosition({
+      productId,productName:product.name,productType:product.productType,packageSize:productRequestState.packageSize,quantity:productRequestState.quantity,productImageUrl:product.imageUrl
+    });
+    const validation=requestModule.validateRequestPosition(position);
+    if(!validation.valid){alert(validation.errors.join("\n"));return;}
+    productRequestState.positions=[...productRequestState.positions,position];
+    productRequestState.quantity=1;productRequestState.packageSize="";
+    updateModal();
+  });
+  form.addEventListener("submit",event=>{event.preventDefault();
+    if(!productRequestState.positions.length){alert("Füge mindestens eine Position zur Anfrage hinzu.");return;}
+    const mailData=requestModule.buildRequestMail({
+      type:productRequestState.type,plant,urgency:productRequestState.urgency,desiredDate:productRequestState.desiredDate,remark:productRequestState.remark,positions:productRequestState.positions
+    });
+    addCommunicationEntry(plant,{type:"mail",title:productRequestState.type==="offer"?"Interne Angebotsanfrage geöffnet":"Interne Bestellanforderung geöffnet",recipient:mailData.to,subject:mailData.subject,note:`${productRequestState.positions.length} Positionen`});
+    closeProductRequestModal();
+    openMailClient(mailData);
+  });
+  $$('[data-remove-request-position]').forEach(button=>button.addEventListener("click",()=>{
+    const index=Number(button.dataset.removeRequestPosition);
+    if(Number.isNaN(index)) return;
+    productRequestState.positions=productRequestState.positions.filter((_,i)=>i!==index);
+    updateModal();
+  }));
+}
+function renderProductRequestModal(){
+  return `<div class="request-modal-backdrop" id="requestModalBackdrop" hidden></div>
+    <section class="request-modal" id="requestModal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle" hidden>
+      <header class="request-modal-header"><div><p class="eyebrow">Interne Anfrage</p><h2 id="requestModalTitle">Produkte auswählen</h2></div><button type="button" class="button secondary compact" id="closeRequestModal">Schließen</button></header>
+      <div id="requestModalContent"></div>
+    </section>`;
+}
+function openProductRequestModal(plant){
+  const backdrop=document.querySelector("#requestModalBackdrop");
+  const modal=document.querySelector("#requestModal");
+  const content=document.querySelector("#requestModalContent");
+  if(!backdrop||!modal||!content) return;
+  content.innerHTML=renderProductRequestSection(plant);
+  bindProductRequestForm(plant);
+  modal.hidden=false;backdrop.hidden=false;
+  requestAnimationFrame(()=>{backdrop.classList.add("open");modal.classList.add("open");});
+  document.body.classList.add("modal-open");
+  const closeButton=document.querySelector("#closeRequestModal");
+  if(closeButton) closeButton.onclick = closeProductRequestModal;
+  backdrop.onclick = closeProductRequestModal;
+}
+function closeProductRequestModal(){
+  const backdrop=document.querySelector("#requestModalBackdrop");
+  const modal=document.querySelector("#requestModal");
+  if(!backdrop||!modal||modal.hidden) return;
+  modal.classList.remove("open");backdrop.classList.remove("open");
+  document.body.classList.remove("modal-open");
+  backdrop.onclick = null;
+  setTimeout(()=>{modal.hidden=true;backdrop.hidden=true;},220);
+}
+function bindProductRequestActions(plant){
+  const openButtons=$$("#openRequestModal");
+  if(!openButtons.length) return;
+  openButtons.forEach(button=>button.addEventListener("click",()=>openProductRequestModal(plant)));
+}
+function salesStageLabel(stage){
+  return SALES_FUNNEL_STAGES.find(([id])=>id===stage)?.[1]||stage;
+}
+function parsePotentialValue(value=""){
+  const normalized=String(value||"").replace(/\./g,"").replace(",", ".").replace(/[^0-9.-]/g,"");
+  const num=Number(normalized);
+  return Number.isFinite(num)?num:0;
+}
+function moneyLabel(value){
+  return Number(value||0).toLocaleString("de-DE",{maximumFractionDigits:0});
+}
+function validDate(value){
+  const date=new Date(value||"");
+  return Number.isNaN(date.getTime())?null:date;
+}
+function daysSinceDate(value){
+  const date=validDate(value);
+  if(!date) return null;
+  const now=new Date();
+  return Math.max(0,Math.floor((now.getTime()-date.getTime())/86400000));
+}
+function salesReminderAlerts(limit=4){
+  const reminders=[];
+  plants.forEach(plant=>{
+    const pipeline=normalizeSalesPipeline(plant.salesPipeline||{},plant.salesFunnel||{});
+    (pipeline.opportunities||[]).forEach(opportunity=>{
+      const orderAge=daysSinceDate(opportunity.lastOrderDate);
+      const deliveryAge=daysSinceDate(opportunity.lastDeliveryDate);
+      const maxAge=Math.max(orderAge??-1,deliveryAge??-1);
+      if(maxAge<SALES_REMINDER_WARNING_DAYS) return;
+      const orderDominant=orderAge!==null&&(deliveryAge===null||orderAge>=deliveryAge);
+      const referenceLabel=orderDominant?"Bestellung":"Belieferung";
+      const referenceDate=orderDominant?opportunity.lastOrderDate:opportunity.lastDeliveryDate;
+      const referenceDays=orderDominant?orderAge:deliveryAge;
+      reminders.push({
+        level:maxAge>=SALES_REMINDER_CRITICAL_DAYS?"red":"yellow",
+        maxAge,
+        plantId:plant.id,
+        plantName:plant.master?.name||"Unbenannte Anlage",
+        opportunityTitle:opportunity.title||"Unbenannte Chance",
+        referenceLabel,
+        referenceDateLabel:formatShortDate(referenceDate),
+        referenceDaysLabel:`vor ${referenceDays} Tagen`
+      });
+    });
+  });
+  return reminders
+    .sort((a,b)=>{
+      const levelWeight=x=>x.level==="red"?2:1;
+      return levelWeight(b)-levelWeight(a)||b.maxAge-a.maxAge;
+    })
+    .slice(0,limit);
+}
+function salesRecencySnapshot(value){
+  const date=validDate(value);
+  if(!date) return {dateLabel:"–",ageLabel:"Noch nicht erfasst",toneClass:"gray",statusLabel:"Unbekannt"};
+  const days=daysSinceDate(value);
+  if(days<=35) return {dateLabel:formatShortDate(value),ageLabel:`vor ${days} Tagen`,toneClass:"green",statusLabel:"Aktuell"};
+  if(days<=70) return {dateLabel:formatShortDate(value),ageLabel:`vor ${days} Tagen`,toneClass:"yellow",statusLabel:"Beobachten"};
+  return {dateLabel:formatShortDate(value),ageLabel:`vor ${days} Tagen`,toneClass:"red",statusLabel:"Abwanderungsrisiko"};
+}
+function latestPipelineDate(opportunities,key){
+  const entries=(opportunities||[])
+    .map(item=>item?.[key])
+    .map(value=>({value,date:validDate(value)}))
+    .filter(entry=>entry.date)
+    .sort((a,b)=>b.date.getTime()-a.date.getTime());
+  return entries[0]?.value||"";
+}
+function suggestedSalesStage(plant,opportunity){
+  const communications=plant.communications||[];
+  const offers=communications.filter(entry=>/angebot/i.test(entry.title||"")).length;
+  const orders=communications.filter(entry=>/bestell|auftrag/i.test(entry.title||"")).length;
+  const doneVisits=(plant.visits||[]).filter(visit=>visit.status==="done").length;
+  const orderAge=daysSinceDate(opportunity?.lastOrderDate);
+  if(orderAge!==null&&orderAge>120){
+    return {stage:"offer",reason:`Letzte Bestellung liegt ${orderAge} Tage zurück. Reaktivierung über neues Angebot empfohlen.`};
+  }
+  if(orders>0) return {stage:"order",reason:"Mindestens ein Auftrag/Bestellkontakt dokumentiert."};
+  if(offers>0) return {stage:"offer",reason:"Mindestens ein Angebotskontakt dokumentiert."};
+  if(doneVisits>0) return {stage:"trial",reason:"Abgeschlossene Einsätze deuten auf eine aktive Erprobung hin."};
+  if(communications.length>0) return {stage:"analysis",reason:"Es gibt Kommunikation, aber noch keine Angebots-/Auftragsaktivität."};
+  if(String(opportunity?.nextStep||"").trim()) return {stage:"analysis",reason:"Nächster Schritt ist gesetzt, die Chance ist in Bearbeitung."};
+  return {stage:"analysis",reason:"Keine verwertbaren Vertriebssignale erkannt."};
+}
+function salesFunnelMetrics(plant,pipeline){
+  const opportunities=Array.isArray(pipeline?.opportunities)?pipeline.opportunities:[];
+  const openDeals=opportunities.filter(item=>item.stage!=="aftercare").length;
+  const totalPotential=opportunities.reduce((sum,item)=>sum+parsePotentialValue(item.potentialValue),0);
+  const weightedForecast=opportunities.reduce((sum,item)=>sum+parsePotentialValue(item.potentialValue)*(SALES_STAGE_PROBABILITY[item.stage]||0),0);
+  const atRiskDeals=opportunities.filter(item=>{
+    const age=daysSinceDate(item.lastOrderDate);
+    return age===null||age>70;
+  }).length;
+  const latestOrderDate=latestPipelineDate(opportunities,"lastOrderDate");
+  const latestDeliveryDate=latestPipelineDate(opportunities,"lastDeliveryDate");
+  const communications=plant.communications||[];
+  const offers=communications.filter(entry=>/angebot/i.test(entry.title||"")).length;
+  const orders=communications.filter(entry=>/bestell|auftrag/i.test(entry.title||"")).length;
+  const lastVisit=(plant.visits||[]).filter(v=>v.start).sort((a,b)=>new Date(b.start).getTime()-new Date(a.start).getTime())[0];
+  return {
+    opportunities:opportunities.length,
+    openDeals,
+    totalPotential,
+    weightedForecast,
+    atRiskDeals,
+    communications:communications.length,
+    offers,
+    orders,
+    latestOrderDate:latestOrderDate?formatShortDate(latestOrderDate):"–",
+    latestDeliveryDate:latestDeliveryDate?formatShortDate(latestDeliveryDate):"–",
+    lastVisitDate:lastVisit?.start?formatShortDate(lastVisit.start):"–"
+  };
+}
+function notifyActiveSalesRemindersOnStartup(){
+  const reminders=salesReminderAlerts(3);
+  if(!reminders.length) return;
+  const dayKey=new Date().toISOString().slice(0,10);
+  try{
+    const previous=JSON.parse(localStorage.getItem(STORAGE_SALES_REMINDER_NOTICE)||"null");
+    if(previous?.dayKey===dayKey&&previous?.count===reminders.length) return;
+  }catch{}
+  localStorage.setItem(STORAGE_SALES_REMINDER_NOTICE,JSON.stringify({dayKey,count:reminders.length}));
+  const top=reminders[0];
+  const shouldOpen=confirm(`${reminders.length} Wiederbestell-Reminder aktiv.\n\nDringend: ${top.plantName} · ${top.opportunityTitle}\nLetzte ${top.referenceLabel}: ${top.referenceDateLabel} (${top.referenceDaysLabel})\n\nJetzt im Vertrieb öffnen?`);
+  if(!shouldOpen) return;
+  activePlantId=top.plantId;
+  savePlants();
+  showPlantDashboard("sales");
+}
+function renderSalesFunnelSection(plant){
+  const pipeline=normalizeSalesPipeline(plant.salesPipeline||{},plant.salesFunnel||{});
+  const opportunities=pipeline.opportunities;
+  const active=opportunities.find(item=>item.id===pipeline.activeOpportunityId)||opportunities[0];
+  const activeIndex=Math.max(0,SALES_FUNNEL_STAGES.findIndex(([id])=>id===active.stage));
+  const history=(active.history||[]).slice(-5).reverse();
+  const suggestion=suggestedSalesStage(plant,active);
+  const metrics=salesFunnelMetrics(plant,pipeline);
+  const orderRecency=salesRecencySnapshot(active.lastOrderDate);
+  const deliveryRecency=salesRecencySnapshot(active.lastDeliveryDate);
+  return `<section class="dashboard-section sales-funnel-section"><div class="section-heading"><div><p class="eyebrow">Pipeline</p><h2>Sales Funnel</h2><p class="form-note">Mehrere Chancen pro Anlage inklusive Forecast und Stage-Empfehlung.</p></div><span class="status-chip blue">Aktuell: ${esc(salesStageLabel(active.stage))}</span></div>
+    <div class="sales-opportunity-bar"><div class="sales-opportunity-list">${opportunities.map((item,index)=>`<button type="button" class="sales-opportunity-chip ${item.id===active.id?"active":""}" data-sales-opp="${esc(item.id)}"><strong>${esc(item.title||`Chance ${index+1}`)}</strong><small>${esc(salesStageLabel(item.stage))}</small></button>`).join("")}</div><div class="sales-opportunity-actions"><button type="button" class="button secondary compact" id="addSalesOpportunity">+ Chance</button><button type="button" class="button secondary compact" id="duplicateSalesOpportunity">Duplizieren</button><button type="button" class="button secondary compact" id="deleteSalesOpportunity" ${opportunities.length<=1?"disabled":""}>Löschen</button></div></div>
+    <div class="sales-funnel-track">${SALES_FUNNEL_STAGES.map(([id,label],index)=>`<button type="button" class="sales-funnel-step ${index===activeIndex?"active":""} ${index<activeIndex?"done":""}" data-funnel-stage="${id}" aria-pressed="${index===activeIndex?"true":"false"}"><small>Stufe ${index+1}</small><strong>${esc(label)}</strong></button>`).join("")}</div>
+    <div class="info-box"><strong>Automatische Empfehlung:</strong> ${esc(salesStageLabel(suggestion.stage))} · ${esc(suggestion.reason)} ${suggestion.stage!==active.stage?`<button type="button" class="button secondary compact" id="applySuggestedStage" data-suggested-stage="${esc(suggestion.stage)}">Vorschlag übernehmen</button>`:""}</div>
+    <div class="sales-funnel-metrics"><article><span>Chancen gesamt</span><strong>${metrics.opportunities}</strong></article><article><span>Offene Chancen</span><strong>${metrics.openDeals}</strong></article><article><span>Pipeline-Wert</span><strong>${moneyLabel(metrics.totalPotential)} EUR</strong></article><article><span>Gewichteter Forecast</span><strong>${moneyLabel(metrics.weightedForecast)} EUR</strong></article><article><span>Reaktivierung nötig</span><strong>${metrics.atRiskDeals}</strong></article><article><span>Kommunikation</span><strong>${metrics.communications}</strong></article><article><span>Angebote</span><strong>${metrics.offers}</strong></article><article><span>Aufträge</span><strong>${metrics.orders}</strong></article><article><span>Letzte Bestellung</span><strong>${esc(metrics.latestOrderDate)}</strong></article><article><span>Letzte Belieferung</span><strong>${esc(metrics.latestDeliveryDate)}</strong></article><article><span>Letzter Besuch</span><strong>${esc(metrics.lastVisitDate)}</strong></article></div>
+    <div class="sales-recency-grid"><article class="sales-recency-card"><span>Aktive Chance: letzte Bestellung</span><strong>${esc(orderRecency.dateLabel)}</strong><small>${esc(orderRecency.ageLabel)}</small><div class="status-chip ${orderRecency.toneClass}">${esc(orderRecency.statusLabel)}</div></article><article class="sales-recency-card"><span>Aktive Chance: letzte Belieferung</span><strong>${esc(deliveryRecency.dateLabel)}</strong><small>${esc(deliveryRecency.ageLabel)}</small><div class="status-chip ${deliveryRecency.toneClass}">${esc(deliveryRecency.statusLabel)}</div></article></div>
+    <form id="salesFunnelForm" class="record-form"><input type="hidden" name="salesOpportunityId" value="${esc(active.id)}"><div class="form-grid">${field("salesOpportunityTitle","Chancentitel",active.title)}${field("salesFunnelPotentialValue","Potenzialwert (EUR)",active.potentialValue,"number")}${field("salesFunnelNextStep","Nächster Schritt",active.nextStep)}${field("salesFunnelLastContact","Letzter Kontakt",active.lastContactDate,"date")}${field("salesFunnelLastOrder","Letzte Bestellung",active.lastOrderDate,"date")}${field("salesFunnelLastDelivery","Letzte Belieferung",active.lastDeliveryDate,"date")}${field("salesFunnelTargetClose","Zielabschluss",active.targetCloseDate,"date")}<label class="field-label span-2">Notizen zum Stand<textarea name="salesFunnelNotes">${esc(active.notes||"")}</textarea></label></div><div class="section-actions"><button type="submit" class="button primary">Chance speichern</button><button type="button" class="button secondary" id="openRequestModal">Anfrage vorbereiten</button></div></form>
+    <article class="record-card sales-funnel-history"><h2>Letzte Phasenwechsel (${esc(active.title||"Chance")})</h2>${history.length?`<ul>${history.map(item=>`<li><strong>${esc(salesStageLabel(item.stage))}</strong><span>${esc(formatShortDate(item.changedAt))}</span><small>${esc(item.note||"Phasenwechsel")}</small></li>`).join("")}</ul>`:`<div class="empty-panel compact"><p>Noch keine Phasenwechsel dokumentiert.</p></div>`}</article>
+  </section>`;
+}
+function bindSalesFunnelActions(plant){
+  const pipeline=normalizeSalesPipeline(plant.salesPipeline||{},plant.salesFunnel||{});
+  const getActiveOpportunity=()=>pipeline.opportunities.find(item=>item.id===pipeline.activeOpportunityId)||pipeline.opportunities[0];
+  const persist=()=>{
+    plant.salesPipeline=pipeline;
+    const active=getActiveOpportunity();
+    // Legacy mirror keeps backward compatibility for previously stored single-funnel consumers.
+    plant.salesFunnel=normalizeSalesFunnel(active||{});
+    plant.updatedAt=new Date().toISOString();
+    return savePlants();
+  };
+  $$('[data-sales-opp]').forEach(button=>button.addEventListener('click',()=>{
+    const id=button.dataset.salesOpp;
+    if(!id||id===pipeline.activeOpportunityId) return;
+    pipeline.activeOpportunityId=id;
+    if(persist())showPlantDashboard("sales");
+  }));
+  $("#addSalesOpportunity")?.addEventListener("click",()=>{
+    const nextIndex=pipeline.opportunities.length+1;
+    const created=normalizeSalesOpportunity({title:`Chance ${nextIndex}`});
+    pipeline.opportunities=[...pipeline.opportunities,created];
+    pipeline.activeOpportunityId=created.id;
+    if(persist())showPlantDashboard("sales");
+  });
+  $("#duplicateSalesOpportunity")?.addEventListener("click",()=>{
+    const active=getActiveOpportunity();
+    if(!active) return;
+    const duplicate=normalizeSalesOpportunity({...active,id:makeId(),title:`${active.title} (Kopie)`,history:[]});
+    pipeline.opportunities=[...pipeline.opportunities,duplicate];
+    pipeline.activeOpportunityId=duplicate.id;
+    if(persist())showPlantDashboard("sales");
+  });
+  $("#deleteSalesOpportunity")?.addEventListener("click",()=>{
+    if(pipeline.opportunities.length<=1){alert("Mindestens eine Chance muss erhalten bleiben.");return;}
+    const active=getActiveOpportunity();
+    if(!active) return;
+    if(!confirm(`Chance „${active.title}“ wirklich löschen?`)) return;
+    pipeline.opportunities=pipeline.opportunities.filter(item=>item.id!==active.id);
+    pipeline.activeOpportunityId=pipeline.opportunities[0]?.id||"";
+    if(persist())showPlantDashboard("sales");
+  });
+  $$('[data-funnel-stage]').forEach(button=>button.addEventListener('click',()=>{
+    const active=getActiveOpportunity();
+    if(!active) return;
+    const nextStage=button.dataset.funnelStage;
+    if(!nextStage||nextStage===active.stage) return;
+    active.history=[...(active.history||[]),{stage:nextStage,changedAt:new Date().toISOString(),note:`Wechsel von ${salesStageLabel(active.stage)} zu ${salesStageLabel(nextStage)}`}].slice(-20);
+    active.stage=nextStage;
+    active.updatedAt=new Date().toISOString();
+    if(persist())showPlantDashboard("sales");
+  }));
+  $("#applySuggestedStage")?.addEventListener("click",event=>{
+    const stage=event.currentTarget.dataset.suggestedStage;
+    const active=getActiveOpportunity();
+    if(!stage||!active||stage===active.stage) return;
+    active.history=[...(active.history||[]),{stage,changedAt:new Date().toISOString(),note:`Vorschlag übernommen: ${salesStageLabel(stage)}`}].slice(-20);
+    active.stage=stage;
+    active.updatedAt=new Date().toISOString();
+    if(persist())showPlantDashboard("sales");
+  });
+  const form=$("#salesFunnelForm");
+  if(!form) return;
+  form.addEventListener("submit",event=>{
+    event.preventDefault();
+    const active=getActiveOpportunity();
+    if(!active) return;
+    const fd=new FormData(form);
+    active.title=String(fd.get("salesOpportunityTitle")||"").trim()||active.title;
+    active.potentialValue=String(fd.get("salesFunnelPotentialValue")||"").trim();
+    active.nextStep=String(fd.get("salesFunnelNextStep")||"").trim();
+    active.lastContactDate=String(fd.get("salesFunnelLastContact")||"").trim();
+    active.lastOrderDate=String(fd.get("salesFunnelLastOrder")||"").trim();
+    active.lastDeliveryDate=String(fd.get("salesFunnelLastDelivery")||"").trim();
+    active.targetCloseDate=String(fd.get("salesFunnelTargetClose")||"").trim();
+    active.notes=String(fd.get("salesFunnelNotes")||"").trim();
+    active.updatedAt=new Date().toISOString();
+    if(persist())showPlantDashboard("sales");
+  });
 }
 function renderPlantSchemaPage(plant){return renderProcessSchema3D(plant);}
 function renderPlantVisitsPage(plant){return `${renderVisits(plant)}${renderPlantTimeline(plant)}`;}
 function renderPlantTasksPage(plant){return renderActionCenter(plant);}
 function renderPlantSalesPage(plant){
-  return `<section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Technischer Vertrieb</p><h2>Vertrieb und Optimierung</h2><p class="form-note">Dieser Bereich ist für Produkte, Dokumente und Optimierungsprojekte vorbereitet.</p></div></div>
-  <div class="sales-foundation-grid"><article><span>Produkte</span><strong>Produktakte vorbereiten</strong><p>Eingesetzte, geplante und historische Produkte werden hier mit der Anlage verknüpft.</p></article><article><span>Dokumente</span><strong>Dokumentenbibliothek folgt</strong><p>Produktdatenblätter, Sicherheitsdatenblätter, Angebote und Aufträge werden offline verwaltet.</p></article><article><span>Optimierungsprojekte</span><strong>Sales Funnel im Anlagenkontext</strong><p>Analyse, Versuch, Angebot, Auftrag und Nachbetreuung werden als fachliches Projekt abgebildet.</p></article></div>
-  <div class="info-box"><strong>Nächster Ausbauschritt:</strong> IndexedDB-Dokumentenspeicher und globale Produktbibliothek.</div></section>`;
+  return `${renderSalesFunnelSection(plant)}
+    <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Technischer Vertrieb</p><h2>Interne Anfrage erstellen</h2><p class="form-note">Öffne die Produkt-Auswahl, wähle Positionen und sende dann die interne Anfrage-Mail.</p></div></div>
+      <div class="info-box"><strong>Schritt 1:</strong> Produkte wählen und Positionen in der Anfrage zusammenstellen.</div>
+      <div class="section-actions"><button class="button primary" type="button" id="openRequestModal">Anfrage vorbereiten</button></div>
+    </section>
+    <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Produktdaten</p><h2>Produktaktesammlung</h2><p>Produkte werden global gepflegt. Hier können chemische und technische Produkte zentral verwaltet werden.</p></div></div>
+    <div class="sales-foundation-grid"><article><span>Produkte</span><strong>Produktakte vorbereiten</strong><p>Eingesetzte, geplante und historische Produkte werden hier mit der Anlage verknüpft.</p></article><article><span>Dokumente</span><strong>Dokumentenbibliothek folgt</strong><p>Produktdatenblätter, Sicherheitsdatenblätter, Angebote und Aufträge werden offline verwaltet.</p></article><article><span>Optimierungsprojekte</span><strong>Sales Funnel im Anlagenkontext</strong><p>Analyse, Versuch, Angebot, Auftrag und Nachbetreuung werden als fachliches Projekt abgebildet.</p></article></div>
+    <div class="info-box"><strong>Nächster Ausbauschritt:</strong> IndexedDB-Dokumentenspeicher und globale Produktbibliothek.</div></section>
+    ${renderProductRequestModal()}`;
 }
 function renderPlantRecordPage(plant){
   const primary=plant.contacts?.[0],mapUrls=googleMapsUrls(plant);
+  const operatorLookupNote = plant.operatorLookup?.status
+    ? plant.operatorLookup.status === "found"
+      ? `Betreiber/Verband automatisch gefunden${plant.operatorLookup.operator?.name?`: ${plant.operatorLookup.operator.name}`:""}`
+      : plant.operatorLookup.status === "not-found"
+        ? "Kein Betreiber/Verband automatisch gefunden."
+        : plant.operatorLookup.status === "error"
+          ? `Betreiber-Suche fehlgeschlagen: ${plant.operatorLookup.error||"Bitte manuell prüfen."}`
+          : "Betreiber-Suche ausgeführt."
+    : "Automatische Betreiber-Suche noch nicht ausgeführt.";
   return `<section class="map-section"><div class="map-frame-wrap">${locationQuery(plant)?`<iframe class="map-frame" title="Standort der Anlage" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapUrls.embed}"></iframe>`:`<div class="map-placeholder"><strong>Kein Standort hinterlegt</strong><span>Adresse oder GPS-Koordinaten ergänzen.</span></div>`}</div>
-  <article class="map-info-card"><p class="eyebrow">Standort und Anfahrt</p><h2>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"Adresse fehlt")}</h2><p>${plant.address.latitude&&plant.address.longitude?`Breitengrad: ${esc(plant.address.latitude)} · Längengrad: ${esc(plant.address.longitude)}`:plant.address.gps?`GPS: ${esc(plant.address.gps)}`:"Navigation erfolgt über die hinterlegte Anlagenadresse."}</p>${locationQuery(plant)?mapsButtons(plant):""}<div class="access-quick"><div><span>Parken</span><strong>${esc(plant.access?.parking||"–")}</strong></div><div><span>Zufahrt</span><strong>${esc(plant.access?.gate||"–")}</strong></div><div><span>Anmeldung</span><strong>${esc(plant.access?.registration||"–")}</strong></div><div><span>PSA</span><strong>${esc(plant.access?.ppe||"–")}</strong></div></div></article></section>
+  <article class="map-info-card"><p class="eyebrow">Standort und Anfahrt</p><h2>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"Adresse fehlt")}</h2><p>${plant.address.latitude&&plant.address.longitude?`Breitengrad: ${esc(plant.address.latitude)} · Längengrad: ${esc(plant.address.longitude)}`:plant.address.gps?`GPS: ${esc(plant.address.gps)}`:"Navigation erfolgt über die hinterlegte Anlagenadresse."}</p>${locationQuery(plant)?mapsButtons(plant):""}<p class="form-note">${esc(operatorLookupNote)}</p><div class="access-quick"><div><span>Parken</span><strong>${esc(plant.access?.parking||"–")}</strong></div><div><span>Zufahrt</span><strong>${esc(plant.access?.gate||"–")}</strong></div><div><span>Anmeldung</span><strong>${esc(plant.access?.registration||"–")}</strong></div><div><span>PSA</span><strong>${esc(plant.access?.ppe||"–")}</strong></div></div></article></section>
   <div class="record-grid"><article class="record-card"><h2>Anlage</h2><dl><div><dt>Anlagennummer</dt><dd>${esc(plant.master.internalNumber||"–")}</dd></div><div><dt>Adresse</dt><dd>${esc([plant.address.street,[plant.address.postalCode,plant.address.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"–")}</dd></div><div><dt>Ausbaugröße</dt><dd>${plant.master.capacityPE?`${fmtInteger(plant.master.capacityPE)} EW`:"–"}</dd></div><div><dt>Tatsächliche Belastung</dt><dd>${plant.master.actualPE?`${fmtInteger(plant.master.actualPE)} EW`:"–"}</dd></div><div><dt>Hauptverfahren</dt><dd>${esc(processLabel(plant.master.mainProcess||plant.master.process))}</dd></div><div><dt>Weitere Stufen</dt><dd>${esc(processStageLabels(plant.master.processStages).join(", ")||"–")}</dd></div></dl></article>
-  <article class="record-card"><h2>Betreiber</h2><dl><div><dt>Name</dt><dd>${esc(plant.operator.name||"–")}</dd></div><div><dt>Kundennummer</dt><dd>${esc(plant.operator.customerNumber||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(plant.operator.phone)}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(plant.operator.email)}</dd></div></dl></article>
+  <article class="record-card"><h2>Betreiber</h2><dl><div><dt>Name</dt><dd>${esc(plant.operator.name||"–")}</dd></div><div><dt>Zweckverband</dt><dd>${esc(plant.operator.association||"–")}</dd></div><div><dt>Kundennummer</dt><dd>${esc(plant.operator.customerNumber||"–")}</dd></div><div><dt>Gemeinde</dt><dd>${esc(plant.operator.municipality||"–")}</dd></div><div><dt>Landkreis</dt><dd>${esc(plant.operator.district||"–")}</dd></div><div><dt>Bundesland</dt><dd>${esc(plant.operator.state||"–")}</dd></div><div><dt>Gemeindeschlüssel</dt><dd>${esc(plant.operator.municipalityKey||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(plant.operator.phone)}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(plant.operator.email)}</dd></div><div><dt>Quelle</dt><dd>${esc(plant.operator.lookupSource||"–")}</dd></div><div><dt>Ermittelt am</dt><dd>${esc(plant.operator.lookupDate||"–")}</dd></div><div><dt>Status</dt><dd>${esc(plant.operator.lookupStatus||"IDLE")}</dd></div></dl></article>
   <article class="record-card"><h2>Hauptansprechpartner</h2><dl><div><dt>Name</dt><dd>${esc(primary?.name||"–")}</dd></div><div><dt>Funktion</dt><dd>${esc(primary?.role||"–")}</dd></div><div><dt>Telefon</dt><dd>${telLink(primary?.mobile||primary?.phone||"")}</dd></div><div><dt>E-Mail</dt><dd>${mailLink(primary?.email||"")}</dd></div></dl></article>
   <article class="record-card"><h2>Zufahrt und Besuch</h2><dl><div><dt>Parken</dt><dd>${esc(plant.access?.parking||"–")}</dd></div><div><dt>Tor / Zugang</dt><dd>${esc(plant.access?.gate||"–")}</dd></div><div><dt>Zugangscode</dt><dd>${esc(plant.access?.accessCode||"–")}</dd></div><div><dt>Besuchszeiten</dt><dd>${esc(plant.access?.openingHours||"–")}</dd></div><div><dt>Hinweise</dt><dd>${esc(plant.access?.siteNotes||"–")}</dd></div></dl></article></div>`;
 }
@@ -1966,8 +3220,9 @@ function renderPlantPage(plant,page){
 }
 function showPlantDashboard(page){
   const plant=activePlant();if(!plant)return showPlantForm();
-  const valid=new Set(["overview","technology","visits","sales","tasks","record"]);
-  if(page==="schema"||localStorage.getItem(STORAGE_PLANT_PAGE)==="schema")page="overview";
+  const createdTankFollowUps=ensureTankOfferFollowUps(plant);
+  if(createdTankFollowUps) savePlants();
+  const valid=new Set(["overview","schema","technology","visits","sales","tasks","record"]);
   page=valid.has(page)?page:(valid.has(localStorage.getItem(STORAGE_PLANT_PAGE))?localStorage.getItem(STORAGE_PLANT_PAGE):"overview");
   localStorage.setItem(STORAGE_PLANT_PAGE,page);
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
@@ -1977,21 +3232,22 @@ function showPlantDashboard(page){
   $("#editPlant")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#startVisit")?.addEventListener("click",()=>showVisitMode());
   $("#openNavigation")?.addEventListener("click",()=>{const url=googleMapsUrls(plant).directions;if(locationQuery(plant))window.open(url,"_blank","noopener");else alert("Bitte zuerst eine Adresse oder GPS-Koordinaten hinterlegen.");});
+  if(page==="overview"||page==="schema")bindProcessSchema3D(appView,plant,()=>{plant.updatedAt=new Date().toISOString();savePlants();});
   $("#startVisitCockpit")?.addEventListener("click",()=>showVisitMode());
   $("#completePlantPass")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);
-  $("#editParameters")?.addEventListener("click",()=>showPlantForm(plant.id));$("#openTraffic")?.addEventListener("click",showTraffic);
+  $("#editParameters")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#addVisit")?.addEventListener("click",()=>showVisitForm());
-  $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:""}];if(savePlants())showPlantDashboard("tasks");});
-  $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(savePlants())showPlantDashboard("tasks");});
+  $("#quickActionForm")?.addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget),title=String(fd.get("title")||"").trim();if(!title)return;plant.actions=[...(plant.actions||[]),{id:makeId(),title,status:"open",priority:fd.get("priority")||"normal",dueDate:fd.get("dueDate")||"",component:"",sourceVisitId:"",createdAt:new Date().toISOString(),completedAt:"",autoGenerated:false,followUpType:"",followUpSourceId:""}];if(savePlants())showPlantDashboard("tasks");});
+  $$(`[data-toggle-action]`).forEach(b=>b.onclick=()=>{const a=(plant.actions||[]).find(x=>x.id===b.dataset.toggleAction);if(!a)return;const wasDone=a.status==="done";a.status=a.status==="done"?"open":"done";a.completedAt=a.status==="done"?new Date().toISOString():"";if(a.status==="done"&&!wasDone)ensureTaskCompletionFollowUp(plant,a);if(savePlants())showPlantDashboard("tasks");});
   $$(`[data-delete-action]`).forEach(b=>b.onclick=()=>{if(!confirm("Aufgabe wirklich löschen?"))return;plant.actions=(plant.actions||[]).filter(a=>a.id!==b.dataset.deleteAction);if(savePlants())showPlantDashboard("tasks");});
   $$('[data-open-visit]').forEach(b=>b.onclick=()=>showVisitMode(b.dataset.openVisit));$$('[data-edit-visit]').forEach(b=>b.onclick=()=>showVisitForm(b.dataset.editVisit));
   $$('[data-ics-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.icsVisit);if(v)exportVisitIcs(plant,v)});
   $$('[data-delete-visit]').forEach(b=>b.onclick=()=>{const v=(plant.visits||[]).find(x=>x.id===b.dataset.deleteVisit);if(confirm(`Termin „${v?.title||"Besuch"}“ wirklich löschen?`)){plant.visits=(plant.visits||[]).filter(x=>x.id!==b.dataset.deleteVisit);savePlants();showPlantDashboard("visits");}});
   if(page==="technology")bindProcedureCard(appView);
   if(page==="overview")bindCommercialMailActions(plant);
+  if(page==="sales"){bindSalesFunnelActions(plant);bindProductRequestActions(plant);} 
   bindCommunicationLinks(plant);
-  if(page==="overview"||page==="schema")bindProcessSchema3D(appView);
   bindDashboardActions();
 }
 
@@ -2103,6 +3359,7 @@ let deferredPrompt=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("#installButton").classList.remove("hidden")});
 $("#installButton").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installButton").classList.add("hidden")};
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js",{updateViaCache:"none"}));
+window.addEventListener("popstate",event=>restoreNavigationFromHistory(event.state));
 
 async function bootstrap(){
   try{
@@ -2111,5 +3368,8 @@ async function bootstrap(){
     if(migration.migrated) console.info(`Migration: ${migration.migrated} Dokumente, ${migration.files||0} PDFs`);
   }catch(error){console.error("Datenbankstart fehlgeschlagen",error);alert("Die lokale Datenbank konnte nicht initialisiert werden: "+(error?.message||error));}
   renderPlantSelector();renderCategoryMenu();updateProfileButton();showGlobalPage(localStorage.getItem(STORAGE_GLOBAL_PAGE)||"today");
+  notifyActiveSalesRemindersOnStartup();
+  refreshGlobalNavigationBadges();
+  tenderScanService.runAutoSyncIfDue().then(refreshGlobalNavigationBadges).catch(error=>console.warn("Tender auto-sync fehlgeschlagen",error));
 }
 bootstrap();
