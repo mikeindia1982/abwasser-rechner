@@ -2781,7 +2781,17 @@ function renderOverviewRecordSnapshot(plant){
   </div></section>`;
 }
 function renderPlantOverviewPage(plant){
-  return renderTodayCockpit(plant);
+  return `${renderTodayCockpit(plant)}${renderPlantMasterDataSummary(plant)}`;
+}
+function renderPlantMasterDataSummary(plant){
+  const primary=plant.contacts?.[0]||{};
+  const detailRows=(rows)=>rows.filter(([,value])=>String(value||"").trim()).map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join("");
+  return `<section class="plant-master-summary"><div class="section-heading"><div><p class="eyebrow">Stammdaten</p><h2>Wichtige Kontaktdaten</h2></div><button type="button" class="button secondary" id="editPlantMasterData">Stammdaten bearbeiten</button></div>
+  <div class="plant-master-summary-grid">
+    <article class="plant-master-card"><h3>Standort & Zugang</h3><dl>${detailRows([["Straße",esc(plant.address?.street)], ["PLZ & Ort",esc([plant.address?.postalCode,plant.address?.city].filter(Boolean).join(" "))], ["Parkmöglichkeit",esc(plant.access?.parking)], ["Tor / Zufahrt",esc(plant.access?.gate)], ["Anmeldung",esc(plant.access?.registration)]])}</dl></article>
+    <article class="plant-master-card"><h3>Betreiber</h3><dl>${detailRows([["Betreiber",esc(plant.operator?.name)], ["Kundennummer",esc(plant.operator?.customerNumber)], ["Telefon",telLink(plant.operator?.phone||"")], ["E-Mail",mailLink(plant.operator?.email||"")]])}</dl></article>
+    <article class="plant-master-card"><h3>Ansprechpartner</h3><dl>${detailRows([["Name",esc(primary.name)], ["Funktion",esc(primary.role)], ["Mobil / Telefon",telLink(primary.mobile||primary.phone||"")], ["E-Mail",mailLink(primary.email||"")]])}</dl></article>
+  </div></section>`;
 }
 function renderPlantTechnologyPage(plant){
   return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderTechnicalAssets(plant)}${renderTrafficSummary(plant)}${renderOperationsDataSection(plant)}
@@ -3216,13 +3226,16 @@ function showPlantDashboard(page){
   const createdTankFollowUps=ensureTankOfferFollowUps(plant);
   if(createdTankFollowUps) savePlants();
   const valid=new Set(["overview","schema","technology","visits","sales","tasks","record"]);
-  page=valid.has(page)?page:(valid.has(localStorage.getItem(STORAGE_PLANT_PAGE))?localStorage.getItem(STORAGE_PLANT_PAGE):"overview");
+  const storedPage=localStorage.getItem(STORAGE_PLANT_PAGE);
+  page=valid.has(page)?page:(valid.has(storedPage)?storedPage:"overview");
+  if(page==="record")page="overview";
   localStorage.setItem(STORAGE_PLANT_PAGE,page);
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"}`);
   appView.innerHTML=`${plantHeader(plant)}${plantPageNavigation(page)}<div class="plant-page" data-current-page="${page}">${renderPlantPage(plant,page)}</div>`;
   $$('[data-plant-page]').forEach(b=>b.onclick=()=>showPlantDashboard(b.dataset.plantPage));
   $$('[data-jump-page]').forEach(b=>b.onclick=()=>showPlantDashboard(b.dataset.jumpPage));
   $("#editPlant")?.addEventListener("click",()=>showPlantForm(plant.id));
+  $("#editPlantMasterData")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#startVisit")?.addEventListener("click",()=>showVisitMode());
   $("#openNavigation")?.addEventListener("click",()=>{const url=googleMapsUrls(plant).directions;if(locationQuery(plant))window.open(url,"_blank","noopener");else alert("Bitte zuerst eine Adresse oder GPS-Koordinaten hinterlegen.");});
   if(page==="technology")bindProcessSchema3D(appView,plant,()=>{plant.updatedAt=new Date().toISOString();savePlants();});
