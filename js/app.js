@@ -2739,7 +2739,7 @@ function plantHeader(plant){
   </section>`;
 }
 function plantPageNavigation(active){
-  const pages=[["overview","Übersicht"],["technology","Technik"],["visits","Einsätze"],["sales","Vertrieb"],["tasks","Aufgaben"],["record","Akte"]];
+  const pages=[["overview","Übersicht"],["technology","Technik"],["visits","Einsätze"],["sales","Vertrieb"],["tasks","Aufgaben"],["record","Stammdaten"]];
   return `<nav class="plant-subnav" aria-label="Bereiche der Anlagenakte">${pages.map(([id,label],i)=>`<button type="button" data-plant-page="${id}" class="${active===id?'active':''} ${i>3?'plant-subnav-more':''}">${label}</button>`).join('')}</nav>`;
 }
 function formatShortDate(value){
@@ -2781,17 +2781,10 @@ function renderOverviewRecordSnapshot(plant){
   </div></section>`;
 }
 function renderPlantOverviewPage(plant){
-  return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderOverviewRecordSnapshot(plant)}${renderOperationsDataSection(plant)}${renderCommercialMailActions(plant)}${renderTodayCockpit(plant)}${renderDigitalPlantPass(plant)}
-    <section class="dashboard-section compact-section"><div class="section-heading"><div><p class="eyebrow">Schnellzugriff</p><h2>Wichtige Bereiche</h2></div></div>
-    <div class="plant-jump-grid">
-      <button type="button" data-jump-page="technology"><strong>Technik</strong><span>Komponenten und Zulassungs-Check</span></button>
-      <button type="button" data-jump-page="visits"><strong>Einsätze</strong><span>Besuche, Messungen und Historie</span></button>
-      <button type="button" data-jump-page="tasks"><strong>Aufgaben</strong><span>${openPlantActions(plant).length} offene Punkte</span></button>
-      <button type="button" data-jump-page="record"><strong>Akte</strong><span>Stammdaten, Kontakte und Standort</span></button>
-    </div></section>`;
+  return renderTodayCockpit(plant);
 }
 function renderPlantTechnologyPage(plant){
-  return `${procedureCard(plant)}${renderTechnicalAssets(plant)}
+  return `<div class="plant-overview-schema">${renderProcessSchema3D(plant)}</div>${renderTechnicalAssets(plant)}${renderTrafficSummary(plant)}${renderOperationsDataSection(plant)}
   <section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Kontextbezogene Werkzeuge</p><h2>Berechnungen für diese Anlage</h2><p class="form-note">Technik ohne Ampelansicht: Fokus auf Komponenten, Prüfstatus und Angebotschancen.</p></div></div>
   <div class="dashboard-grid">${["Phosphor","Biologie","Schlammentwässerung","Wirtschaftlichkeit"].map(category=>{const meta=categoryMeta[category];return quickCard({icon:meta.icon,title:category,text:meta.description,action:category,label:"Rechner öffnen"})}).join("")}</div></section>`;
 }
@@ -3232,7 +3225,7 @@ function showPlantDashboard(page){
   $("#editPlant")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#startVisit")?.addEventListener("click",()=>showVisitMode());
   $("#openNavigation")?.addEventListener("click",()=>{const url=googleMapsUrls(plant).directions;if(locationQuery(plant))window.open(url,"_blank","noopener");else alert("Bitte zuerst eine Adresse oder GPS-Koordinaten hinterlegen.");});
-  if(page==="overview"||page==="schema")bindProcessSchema3D(appView,plant,()=>{plant.updatedAt=new Date().toISOString();savePlants();});
+  if(page==="technology")bindProcessSchema3D(appView,plant,()=>{plant.updatedAt=new Date().toISOString();savePlants();});
   $("#startVisitCockpit")?.addEventListener("click",()=>showVisitMode());
   $("#completePlantPass")?.addEventListener("click",()=>showPlantForm(plant.id));
   $("#editDewatering")?.addEventListener("click",showDewateringForm);$("#editDosing")?.addEventListener("click",showDosingForm);$("#editTanks")?.addEventListener("click",showTankForm);
