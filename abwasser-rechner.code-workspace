@@ -5,9 +5,6 @@
 		}
 	],
 	"settings": {
-		"git.confirmSync": true,
-		"explorer.confirmDelete": true,
-		"explorer.confirmDragAndDrop": true,
-		"liveServer.settings.multiRootWorkspaceName": "abwasser-rechner"
+		"liveServer.settings.port": 5501
 	}
 }
