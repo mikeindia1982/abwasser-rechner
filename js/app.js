@@ -24,6 +24,9 @@ const STORAGE_PRODUCTS="abwasser-products-v092";
 const STORAGE_DOCUMENTS="abwasser-documents-v010";
 const STORAGE_REVERSE_GEOCODE_CACHE="abwasser-reverse-geocode-v01";
 const STORAGE_SALES_REMINDER_NOTICE="abwasser-sales-reminder-notice-v01";
+const STORAGE_GOOGLE_MAPS_KEY="vta-google-maps-api-key-v01";
+const STORAGE_GOOGLE_MAPS_MAP_ID="vta-google-maps-map-id-v01";
+let googleMapsApiPromise=null;
 
 const categoryMeta={
   "Phosphor":{icon:"P",description:"Fällmittelbedarf, molare Stoffdaten und Handelsprodukte"},
@@ -1049,6 +1052,27 @@ function googleMapsUrls(plant){
     street:`https://www.google.com/maps/search/?api=1&query=${query}`
   };
 }
+function loadGoogleMapsApi(){
+  if(window.google?.maps?.importLibrary)return Promise.resolve(window.google.maps);
+  if(googleMapsApiPromise)return googleMapsApiPromise;
+  const apiKey=localStorage.getItem(STORAGE_GOOGLE_MAPS_KEY)?.trim();
+  if(!apiKey)return Promise.reject(new Error("Google Maps API-Schlüssel fehlt."));
+  googleMapsApiPromise=new Promise((resolve,reject)=>{
+    const callbackName="__vtaGoogleMapsReady";
+    const script=document.createElement("script");
+    const cleanup=()=>{delete window[callbackName];script.remove()};
+    window[callbackName]=()=>{
+      cleanup();
+      if(window.google?.maps?.importLibrary)resolve(window.google.maps);
+      else{googleMapsApiPromise=null;reject(new Error("Google Maps importLibrary ist nicht verfügbar."))}
+    };
+    script.src=`https://maps.googleapis.com/maps/api/js?${new URLSearchParams({key:apiKey,loading:"async",v:"weekly",callback:callbackName})}`;
+    script.async=true;script.defer=true;
+    script.onerror=()=>{cleanup();googleMapsApiPromise=null;reject(new Error("Google Maps konnte nicht geladen werden."))};
+    document.head.appendChild(script);
+  }).catch(error=>{googleMapsApiPromise=null;throw error});
+  return googleMapsApiPromise;
+}
 function mapsButtons(plant){
   const urls=googleMapsUrls(plant);
   return `<div class="map-actions">
@@ -1587,7 +1611,19 @@ function showGlobalPage(page){
   else if(page==="tenders") return showTenderRadar();
   else if(page==="projects") appView.innerHTML=renderGlobalPlaceholder("📈","Optimierungsprojekte","Anlagenübergreifende Pipeline für Analysen, Versuche, Angebote und Aufträge.","Die Projektlogik wird nach der Dokumenten- und Produktbasis umgesetzt.");
   else if(page==="reports") appView.innerHTML=renderGlobalPlaceholder("📊","Berichte","Besuchsberichte, Jahresübersichten und technische Auswertungen.","Berichte werden schrittweise aus Anlagen-, Besuchs- und Projektdaten erzeugt.");
-  else if(page==="settings") appView.innerHTML=renderGlobalPlaceholder("⚙","Einstellungen","Appweite Einstellungen für Darstellung, Backup-Erinnerungen und zukünftige Benutzeroptionen.","Die lokale Benutzer- und PIN-Sperre ist als späterer Foundation-Baustein vorgesehen.");
+  else if(page==="settings"){
+    const storedMapId=localStorage.getItem(STORAGE_GOOGLE_MAPS_MAP_ID)||"";
+    appView.innerHTML=`${globalPageHeader("Konfiguration","Einstellungen","Lokale Einstellungen für VTA Copilot.")}<section class="form-section"><h2>Google Maps</h2><div class="form-grid"><label class="field-label">Google Maps API-Schlüssel<input id="googleMapsApiKey" type="password" value="${esc(localStorage.getItem(STORAGE_GOOGLE_MAPS_KEY)||"")}"></label><label class="field-label">Google Maps Map-ID<input id="googleMapsMapId" type="text" value="${esc(storedMapId)}"><span id="googleMapsMapIdHint" class="form-note">${storedMapId?"":"Für Tests wird DEMO_MAP_ID verwendet."}</span></label></div><div class="form-actions"><button type="button" class="button primary" id="saveGoogleMapsSettings">Maps-Einstellungen speichern</button><button type="button" class="button secondary" id="removeGoogleMapsKey">API-Schlüssel entfernen</button></div><p class="form-note">Die Google-Maps-Konfiguration wird lokal auf diesem Gerät gespeichert.</p></section>`;
+    const mapIdInput=$("#googleMapsMapId"),mapIdHint=$("#googleMapsMapIdHint");
+    mapIdInput.oninput=()=>{mapIdHint.textContent=mapIdInput.value.trim()?"":"Für Tests wird DEMO_MAP_ID verwendet."};
+    $("#saveGoogleMapsSettings").onclick=()=>{
+      const apiKey=$("#googleMapsApiKey").value.trim(),mapId=mapIdInput.value.trim();
+      if(apiKey)localStorage.setItem(STORAGE_GOOGLE_MAPS_KEY,apiKey);else localStorage.removeItem(STORAGE_GOOGLE_MAPS_KEY);
+      if(mapId)localStorage.setItem(STORAGE_GOOGLE_MAPS_MAP_ID,mapId);else localStorage.removeItem(STORAGE_GOOGLE_MAPS_MAP_ID);
+      googleMapsApiPromise=null;showGlobalPage("settings");
+    };
+    $("#removeGoogleMapsKey").onclick=()=>{localStorage.removeItem(STORAGE_GOOGLE_MAPS_KEY);googleMapsApiPromise=null;showGlobalPage("settings")};
+  }
   $$('[data-global-open-plant]').forEach(b=>b.onclick=()=>{activePlantId=b.dataset.globalOpenPlant;savePlants();showPlantDashboard(b.dataset.globalPlantPage||"overview");});
 }
 
@@ -1650,11 +1686,77 @@ function showApplication(view){
   if(view==="plantForm")return showPlantForm();
   setView("plants");setBreadcrumb("Anlagenübersicht");renderPlants();
 }
+function parseCoordinate(value){
+  const raw=String(value??"").trim().replace(",",".");
+  if(raw==="")return null;
+  const number=Number(raw);
+  return Number.isFinite(number)?number:null;
+}
+function plantMapPosition(plant){
+  const latitude=parseCoordinate(plant.address?.latitude),longitude=parseCoordinate(plant.address?.longitude);
+  if(latitude===null||longitude===null||latitude<-90||latitude>90||longitude<-180||longitude>180)return null;
+  return {lat:latitude,lng:longitude};
+}
+function showPlantsListView(){
+  $(".plant-grid")?.classList.remove("hidden");
+  $("#plantsMapPanel")?.classList.add("hidden");
+  $("#plantsListViewButton")?.classList.add("active");
+  $("#plantsMapViewButton")?.classList.remove("active");
+}
+async function renderPlantsMap(){
+  const status=$("#plantsMapStatus"),mapElement=$("#plantsMap"),mapButton=$("#plantsMapViewButton");
+  if(!status||!mapElement)return;
+  const showState=(message,buttonLabel,action)=>{
+    status.textContent="";
+    const messageElement=document.createElement("span");messageElement.textContent=message;status.append(messageElement);
+    if(buttonLabel){const button=document.createElement("button");button.type="button";button.className="button secondary";button.textContent=buttonLabel;button.addEventListener("click",action);status.append(button)}
+  };
+  if(navigator.onLine===false){showState("Die Kartenansicht benötigt eine Internetverbindung. Die Anlagenliste steht weiterhin offline zur Verfügung.","Zur Listenansicht",showPlantsListView);return}
+  const apiKey=localStorage.getItem(STORAGE_GOOGLE_MAPS_KEY)?.trim();
+  if(!apiKey){showState("Google Maps ist noch nicht eingerichtet.","Google Maps einrichten",()=>showGlobalPage("settings"));return}
+  const positionedPlants=plants.map(plant=>({plant,position:plantMapPosition(plant)})),validPlants=positionedPlants.filter(item=>item.position);
+  if(!validPlants.length){showState("Für die Kartenansicht sind noch keine Anlagen mit Geokoordinaten vorhanden. Koordinaten können in den Stammdaten der jeweiligen Anlage erfasst werden.","Zur Listenansicht",showPlantsListView);return}
+  status.textContent="Kartenansicht wird geladen …";mapButton.disabled=true;mapElement.replaceChildren();
+  try{
+    await loadGoogleMapsApi();
+    const {Map,InfoWindow}=await google.maps.importLibrary("maps");
+    const {AdvancedMarkerElement,PinElement}=await google.maps.importLibrary("marker");
+    const map=new Map(mapElement,{center:{lat:51.1657,lng:10.4515},zoom:6,mapId:localStorage.getItem(STORAGE_GOOGLE_MAPS_MAP_ID)||"DEMO_MAP_ID"});
+    const infoWindow=new InfoWindow(),bounds=new google.maps.LatLngBounds();
+    validPlants.forEach(({plant,position})=>{
+      const isActive=plant.id===activePlantId,title=plant.master.name||"Unbenannte Anlage";
+      const pin=new PinElement({scale:isActive?1.25:1});
+      const marker=new AdvancedMarkerElement({map,position,title,gmpClickable:true,zIndex:isActive?100:10});
+      marker.replaceChildren(pin);bounds.extend(position);
+      marker.addEventListener("gmp-click",()=>{
+        const container=document.createElement("div");container.className="plants-map-info";
+        const heading=document.createElement("h3");heading.textContent=title;container.append(heading);
+        const details=[
+          ["Ort",[plant.address?.postalCode,plant.address?.city].filter(Boolean).join(" ")],
+          ["Betreiber",plant.operator?.name],
+          ["Offene Aufgaben",String(openPlantActions(plant).length)]
+        ].filter(([,value])=>value);
+        if(details.length){const paragraph=document.createElement("p");paragraph.textContent=details.map(([label,value])=>`${label}: ${value}`).join(" · ");container.append(paragraph)}
+        const actions=document.createElement("div");actions.className="plants-map-info-actions";
+        const openButton=document.createElement("button");openButton.type="button";openButton.className="button primary";openButton.textContent="Anlage öffnen";openButton.addEventListener("click",()=>{activePlantId=plant.id;savePlants();showPlantDashboard("overview")});
+        const navigationButton=document.createElement("button");navigationButton.type="button";navigationButton.className="button secondary";navigationButton.textContent="Navigation";navigationButton.addEventListener("click",()=>window.open(googleMapsUrls(plant).navigate,"_blank","noopener"));
+        actions.append(openButton,navigationButton);container.append(actions);infoWindow.setContent(container);infoWindow.open({map,anchor:marker});
+      });
+    });
+    map.fitBounds(bounds);
+    if(validPlants.length===1){const zoomListener=map.addListener("idle",()=>{zoomListener.remove();if(map.getZoom()>14)map.setZoom(14)})}
+    const withoutCoordinates=plants.length-validPlants.length;
+    status.textContent=`${validPlants.length} von ${plants.length} Anlagen auf der Karte${withoutCoordinates?` · ${withoutCoordinates} ohne Geokoordinaten`:""}`;
+  }catch(error){
+    console.error(error);showState("Google Maps konnte nicht geladen werden. Bitte API-Schlüssel, Internetverbindung und API-Freigaben prüfen.","Erneut versuchen",renderPlantsMap);
+  }finally{mapButton.disabled=false}
+}
 function renderPlants(){
   appView.innerHTML=`<section class="page-header">
     <div><p class="eyebrow">Anlagenakte</p><h1>Anlagenübersicht</h1><p class="subtitle">Kommunale und industrielle Kläranlagen lokal verwalten.</p></div>
+    <div class="plants-view-toolbar"><div class="plants-view-toggle"><button type="button" id="plantsListViewButton" class="active">Liste</button><button type="button" id="plantsMapViewButton">Karte</button></div>
     <button class="button primary" id="createPlantTop">Neue Anlage</button>
-  </section>
+    </div></section>
   <div class="plant-grid">${plants.length?plants.map(p=>`<article class="plant-card ${p.id===activePlantId?"active":""}">
     <div class="plant-card-head"><span class="plant-type">${p.master.type==="industrial"?"Industriell":p.master.type==="mixed"?"Kommunal mit Industrieanteil":"Kommunal"}</span>${p.id===activePlantId?`<span class="active-chip">Aktiv</span>`:""}</div>
     <h3>${esc(p.master.name||"Unbenannte Anlage")}</h3>
@@ -1665,7 +1767,10 @@ function renderPlants(){
       <button type="button" data-edit-plant="${p.id}">Bearbeiten</button>
       <button type="button" class="danger-link" data-delete-plant="${p.id}">Löschen</button>
     </div>
-  </article>`).join(""):`<div class="empty-panel"><h2>Noch keine Anlage angelegt</h2><p>Lege die erste Anlagenakte mit Stammdaten, Betreiber und Ansprechpartner an.</p></div>`}</div>`;
+  </article>`).join(""):`<div class="empty-panel"><h2>Noch keine Anlage angelegt</h2><p>Lege die erste Anlagenakte mit Stammdaten, Betreiber und Ansprechpartner an.</p></div>`}</div>
+  <section id="plantsMapPanel" class="plants-map-panel hidden"><div id="plantsMapStatus" class="plants-map-status"></div><div id="plantsMap" class="plants-map" role="region" aria-label="Kartenübersicht der Anlagen"></div></section>`;
+  $("#plantsListViewButton").onclick=showPlantsListView;
+  $("#plantsMapViewButton").onclick=()=>{$(".plant-grid").classList.add("hidden");$("#plantsMapPanel").classList.remove("hidden");$("#plantsMapViewButton").classList.add("active");$("#plantsListViewButton").classList.remove("active");renderPlantsMap()};
   $("#createPlantTop").onclick=()=>showPlantForm();
   $$("[data-open-plant]").forEach(b=>b.onclick=()=>{activePlantId=b.dataset.openPlant;savePlants();showPlantDashboard()});
   $$("[data-edit-plant]").forEach(b=>b.onclick=()=>showPlantForm(b.dataset.editPlant));
