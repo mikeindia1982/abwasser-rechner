@@ -34,9 +34,7 @@
       <button class="global-nav-item" type="button" data-global-view="documents"><span>📚</span><strong>Dokumente</strong></button>
       <button class="global-nav-item" type="button" data-global-view="products"><span>🧪</span><strong>Produkte</strong></button>
       <button class="global-nav-item" type="button" data-global-view="tenders"><span>⚑</span><strong>Ausschreibungsradar</strong><small id="tenderUnreadBadge" class="nav-pill hidden">0</small></button>
-      <button class="global-nav-item" type="button" data-global-view="projects"><span>↗</span><strong>Optimierungsprojekte</strong><small>vorbereitet</small></button>
       <button class="global-nav-item" type="button" data-primary-view="calculators"><span>∑</span><strong>Rechner</strong></button>
-      <button class="global-nav-item" type="button" data-global-view="reports"><span>▥</span><strong>Berichte</strong><small>vorbereitet</small></button>
     </nav>
 
     <section class="plant-context">
@@ -54,14 +52,19 @@
     </div>
 
     <div class="sidebar-bottom">
-      <button id="profileMenuButton" class="side-action" type="button">👤 Mitarbeiterprofil</button>
-      <button class="side-action" type="button" data-global-view="backup">💾 Backup</button>
-      <button class="side-action" type="button" data-global-view="settings">⚙ Einstellungen</button>
-      <button class="side-action" type="button" data-global-view="system">ℹ Info & System</button>
-      <button id="favoriteFilter" class="side-action" type="button">★ Rechner-Favoriten</button>
-      <button id="exportPlantButton" class="side-action" type="button">Anlage exportieren</button>
-      <label class="side-action file-label">Anlage importieren<input id="importPlantInput" type="file" accept=".json,application/json"></label>
-      <button id="installButton" class="side-action hidden" type="button">App installieren</button>
+      <details class="sidebar-more">
+        <summary>Mehr &amp; Einstellungen</summary>
+        <button class="global-nav-item" type="button" data-global-view="projects"><span>↗</span><strong>Optimierungsprojekte</strong><small>vorbereitet</small></button>
+        <button class="global-nav-item" type="button" data-global-view="reports"><span>▥</span><strong>Berichte</strong><small>vorbereitet</small></button>
+        <button id="profileMenuButton" class="side-action" type="button">👤 Mitarbeiterprofil</button>
+        <button id="favoriteFilter" class="side-action" type="button">★ Rechner-Favoriten</button>
+        <button class="side-action" type="button" data-global-view="backup">💾 Backup</button>
+        <button id="exportPlantButton" class="side-action" type="button">Anlage exportieren</button>
+        <label class="side-action file-label">Anlage importieren<input id="importPlantInput" type="file" accept=".json,application/json"></label>
+        <button class="side-action" type="button" data-global-view="settings">⚙ Einstellungen</button>
+        <button class="side-action" type="button" data-global-view="system">ℹ Info &amp; System</button>
+        <button id="installButton" class="side-action hidden" type="button">App installieren</button>
+      </details>
     </div>
   </aside>
 
