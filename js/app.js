@@ -2608,14 +2608,14 @@ function getCompletionFollowUpSuggestions(sourceType,source){
   if(sourceType==="visit"){
     return [
       {id:"review",label:"Nachkontrolle in 14 Tagen",description:"Ergebnis und Wirksamkeit des Termins prüfen.",recommended:true,actionType:"task",offsetDays:14},
-      {id:"plan-appointment",label:"Weiteren Termin planen",description:"Einen neuen Termin für diese Anlage anlegen.",actionType:"appointment"},
+      {id:"plan-appointment",label:"Weiteren Termin planen",description:"Einen weiteren Termin für diese Anlage anlegen.",actionType:"appointment"},
       {id:"task",label:"Aufgabe anlegen",description:"Einen offenen Punkt für diese Anlage festhalten.",actionType:"task-custom"}
     ];
   }
   if(sourceType==="task"){
     return [
       {id:"review",label:"Wirksamkeit in 14 Tagen prüfen",description:"Kontrollieren, ob die erledigte Maßnahme erfolgreich war.",recommended:true,actionType:"task",offsetDays:14},
-      {id:"plan-appointment",label:"Termin planen",description:"Falls eine persönliche oder telefonische Abstimmung nötig ist.",actionType:"appointment"},
+      {id:"plan-appointment",label:"Termin planen",description:"Eine weitere Abstimmung oder Kontrolle planen.",actionType:"appointment"},
       {id:"task",label:"Weitere Aufgabe anlegen",description:"Einen nächsten Arbeitsschritt erfassen.",actionType:"task-custom"}
     ];
   }
