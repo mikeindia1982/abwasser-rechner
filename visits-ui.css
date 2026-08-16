@@ -1,0 +1,238 @@
+.visit-card.visit-actions-collapsed {
+  grid-template-columns: minmax(150px,.62fr) minmax(260px,1.6fr) minmax(190px,.62fr);
+}
+
+.visit-card.visit-actions-collapsed > .visit-actions {
+  display: none !important;
+}
+
+.visit-card-kindline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 7px;
+}
+
+.visit-card-kind,
+.visit-card-state,
+.visit-card-report-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .045em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.visit-card-kind.planned {
+  background: #e3edf7;
+  color: #245d91;
+}
+
+.visit-card-kind.active {
+  background: rgba(15,76,92,.11);
+  color: #0f4c5c;
+}
+
+.visit-card-kind.done {
+  background: #e3f3eb;
+  color: #16744c;
+}
+
+.visit-card-state {
+  background: #edf0f1;
+  color: #667477;
+}
+
+.visit-card-report-state {
+  background: rgba(22,121,74,.1);
+  color: #16794a;
+}
+
+.visit-card-actionbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.visit-card-primary-action {
+  min-width: 154px;
+  min-height: 40px;
+  padding: .65rem .8rem;
+  font-size: .79rem;
+}
+
+.visit-card-more-action {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid rgba(15,76,92,.15);
+  border-radius: 12px;
+  background: #eef5f5;
+  color: var(--primary, #0f4c5c);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.visit-card-more-action:hover,
+.visit-card-more-action:focus-visible {
+  border-color: rgba(15,76,92,.38);
+  outline: none;
+  background: #e2eeee;
+}
+
+.visit-action-sheet {
+  width: min(460px, calc(100vw - 28px));
+  max-height: min(720px, calc(100vh - 36px));
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: 0 24px 75px rgba(16,34,40,.28);
+  overflow: visible;
+}
+
+.visit-action-sheet::backdrop {
+  background: rgba(15,27,32,.5);
+  backdrop-filter: blur(2px);
+}
+
+.visit-action-sheet-card {
+  padding: 20px;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.visit-action-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.visit-action-sheet-head h2 {
+  margin: 2px 0 0;
+}
+
+.visit-action-sheet-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #edf3f3;
+  color: var(--primary, #0f4c5c);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.visit-action-sheet-title {
+  margin: 9px 0 14px;
+  color: var(--muted, #60777c);
+  line-height: 1.4;
+}
+
+.visit-action-sheet-list {
+  display: grid;
+  gap: 7px;
+}
+
+.visit-action-sheet-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid rgba(15,76,92,.12);
+  border-radius: 12px;
+  background: #f8fbfb;
+  color: var(--text, #17353c);
+  text-align: left;
+  font-weight: 800;
+}
+
+.visit-action-sheet-option b {
+  color: var(--muted, #60777c);
+  font-size: 1.2rem;
+}
+
+.visit-action-sheet-option:hover,
+.visit-action-sheet-option:focus-visible {
+  border-color: rgba(15,76,92,.34);
+  background: #eef5f5;
+  outline: none;
+}
+
+.visit-action-sheet-option.danger {
+  border-color: rgba(180,35,24,.14);
+  background: #fff5f3;
+  color: var(--danger, #b42318);
+}
+
+.visit-action-sheet-cancel {
+  width: 100%;
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .visit-card.visit-actions-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .visit-card-actionbar {
+    justify-content: stretch;
+  }
+
+  .visit-card-primary-action {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .visit-card.visit-actions-collapsed {
+    gap: 11px;
+    padding: 14px;
+  }
+
+  .visit-card-kindline {
+    margin-bottom: 8px;
+  }
+
+  .visit-card-actionbar {
+    width: 100%;
+  }
+
+  .visit-card-primary-action {
+    min-width: 0;
+  }
+
+  .visit-action-sheet {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 18px);
+    margin: auto 0 0;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .visit-action-sheet-card {
+    padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+  }
+
+  .visit-action-sheet-option {
+    min-height: 52px;
+  }
+}
