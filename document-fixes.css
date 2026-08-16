@@ -1,0 +1,14 @@
+#applicationView.hidden:has(.document-detail-layout),
+#applicationView.hidden:has(#documentReviewForm) {
+  display: block !important;
+}
+
+.document-upload-notice {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15,76,92,.18);
+  border-radius: 10px;
+  background: rgba(15,76,92,.06);
+  color: var(--text);
+  font-size: .86rem;
+}
