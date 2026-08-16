@@ -19,7 +19,7 @@
     return Boolean(reports?.[`${plantId}:${visitId}`]);
   }
   function escapeHtml(value=''){
-    return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[char]));
+    return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
   }
   function visitIdForCard(card){
     return card.querySelector('[data-open-visit]')?.dataset.openVisit||card.querySelector('[data-edit-visit]')?.dataset.editVisit||'';
