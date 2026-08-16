@@ -19,8 +19,9 @@
     style.id = "sidebarTaskPreviewStyles";
     style.textContent = `
       .sidebar-task-nav { position: relative; }
-      .sidebar-task-count {
+      .global-nav-item > .sidebar-task-count {
         margin-left: auto;
+        width: auto;
         min-width: 1.45rem;
         height: 1.45rem;
         padding: 0 .38rem;
@@ -33,7 +34,7 @@
         font-weight: 800;
         line-height: 1;
       }
-      .sidebar-task-count[hidden] { display: none; }
+      .global-nav-item > .sidebar-task-count[hidden] { display: none; }
       .sidebar-task-preview {
         margin: -.18rem .55rem .55rem 2.5rem;
         padding: .35rem 0 .2rem;
