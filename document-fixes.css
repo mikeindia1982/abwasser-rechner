@@ -12,3 +12,28 @@
   color: var(--text);
   font-size: .86rem;
 }
+
+.pdf-viewer-native .pdf-native-label {
+  margin-right: auto;
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.pdf-native-note {
+  position: static;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.pdf-native-stage {
+  min-height: 70vh;
+  padding: 0;
+}
+
+.pdf-native-frame {
+  display: block;
+  width: 100%;
+  min-height: 70vh;
+  border: 0;
+  background: #fff;
+}
