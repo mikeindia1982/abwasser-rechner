@@ -534,3 +534,22 @@ input[readonly]{background:var(--surface-soft);cursor:not-allowed}
 .tender-detail{margin-top:10px;padding:10px;border:1px dashed #bfd3d7;border-radius:10px;background:#f9fcfc}
 @media(max-width:1000px){.tender-sync-meta{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.tender-sync-meta{grid-template-columns:1fr}.tender-actions{display:grid;grid-template-columns:1fr 1fr}}
+.completion-followup-dialog{width:min(620px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;padding:0;border:0;border-radius:var(--radius-card);background:var(--surface);color:var(--text);box-shadow:var(--shadow-card)}
+.completion-followup-dialog::backdrop{background:rgba(4,24,31,.44)}
+.completion-followup-content{position:relative;padding:22px 24px;display:grid;gap:12px}
+.completion-followup-content h2{margin:0;padding-right:36px;font-size:1.2rem}
+.completion-followup-content h3{margin:6px 0 0;font-size:.95rem;color:var(--muted)}
+.completion-followup-content>p{margin:0;color:var(--muted)}
+.completion-followup-close{position:absolute;top:14px;right:14px;min-width:44px;min-height:44px;border:0;border-radius:var(--radius-control);background:var(--surface-soft);color:var(--text);font-size:1.1rem;font-weight:800}
+.completion-followup-list{display:grid;gap:10px}
+.completion-followup-option{display:grid;gap:6px;padding:14px;border:1px solid var(--line);border-radius:var(--radius-card);background:var(--surface-soft)}
+.completion-followup-option>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.completion-followup-option.recommended{border-color:var(--primary)}
+.completion-followup-badge{padding:.2rem .5rem;border-radius:999px;background:#dceaea;color:var(--primary);font-size:.7rem;font-weight:800}
+.completion-followup-option p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.4}
+.completion-followup-option button{min-height:44px;justify-self:start}
+.completion-followup-custom{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:var(--radius-card);background:var(--surface-soft)}
+.completion-followup-custom button{min-height:44px}
+.completion-followup-actions{display:flex;justify-content:flex-end}
+.completion-followup-actions button{min-height:44px}
+@media(max-width:640px){.completion-followup-option{grid-template-columns:1fr}.completion-followup-actions{justify-content:stretch}.completion-followup-actions button{width:100%}}
