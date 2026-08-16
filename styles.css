@@ -591,3 +591,12 @@ input[readonly]{background:var(--surface-soft);cursor:not-allowed}
   .appointment-mobile-day-strip{display:flex}
   .appointment-mobile-agenda{display:grid}
 }
+.completion-outcome-section{display:grid;gap:8px}
+.completion-followup-prompt{margin:0;padding:12px;border:1px dashed var(--line);border-radius:var(--radius-card);background:var(--surface-soft);color:var(--muted)}
+.completion-outcome-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.completion-outcome-option{display:grid;gap:4px;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-control);background:var(--surface);color:var(--text);text-align:left}
+.completion-outcome-option strong{font-size:.86rem}
+.completion-outcome-option span{color:var(--muted);font-size:.78rem;line-height:1.35}
+.completion-outcome-option.active{border-color:var(--primary);background:var(--surface-soft)}
+.completion-outcome-option.active strong{color:var(--primary)}
+@media(max-width:640px){.completion-outcome-list{grid-template-columns:1fr}}

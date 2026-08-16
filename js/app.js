@@ -360,7 +360,7 @@ function normalizeVisit(value={}){
   const source=value&&typeof value==="object"?value:{};
   return {
     id:source.id||makeId(),title:source.title||"Besuch",start:source.start||"",end:source.end||"",purpose:source.purpose||"",contact:source.contact||"",
-    appointmentType:source.appointmentType||"visit",
+    appointmentType:source.appointmentType||"visit",completionOutcome:source.completionOutcome||"",
     visitType:source.visitType||"process-optimization",processArea:source.processArea||"",objective:source.objective||"",
     initialSituation:source.initialSituation||"",workPerformed:source.workPerformed||"",chemistryChanges:source.chemistryChanges||"",settingChanges:source.settingChanges||"",
     result:source.result||"",recommendation:source.recommendation||"",nextSteps:source.nextSteps||"",
@@ -2849,40 +2849,286 @@ function ensureTaskCompletionFollowUp(plant,task){
     followUpSourceId:task?.id||""
   });
 }
-function getCompletionFollowUpSuggestions(sourceType,source){
-  if(sourceType==="visit"){
-    return [
-      {id:"review",label:"Nachkontrolle in 14 Tagen",description:"Ergebnis und Wirksamkeit des Termins prüfen.",recommended:true,actionType:"task",offsetDays:14},
-      {id:"plan-appointment",label:"Weiteren Termin planen",description:"Einen weiteren Termin für diese Anlage anlegen.",actionType:"appointment"},
-      {id:"task",label:"Aufgabe anlegen",description:"Einen offenen Punkt für diese Anlage festhalten.",actionType:"task-custom"}
-    ];
-  }
+function getCompletionOutcomeOptions(sourceType,source){
   if(sourceType==="task"){
     return [
-      {id:"review",label:"Wirksamkeit in 14 Tagen prüfen",description:"Kontrollieren, ob die erledigte Maßnahme erfolgreich war.",recommended:true,actionType:"task",offsetDays:14},
-      {id:"plan-appointment",label:"Termin planen",description:"Eine weitere Abstimmung oder Kontrolle planen.",actionType:"appointment"},
-      {id:"task",label:"Weitere Aufgabe anlegen",description:"Einen nächsten Arbeitsschritt erfassen.",actionType:"task-custom"}
+      {id:"resolved",label:"Problem behoben",description:"Die Aufgabe wurde erfolgreich abgeschlossen."},
+      {id:"further-action",label:"Weitere Maßnahme erforderlich",description:"Es besteht weiterer Handlungsbedarf."},
+      {id:"spare-part",label:"Ersatzteil / Angebot erforderlich",description:"Material, Ersatzteil oder Angebot muss geklärt werden."},
+      {id:"customer-info",label:"Kunde informieren",description:"Eine Rückmeldung oder Abstimmung mit dem Kunden ist erforderlich."}
     ];
   }
-  return [];
+  const appointmentType=source?.appointmentType||"visit";
+  if(sourceType==="visit"&&appointmentType==="visit"){
+    return [
+      {id:"goal-achieved",label:"Ziel erreicht",description:"Der Termin wurde erfolgreich abgeschlossen."},
+      {id:"followup-needed",label:"Nachkontrolle erforderlich",description:"Die Wirkung soll später erneut kontrolliert werden."},
+      {id:"further-action",label:"Weitere Maßnahme erforderlich",description:"Es besteht zusätzlicher Handlungsbedarf."},
+      {id:"offer-needed",label:"Angebot / Bestellung prüfen",description:"Aus dem Termin ergibt sich kaufmännischer Handlungsbedarf."}
+    ];
+  }
+  if(appointmentType==="call"){
+    return [
+      {id:"reached",label:"Kunde erreicht",description:"Das Gespräch wurde geführt."},
+      {id:"not-reached",label:"Nicht erreicht",description:"Ein weiterer Kontaktversuch ist erforderlich."},
+      {id:"awaiting-response",label:"Rückmeldung ausstehend",description:"Der Kunde oder Ansprechpartner meldet sich zurück."},
+      {id:"appointment-agreed",label:"Termin vereinbart",description:"Aus dem Gespräch ist ein weiterer Termin entstanden."}
+    ];
+  }
+  if(appointmentType==="scheduling"){
+    return [
+      {id:"appointment-agreed",label:"Termin vereinbart",description:"Der gewünschte Termin wurde abgestimmt."},
+      {id:"not-reached",label:"Nicht erreicht",description:"Ein weiterer Kontaktversuch ist erforderlich."},
+      {id:"awaiting-response",label:"Rückmeldung ausstehend",description:"Die Terminbestätigung steht noch aus."},
+      {id:"not-required",label:"Kein weiterer Termin erforderlich",description:"Das Thema ist ohne neuen Termin abgeschlossen."}
+    ];
+  }
+  if(appointmentType==="email"){
+    return [
+      {id:"sent",label:"E-Mail gesendet",description:"Die Nachricht wurde versendet."},
+      {id:"awaiting-response",label:"Rückmeldung ausstehend",description:"Eine Antwort wird noch erwartet."},
+      {id:"resolved",label:"Thema erledigt",description:"Es ist keine weitere Bearbeitung erforderlich."},
+      {id:"followup-needed",label:"Nachfassen erforderlich",description:"Das Thema muss erneut aufgegriffen werden."}
+    ];
+  }
+  if(appointmentType==="followup"){
+    return [
+      {id:"resolved",label:"Thema erledigt",description:"Die Wiedervorlage konnte abgeschlossen werden."},
+      {id:"not-reached",label:"Nicht erreicht",description:"Ein weiterer Kontaktversuch ist erforderlich."},
+      {id:"further-action",label:"Weitere Maßnahme erforderlich",description:"Es besteht weiterer Handlungsbedarf."},
+      {id:"appointment-agreed",label:"Termin vereinbart",description:"Ein weiterer Termin wurde abgestimmt."}
+    ];
+  }
+  return [
+    {id:"completed",label:"Erledigt",description:"Der Termin wurde vollständig abgeschlossen."},
+    {id:"awaiting-response",label:"Rückmeldung ausstehend",description:"Eine Rückmeldung steht noch aus."},
+    {id:"further-action",label:"Weitere Maßnahme erforderlich",description:"Es besteht weiterer Handlungsbedarf."}
+  ];
+}
+function suggestTask(id,label,description,{offsetDays,taskTitle,followUpType,recommended=true}={}){
+  return {id,label,description,recommended,actionType:"task",offsetDays,taskTitle,followUpType};
+}
+function suggestAppointmentPrefill(id,label,description,{appointmentType,offsetDays,title,recommended=true}={}){
+  return {id,label,description,recommended,actionType:"appointment-prefill",appointmentType,offsetDays,title};
+}
+function suggestTaskCustom(label="Aufgabe anlegen",recommended=false){
+  return {id:"task-custom",label,description:"Einen offenen Punkt für diese Anlage festhalten.",actionType:"task-custom",recommended};
+}
+function suggestAppointment(label="Weiteren Termin planen",recommended=false){
+  return {id:"plan-appointment",label,description:"Einen weiteren Termin für diese Anlage anlegen.",actionType:"appointment",recommended};
+}
+function genericFollowUpFallback(){
+  return [suggestAppointment("Weiteren Termin planen"),suggestTaskCustom("Aufgabe anlegen")];
+}
+function taskCompletionSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"Aufgabe").trim();
+  if(outcome==="resolved"){
+    return [
+      suggestTask("review","Wirksamkeit in 14 Tagen prüfen","Kontrollieren, ob die erledigte Maßnahme erfolgreich war.",{offsetDays:14,taskTitle:`Wirksamkeit prüfen: ${title}`,followUpType:"task-review"}),
+      suggestAppointment("Termin planen"),
+      suggestTaskCustom("Weitere Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="further-action"){
+    return [
+      suggestTaskCustom("Weitere Aufgabe anlegen",true),
+      suggestAppointment("Termin zur weiteren Klärung planen"),
+      suggestTask("progress","Fortschritt in 7 Tagen prüfen","Den Fortschritt der weiteren Maßnahme kontrollieren.",{offsetDays:7,taskTitle:`Fortschritt prüfen: ${title}`,followUpType:"task-progress-review",recommended:false})
+    ];
+  }
+  if(outcome==="spare-part"){
+    return [
+      suggestTask("spare-part","Ersatzteil / Angebotsanfrage klären","Material, Ersatzteil oder Angebot zeitnah nachhalten.",{offsetDays:2,taskTitle:`Ersatzteil / Angebot klären: ${title}`,followUpType:"task-spare-part"}),
+      suggestTaskCustom("Weitere Aufgabe anlegen"),
+      suggestAppointment("Termin planen")
+    ];
+  }
+  if(outcome==="customer-info"){
+    return [
+      suggestAppointmentPrefill("customer-info","Kundenrückmeldung planen","Rückmeldung telefonisch mit dem Kunden abstimmen.",{appointmentType:"call",offsetDays:0,title:`Kundenrückmeldung: ${title}`}),
+      suggestTaskCustom("Weitere Aufgabe anlegen"),
+      suggestTask("customer-feedback","Rückmeldung in 3 Tagen prüfen","Kontrollieren, ob die Kundenrückmeldung erfolgt ist.",{offsetDays:3,taskTitle:`Kundenrückmeldung prüfen: ${title}`,followUpType:"task-customer-feedback",recommended:false})
+    ];
+  }
+  return genericFollowUpFallback();
+}
+function visitOnSiteSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"Termin").trim();
+  const visitType=source?.visitType||"";
+  if(outcome==="goal-achieved"){
+    let reviewSuggestion;
+    if(visitType==="product-trial"){
+      reviewSuggestion=suggestTask("trial-review","Versuchsauswertung in 7 Tagen","Ergebnisse des Produktversuchs auswerten.",{offsetDays:7,taskTitle:`Versuchsauswertung: ${title}`,followUpType:"visit-trial-review"});
+    }else if(visitType==="technical-service"){
+      reviewSuggestion=suggestTask("service-review","Funktionskontrolle in 7 Tagen","Funktion der durchgeführten Servicearbeiten kontrollieren.",{offsetDays:7,taskTitle:`Funktionskontrolle: ${title}`,followUpType:"visit-service-review"});
+    }else{
+      reviewSuggestion=suggestTask("review","Nachkontrolle in 14 Tagen","Ergebnis und Wirksamkeit des Termins prüfen.",{offsetDays:14,taskTitle:`Nachkontrolle: ${title}`,followUpType:"visit-review"});
+    }
+    return [reviewSuggestion,suggestAppointment("Weiteren Termin planen"),suggestTaskCustom("Aufgabe anlegen")];
+  }
+  if(outcome==="followup-needed"){
+    return [
+      suggestAppointmentPrefill("followup-review","Nachkontrolle planen","Einen neuen Vor-Ort-Termin zur Nachkontrolle anlegen.",{appointmentType:"visit",offsetDays:7,title:`Nachkontrolle: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="further-action"){
+    return [
+      suggestTaskCustom("Aufgabe anlegen",true),
+      suggestAppointmentPrefill("further-visit","Weiteren Vor-Ort-Termin planen","Einen weiteren Vor-Ort-Termin zur Klärung anlegen.",{appointmentType:"visit",recommended:false})
+    ];
+  }
+  if(outcome==="offer-needed"){
+    return [
+      suggestTask("commercial","Angebot / Bestellung klären","Kaufmännischen Handlungsbedarf aus dem Termin nachhalten.",{offsetDays:2,taskTitle:`Angebot / Bestellung prüfen: ${title}`,followUpType:"visit-commercial-follow-up"}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  return genericFollowUpFallback();
+}
+function visitCallSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"Anruf").trim();
+  if(outcome==="not-reached"){
+    return [
+      suggestAppointmentPrefill("callback-tomorrow","Rückruf morgen planen","Erneuten Kontaktversuch für morgen einplanen.",{appointmentType:"call",offsetDays:1,title:`Rückruf: ${title}`}),
+      suggestAppointmentPrefill("callback-3days","Rückruf in 3 Tagen planen","Alternativen Rückruftermin in 3 Tagen anlegen.",{appointmentType:"call",offsetDays:3,title:`Rückruf: ${title}`,recommended:false}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="awaiting-response"){
+    return [
+      suggestTask("response-review","Rückmeldung in 3 Tagen prüfen","Kontrollieren, ob eine Rückmeldung eingegangen ist.",{offsetDays:3,taskTitle:`Rückmeldung prüfen: ${title}`,followUpType:"call-response-review"}),
+      suggestAppointmentPrefill("followup-call","Nachfass-Anruf planen","Einen Nachfass-Anruf für in 3 Tagen anlegen.",{appointmentType:"followup",offsetDays:3,title:`Nachfassen: ${title}`,recommended:false}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="appointment-agreed"){
+    return [
+      suggestAppointmentPrefill("agreed-visit","Vereinbarten Termin eintragen","Den vereinbarten Vor-Ort-Termin mit Datum und Uhrzeit anlegen.",{appointmentType:"visit",title:`Termin: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="reached"){
+    return [suggestTaskCustom("Aufgabe anlegen"),suggestAppointment("Weiteren Termin planen")];
+  }
+  return genericFollowUpFallback();
+}
+function visitSchedulingSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"Termin").trim();
+  if(outcome==="appointment-agreed"){
+    return [
+      suggestAppointmentPrefill("agreed-visit","Vereinbarten Termin eintragen","Den vereinbarten Vor-Ort-Termin mit Datum und Uhrzeit anlegen.",{appointmentType:"visit",title:`Termin: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="not-reached"){
+    return [
+      suggestAppointmentPrefill("recall-tomorrow","Erneuten Anruf morgen planen","Weiteren Anrufversuch für morgen anlegen.",{appointmentType:"call",offsetDays:1,title:`Anruf: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="awaiting-response"){
+    return [
+      suggestTask("scheduling-review","Terminrückmeldung in 3 Tagen prüfen","Kontrollieren, ob die Terminbestätigung eingegangen ist.",{offsetDays:3,taskTitle:`Terminrückmeldung prüfen: ${title}`,followUpType:"scheduling-response-review"}),
+      suggestAppointmentPrefill("followup-scheduling","Nachfassen planen","Ein Nachfassen zur Terminabstimmung anlegen.",{appointmentType:"followup",offsetDays:3,title:`Nachfassen: ${title}`,recommended:false})
+    ];
+  }
+  if(outcome==="not-required"){
+    return [suggestTaskCustom("Aufgabe anlegen"),suggestAppointment("Weiteren Termin planen")];
+  }
+  return genericFollowUpFallback();
+}
+function visitEmailSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"E-Mail").trim();
+  if(outcome==="awaiting-response"){
+    return [
+      suggestTask("email-review","Antwort in 3 Tagen prüfen","Kontrollieren, ob eine Antwort eingegangen ist.",{offsetDays:3,taskTitle:`E-Mail-Rückmeldung prüfen: ${title}`,followUpType:"email-response-review"}),
+      suggestAppointmentPrefill("followup-email","Nachfassen planen","Ein Nachfassen zur E-Mail anlegen.",{appointmentType:"followup",offsetDays:3,title:`Nachfassen: ${title}`,recommended:false})
+    ];
+  }
+  if(outcome==="followup-needed"){
+    return [
+      suggestAppointmentPrefill("followup-3days","Nachfassen in 3 Tagen","Nachfass-Kontakt für in 3 Tagen anlegen.",{appointmentType:"followup",offsetDays:3,title:`Nachfassen: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="sent"||outcome==="resolved"){
+    return [suggestTaskCustom("Aufgabe anlegen"),suggestAppointment("Weiteren Termin planen")];
+  }
+  return genericFollowUpFallback();
+}
+function visitFollowupSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"Nachfassen").trim();
+  if(outcome==="not-reached"){
+    return [
+      suggestAppointmentPrefill("recontact-tomorrow","Erneuten Kontaktversuch morgen planen","Weiteren Kontaktversuch für morgen anlegen.",{appointmentType:"call",offsetDays:1,title:`Anruf: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="further-action"){
+    return [suggestTaskCustom("Weitere Aufgabe anlegen",true),suggestAppointment("Termin planen")];
+  }
+  if(outcome==="appointment-agreed"){
+    return [
+      suggestAppointmentPrefill("agreed-visit","Vereinbarten Termin eintragen","Den vereinbarten Vor-Ort-Termin mit Datum und Uhrzeit anlegen.",{appointmentType:"visit",title:`Termin: ${title}`}),
+      suggestTaskCustom("Aufgabe anlegen")
+    ];
+  }
+  if(outcome==="resolved"){
+    return [suggestTaskCustom("Aufgabe anlegen"),suggestAppointment("Weiteren Termin planen")];
+  }
+  return genericFollowUpFallback();
+}
+function visitOtherSuggestions(source){
+  const outcome=source?.completionOutcome||"";
+  const title=String(source?.title||"Termin").trim();
+  if(outcome==="awaiting-response"){
+    return [suggestTask("appointment-review","Rückmeldung in 3 Tagen prüfen","Kontrollieren, ob eine Rückmeldung eingegangen ist.",{offsetDays:3,taskTitle:`Rückmeldung prüfen: ${title}`,followUpType:"appointment-response-review"}),suggestTaskCustom("Aufgabe anlegen")];
+  }
+  if(outcome==="further-action"){
+    return [suggestTaskCustom("Aufgabe anlegen",true),suggestAppointment("Weiteren Termin planen")];
+  }
+  if(outcome==="completed"){
+    return [suggestTaskCustom("Aufgabe anlegen"),suggestAppointment("Weiteren Termin planen")];
+  }
+  return genericFollowUpFallback();
+}
+function getCompletionFollowUpSuggestions(sourceType,source){
+  const outcome=source?.completionOutcome||"";
+  if(!outcome)return [];
+  if(sourceType==="task")return taskCompletionSuggestions(source);
+  if(sourceType==="visit"){
+    const appointmentType=source?.appointmentType||"visit";
+    if(appointmentType==="visit")return visitOnSiteSuggestions(source);
+    if(appointmentType==="call")return visitCallSuggestions(source);
+    if(appointmentType==="scheduling")return visitSchedulingSuggestions(source);
+    if(appointmentType==="email")return visitEmailSuggestions(source);
+    if(appointmentType==="followup")return visitFollowupSuggestions(source);
+    return visitOtherSuggestions(source);
+  }
+  return genericFollowUpFallback();
 }
 function showCompletionFollowUpDialog({plant,sourceType,source,onClose}){
-  const suggestions=getCompletionFollowUpSuggestions(sourceType,source);
   const intro=sourceType==="visit"?"Der Termin wurde abgeschlossen.":"Die Aufgabe wurde abgeschlossen.";
+  const outcomeOptions=getCompletionOutcomeOptions(sourceType,source);
   const dialog=document.createElement("dialog");
   dialog.className="completion-followup-dialog";
   dialog.innerHTML=`<div class="completion-followup-content">
     <button type="button" class="completion-followup-close" data-followup-close aria-label="Schließen">×</button>
     <h2>Erledigt – was kommt als Nächstes?</h2>
     <p>${esc(intro)}</p>
-    <h3>Sinnvolle Folgeaktivitäten</h3>
-    <div class="completion-followup-list">${suggestions.map(s=>`
-      <article class="completion-followup-option ${s.recommended?"recommended":""}">
-        <div><strong>${esc(s.label)}</strong>${s.recommended?`<span class="completion-followup-badge">Empfohlen</span>`:""}</div>
-        <p>${esc(s.description)}</p>
-        <button type="button" class="button ${s.recommended?"primary":"secondary"}" data-followup-select="${s.id}">Auswählen</button>
-      </article>`).join("")}
+    <div class="completion-outcome-section">
+      <h3>Ergebnis</h3>
+      <div class="completion-outcome-list" data-outcome-list></div>
     </div>
+    <h3>Sinnvolle Folgeaktivitäten</h3>
+    <div data-followup-body></div>
     <div class="completion-followup-custom" data-followup-custom hidden>
       <label class="field-label">Titel der Folgeaufgabe<input type="text" data-followup-custom-title placeholder="z. B. Rückruf beim Kunden"></label>
       <label class="field-label">Fällig am<input type="date" data-followup-custom-due></label>
@@ -2897,33 +3143,77 @@ function showCompletionFollowUpDialog({plant,sourceType,source,onClose}){
   dialog.addEventListener("close",()=>{dialog.remove();onClose?.();});
   dialog.querySelector("[data-followup-close]").onclick=close;
   dialog.querySelector("[data-followup-none]").onclick=close;
-  dialog.querySelectorAll("[data-followup-select]").forEach((btn,i)=>{
-    btn.onclick=()=>{
-      const suggestion=suggestions[i];
-      if(!suggestion)return;
-      if(suggestion.actionType==="task"){
-        const title=sourceType==="visit"?`Nachkontrolle: ${String(source?.title||"Termin").trim()}`:`Wirksamkeit prüfen: ${String(source?.title||"Aufgabe").trim()}`;
-        createFollowUpAction(plant,{
-          title,
-          priority:"normal",
-          dueDate:isoDateOffset(suggestion.offsetDays),
-          sourceVisitId:sourceType==="visit"?(source?.id||""):(source?.sourceVisitId||""),
-          autoGenerated:false,
-          followUpType:sourceType==="visit"?"visit-review":"task-review",
-          followUpSourceId:source?.id||""
-        });
-        savePlants();
-        close();
-      }else if(suggestion.actionType==="appointment"){
-        close();
-        activePlantId=plant.id;
-        savePlants();
-        showVisitForm();
-      }else if(suggestion.actionType==="task-custom"){
-        dialog.querySelector("[data-followup-custom]").hidden=false;
-      }
-    };
-  });
+  const renderOutcomeOptions=()=>{
+    dialog.querySelector("[data-outcome-list]").innerHTML=outcomeOptions.map(option=>`
+      <button type="button" class="completion-outcome-option ${source?.completionOutcome===option.id?"active":""}" data-outcome-select="${option.id}">
+        <strong>${esc(option.label)}</strong>
+        <span>${esc(option.description)}</span>
+      </button>`).join("");
+    dialog.querySelectorAll("[data-outcome-select]").forEach(button=>{
+      button.onclick=()=>{
+        source.completionOutcome=button.dataset.outcomeSelect;
+        plant.updatedAt=new Date().toISOString();
+        if(!savePlants())return;
+        renderOutcomeOptions();
+        renderFollowUpSuggestions();
+      };
+    });
+  };
+  const renderFollowUpSuggestions=()=>{
+    const body=dialog.querySelector("[data-followup-body]");
+    if(!source?.completionOutcome){
+      body.innerHTML=`<p class="completion-followup-prompt">Wähle zuerst das Ergebnis aus, damit passende nächste Schritte vorgeschlagen werden können.</p>`;
+      return;
+    }
+    const suggestions=getCompletionFollowUpSuggestions(sourceType,source);
+    body.innerHTML=`<div class="completion-followup-list">${suggestions.map(s=>`
+      <article class="completion-followup-option ${s.recommended?"recommended":""}">
+        <div><strong>${esc(s.label)}</strong>${s.recommended?`<span class="completion-followup-badge">Empfohlen</span>`:""}</div>
+        <p>${esc(s.description)}</p>
+        <button type="button" class="button ${s.recommended?"primary":"secondary"}" data-followup-select="${s.id}">Auswählen</button>
+      </article>`).join("")}</div>`;
+    body.querySelectorAll("[data-followup-select]").forEach((btn,i)=>{
+      btn.onclick=()=>{
+        const suggestion=suggestions[i];
+        if(!suggestion)return;
+        if(suggestion.actionType==="task"){
+          const fallbackTitle=sourceType==="visit"?`Nachkontrolle: ${String(source?.title||"Termin").trim()}`:`Wirksamkeit prüfen: ${String(source?.title||"Aufgabe").trim()}`;
+          createFollowUpAction(plant,{
+            title:suggestion.taskTitle||fallbackTitle,
+            priority:"normal",
+            dueDate:isoDateOffset(suggestion.offsetDays),
+            sourceVisitId:sourceType==="visit"?(source?.id||""):(source?.sourceVisitId||""),
+            autoGenerated:false,
+            followUpType:suggestion.followUpType||(sourceType==="visit"?"visit-review":"task-review"),
+            followUpSourceId:source?.id||""
+          });
+          savePlants();
+          close();
+        }else if(suggestion.actionType==="appointment"){
+          close();
+          activePlantId=plant.id;
+          savePlants();
+          showVisitForm();
+        }else if(suggestion.actionType==="appointment-prefill"){
+          close();
+          activePlantId=plant.id;
+          savePlants();
+          const prefillContact=sourceType==="visit"?(source?.contact||""):(plant.contacts?.[0]?.name||"");
+          showVisitForm(null,{
+            appointmentType:suggestion.appointmentType||"visit",
+            title:suggestion.title||"",
+            purpose:`Folgeaktivität zu: ${String(source?.title||"").trim()}`,
+            contact:prefillContact,
+            offsetDays:typeof suggestion.offsetDays==="number"?suggestion.offsetDays:undefined
+          });
+        }else if(suggestion.actionType==="task-custom"){
+          dialog.querySelector("[data-followup-custom]").hidden=false;
+        }
+      };
+    });
+  };
+  renderOutcomeOptions();
+  renderFollowUpSuggestions();
   dialog.querySelector("[data-followup-custom-submit]").onclick=()=>{
     const titleInput=dialog.querySelector("[data-followup-custom-title]");
     const dueInput=dialog.querySelector("[data-followup-custom-due]");
@@ -2952,18 +3242,21 @@ function formatDateTime(value){
   const d=isoLocalToDate(value);
   return d?d.toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}):"–";
 }
-function showVisitForm(visitId=null){
+function showVisitForm(visitId=null,prefill=null){
   const plant=activePlant();if(!plant)return;
   const existing=(plant.visits||[]).find(v=>v.id===visitId);
   const now=new Date();
   now.setMinutes(Math.ceil(now.getMinutes()/15)*15,0,0);
+  if(!existing&&prefill&&typeof prefill.offsetDays==="number")now.setDate(now.getDate()+prefill.offsetDays);
   const end=new Date(now.getTime()+60*60*1000);
   const localValue=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   const visit=existing?structuredClone(existing):{
     id:crypto.randomUUID(),
-    title:`Besuch ${plant.master.name||"Kläranlage"}`,
-    start:localValue(now),end:localValue(end),purpose:"",contact:plant.contacts?.[0]?.name||"",
-    appointmentType:"visit",status:"planned",notes:""
+    title:(!existing&&prefill?.title)||`Besuch ${plant.master.name||"Kläranlage"}`,
+    start:localValue(now),end:localValue(end),
+    purpose:(!existing&&prefill?.purpose)||"",
+    contact:(!existing&&prefill?.contact)||plant.contacts?.[0]?.name||"",
+    appointmentType:(!existing&&prefill?.appointmentType)||"visit",status:"planned",notes:""
   };
   setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Terminplanung`);
   appView.innerHTML=`<form id="visitForm" class="record-form">
