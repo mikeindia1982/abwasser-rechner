@@ -1,9 +1,9 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.21';
+const CACHE='abwasser-rechner-v0.11.0-alpha.22';
 const FILES=[
   "./",
   "./index.html",
   "./styles.css?v=0.11.0-alpha.19",
-  "./document-fixes.css?v=0.11.0-alpha.20",
+  "./document-fixes.css?v=0.11.0-alpha.21",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
