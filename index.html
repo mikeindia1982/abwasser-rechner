@@ -15,7 +15,6 @@
   <link rel="stylesheet" href="visit-report.css?v=0.11.0-alpha.25">
   <link rel="stylesheet" href="visits-ui.css?v=0.11.0-alpha.28">
   <link rel="stylesheet" href="demo-workspace.css?v=0.11.0-alpha.29">
-  <link rel="stylesheet" href="demo-organization.css?v=0.11.0-alpha.30">
   <title>VTA Copilot v0.11.0-alpha.9</title>
 </head>
 <body>
@@ -123,21 +122,6 @@
   </div>
 </div>
 <script src="js/qrcode-offline.js"></script>
-<script>
-  // Die Demo-Organisation nutzt eigene Lifecycle-Hooks. Ihr globaler DOM-Observer
-  // wird beim Laden gezielt unterdrückt, damit App-Rerenders keinen Render-Loop auslösen.
-  window.__vtaNativeMutationObserver=window.MutationObserver;
-  window.MutationObserver=class VtaDemoNoopMutationObserver{
-    observe(){}
-    disconnect(){}
-    takeRecords(){return []}
-  };
-</script>
-<script src="js/demo-organization.js?v=0.11.0-alpha.31"></script>
-<script>
-  window.MutationObserver=window.__vtaNativeMutationObserver;
-  delete window.__vtaNativeMutationObserver;
-</script>
 <script src="js/demo-workspace.js?v=0.11.0-alpha.29"></script>
 <script type="module" src="js/app.js?v=0.11.0-alpha.19"></script>
 <script src="js/sidebar-tasks.js?v=0.11.0-alpha.19"></script>
