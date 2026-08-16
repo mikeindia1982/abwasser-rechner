@@ -553,3 +553,41 @@ input[readonly]{background:var(--surface-soft);cursor:not-allowed}
 .completion-followup-actions{display:flex;justify-content:flex-end}
 .completion-followup-actions button{min-height:44px}
 @media(max-width:640px){.completion-followup-option{grid-template-columns:1fr}.completion-followup-actions{justify-content:stretch}.completion-followup-actions button{width:100%}}
+.appointments-calendar-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
+.appointments-week-navigation{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.appointments-week-navigation button{min-height:44px;min-width:44px;border:1px solid var(--line);border-radius:var(--radius-control);background:var(--surface);color:var(--primary);font-weight:800}
+.appointments-week-navigation strong{padding:0 4px}
+.appointments-view-toggle{display:inline-flex;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius-control);background:var(--surface-soft)}
+.appointments-view-toggle button{min-height:44px;border:0;padding:.6rem 1rem;background:transparent;color:var(--primary);font-weight:800}
+.appointments-view-toggle button.active{background:var(--primary);color:#fff}
+.appointments-week-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:9px;overflow-x:auto}
+.appointment-day-column{min-height:360px;padding:10px;border:1px solid var(--line);border-radius:var(--radius-card);background:var(--surface)}
+.appointment-day-column.is-today{border-color:var(--primary)}
+.appointment-day-header{display:grid;gap:2px;margin-bottom:8px;color:var(--muted);font-size:.78rem}
+.appointment-day-header strong{color:var(--text);font-size:.95rem}
+.appointment-day-items{display:grid;gap:8px}
+.appointment-calendar-card{display:grid;gap:4px;padding:10px;border:1px solid var(--line);border-radius:var(--radius-control);background:var(--surface-soft)}
+.appointment-calendar-card.is-done{opacity:.65}
+.appointment-calendar-card.is-cancelled{opacity:.55}
+.appointment-calendar-time{font-weight:800;color:var(--text);font-size:.82rem}
+.appointment-type-badge{display:inline-flex;align-items:center;gap:5px;color:var(--primary);font-size:.76rem;font-weight:700}
+.appointment-calendar-card strong{font-size:.9rem}
+.appointment-calendar-card p{margin:0;color:var(--text);font-size:.86rem;line-height:1.35}
+.appointment-calendar-contact{color:var(--muted);font-size:.78rem}
+.appointment-status-flag{justify-self:start;padding:.15rem .5rem;border-radius:999px;background:var(--surface);color:var(--muted);font-size:.72rem;font-weight:700}
+.appointment-calendar-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.appointment-calendar-actions button{min-height:44px;border:0;border-radius:8px;padding:.4rem .65rem;background:#e5f0f0;color:var(--primary);font-weight:700;font-size:.78rem}
+.appointments-list-view{display:grid;gap:18px}
+.appointments-list-day h3{margin:0 0 8px;font-size:.85rem;color:var(--muted);letter-spacing:.03em}
+.appointments-list-day{display:grid;gap:8px}
+.appointment-mobile-day-strip{display:none;overflow-x:auto;gap:8px;padding-bottom:4px}
+.appointment-mobile-day-button{display:grid;justify-items:center;gap:2px;min-width:70px;min-height:58px;padding:8px;border:1px solid var(--line);border-radius:var(--radius-control);background:var(--surface);color:var(--text)}
+.appointment-mobile-day-button.is-today{border-color:var(--primary)}
+.appointment-mobile-day-button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.appointment-mobile-agenda{display:none;margin-top:12px;gap:8px}
+.appointment-mobile-agenda h3{margin:0 0 8px;font-size:.85rem;color:var(--muted);letter-spacing:.03em}
+@media(max-width:760px){
+  .appointments-week-grid{display:none}
+  .appointment-mobile-day-strip{display:flex}
+  .appointment-mobile-agenda{display:grid}
+}

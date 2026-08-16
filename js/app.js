@@ -360,6 +360,7 @@ function normalizeVisit(value={}){
   const source=value&&typeof value==="object"?value:{};
   return {
     id:source.id||makeId(),title:source.title||"Besuch",start:source.start||"",end:source.end||"",purpose:source.purpose||"",contact:source.contact||"",
+    appointmentType:source.appointmentType||"visit",
     visitType:source.visitType||"process-optimization",processArea:source.processArea||"",objective:source.objective||"",
     initialSituation:source.initialSituation||"",workPerformed:source.workPerformed||"",chemistryChanges:source.chemistryChanges||"",settingChanges:source.settingChanges||"",
     result:source.result||"",recommendation:source.recommendation||"",nextSteps:source.nextSteps||"",
@@ -1641,8 +1642,7 @@ function showGlobalPage(page){
   const titles={appointments:"Termine",'tasks-global':"Aufgaben",documents:"Dokumente",products:"Produkte",tenders:"Ausschreibungsradar",projects:"Optimierungsprojekte",reports:"Berichte",backup:"Backup",settings:"Einstellungen",system:"Info & System"};
   setBreadcrumb(titles[page]||"Abwasser-Rechner");
   if(page==="appointments"){
-    const items=upcomingVisits(50);
-    appView.innerHTML=`${globalPageHeader("Einsatzplanung","Termine","Anlagenübergreifende Besuchs- und Terminübersicht.")}<div class="appointment-global-list">${items.length?items.map(({plant,visit,date})=>`<article><time>${date.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric"})}<strong>${date.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</strong></time><div><h3>${esc(plant.master.name||"Kläranlage")}</h3><p>${esc(visit.title||visit.purpose||"Besuchstermin")}</p></div><button type="button" data-global-open-plant="${plant.id}">Anlage öffnen</button></article>`).join(""):`<div class="empty-panel"><h2>Keine Termine vorhanden</h2><p>Geplante Besuche erscheinen hier anlagenübergreifend.</p></div>`}</div>`;
+    renderAppointmentsPage();
   }else if(page==="tasks-global"){
     const tasks=plants.flatMap(plant=>(plant.actions||[]).filter(a=>a.status!=="done").map(action=>({plant,action}))).sort((a,b)=>(a.action.dueDate||"9999").localeCompare(b.action.dueDate||"9999"));
     appView.innerHTML=`${globalPageHeader("Arbeitsliste","Aufgaben","Offene Aufgaben aus allen Anlagen.")}<div class="global-task-list">${tasks.length?tasks.map(({plant,action})=>`<article class="${action.priority==='high'?'high':''}"><div><span>${esc(plant.master.name||"Kläranlage")}</span><h3>${esc(action.title)}</h3><p>${action.dueDate?`Fällig: ${formatDate(action.dueDate)}`:"Ohne Fälligkeit"}</p></div><button type="button" data-global-open-plant="${plant.id}" data-global-plant-page="tasks">Öffnen</button></article>`).join(""):`<div class="empty-panel"><h2>Keine offenen Aufgaben</h2><p>Offene Punkte aus Besuchen und Anlagenakten werden hier gesammelt.</p></div>`}</div>`;
@@ -2531,6 +2531,251 @@ function visitStatusLabel(status){
 function visitStatusClass(status){
   return status==="done"?"green":status==="cancelled"?"gray":"blue";
 }
+const APPOINTMENT_TYPES={
+  visit:{label:"Vor-Ort-Besuch",shortLabel:"Besuch",icon:"●"},
+  call:{label:"Anruf",shortLabel:"Anruf",icon:"☎"},
+  scheduling:{label:"Terminvereinbarung",shortLabel:"Vereinbarung",icon:"◷"},
+  email:{label:"E-Mail",shortLabel:"E-Mail",icon:"✉"},
+  followup:{label:"Nachfassen",shortLabel:"Nachfassen",icon:"↻"},
+  other:{label:"Sonstiger Termin",shortLabel:"Termin",icon:"•"}
+};
+function appointmentTypeMeta(type){
+  return APPOINTMENT_TYPES[type]||APPOINTMENT_TYPES.visit;
+}
+let appointmentCalendarWeekStart=null;
+let appointmentCalendarView="week";
+let appointmentCalendarSelectedDay="";
+function startOfCalendarWeek(date){
+  const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  const day=d.getDay();
+  d.setDate(d.getDate()+(day===0?-6:1-day));
+  return d;
+}
+function addCalendarDays(date,days){
+  const d=new Date(date);
+  d.setDate(d.getDate()+days);
+  return d;
+}
+function calendarDateKey(date){
+  return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
+}
+function isoCalendarWeek(date){
+  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  const dayNum=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-dayNum);
+  const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d-yearStart)/86400000)+1)/7);
+}
+function calendarWeekRangeLabel(weekStart){
+  const end=addCalendarDays(weekStart,6);
+  const week=isoCalendarWeek(weekStart);
+  const months=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const startDay=weekStart.getDate(),endDay=end.getDate();
+  const startMonth=months[weekStart.getMonth()],endMonth=months[end.getMonth()];
+  const rangeLabel=weekStart.getMonth()===end.getMonth()
+    ?`${startDay}.–${endDay}. ${endMonth} ${end.getFullYear()}`
+    :`${startDay}. ${startMonth}–${endDay}. ${endMonth} ${end.getFullYear()}`;
+  return `KW ${week} · ${rangeLabel}`;
+}
+function appointmentsForWeek(weekStart){
+  const start=weekStart.getTime();
+  const end=addCalendarDays(weekStart,7).getTime();
+  return plants.flatMap(plant=>(plant.visits||[]).map(visit=>({plant,visit,start:isoLocalToDate(visit.start),end:isoLocalToDate(visit.end)})))
+    .filter(item=>item.start&&item.start.getTime()>=start&&item.start.getTime()<end)
+    .sort((a,b)=>a.start-b.start);
+}
+function appointmentContactRecord(plant,visit){
+  const contacts=plant.contacts||[];
+  if(!contacts.length)return null;
+  const name=String(visit.contact||"").trim();
+  if(name){
+    const match=contacts.find(c=>String(c.name||"").trim()===name);
+    if(match)return match;
+  }
+  return contacts[0]||null;
+}
+function appointmentPhone(plant,visit){
+  const contact=appointmentContactRecord(plant,visit);
+  return contact?.mobile||contact?.phone||plant.operator?.phone||"";
+}
+function appointmentEmail(plant,visit){
+  const contact=appointmentContactRecord(plant,visit);
+  return contact?.email||plant.operator?.email||"";
+}
+function renderAppointmentActions(plant,visit){
+  const type=visit.appointmentType||"visit";
+  const phone=appointmentPhone(plant,visit);
+  const email=appointmentEmail(plant,visit);
+  const done=visit.status==="done"||visit.status==="cancelled";
+  const buttons=[];
+  if(type==="visit"){
+    buttons.push(`<button type="button" data-appt-action="start-visit">Besuch starten</button>`);
+    if(locationQuery(plant))buttons.push(`<button type="button" data-appt-action="navigate">Navigation</button>`);
+    buttons.push(`<button type="button" data-appt-action="open">Anlage</button>`);
+  }else if(type==="call"){
+    if(phone)buttons.push(`<button type="button" data-appt-action="call">Anrufen</button>`);
+    buttons.push(`<button type="button" data-appt-action="open">Anlage</button>`);
+  }else if(type==="scheduling"){
+    if(phone)buttons.push(`<button type="button" data-appt-action="call">Anrufen</button>`);
+    if(email)buttons.push(`<button type="button" data-appt-action="email">E-Mail</button>`);
+    buttons.push(`<button type="button" data-appt-action="open">Anlage</button>`);
+  }else if(type==="email"){
+    if(email)buttons.push(`<button type="button" data-appt-action="email">E-Mail schreiben</button>`);
+    buttons.push(`<button type="button" data-appt-action="open">Anlage</button>`);
+  }else if(type==="followup"){
+    if(phone)buttons.push(`<button type="button" data-appt-action="call">Anrufen</button>`);
+    if(email)buttons.push(`<button type="button" data-appt-action="email">E-Mail schreiben</button>`);
+    buttons.push(`<button type="button" data-appt-action="open">Anlage</button>`);
+  }else{
+    buttons.push(`<button type="button" data-appt-action="open">Anlage öffnen</button>`);
+  }
+  if(!done)buttons.push(`<button type="button" data-appt-action="complete">Erledigt</button>`);
+  return buttons.join("");
+}
+function renderAppointmentCard(item){
+  const {plant,visit,start,end}=item;
+  const meta=appointmentTypeMeta(visit.appointmentType);
+  const contact=appointmentContactRecord(plant,visit);
+  const timeLabel=start?`${start.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}${end?`–${end.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}`:""}`:"";
+  const statusClass=visit.status==="done"?"is-done":visit.status==="cancelled"?"is-cancelled":"";
+  return `<article class="appointment-calendar-card ${statusClass}" data-appointment-action data-plant-id="${plant.id}" data-visit-id="${visit.id}">
+    <div class="appointment-calendar-time">${esc(timeLabel)}</div>
+    <div class="appointment-type-badge">${meta.icon} ${esc(meta.label)}</div>
+    <strong>${esc(plant.master.name||"Kläranlage")}</strong>
+    <p>${esc(visit.title||visit.purpose||"Termin")}</p>
+    ${contact?`<div class="appointment-calendar-contact">${esc(contact.name||"")}</div>`:""}
+    ${visit.status==="done"?`<span class="appointment-status-flag">✓ Erledigt</span>`:visit.status==="cancelled"?`<span class="appointment-status-flag">Abgesagt</span>`:""}
+    <div class="appointment-calendar-actions">${renderAppointmentActions(plant,visit)}</div>
+  </article>`;
+}
+function renderAppointmentWeekGrid(days,byDay,todayKey){
+  const weekdayLabels=["MO","DI","MI","DO","FR","SA","SO"];
+  return `<div class="appointments-week-grid">${days.map((d,i)=>{
+    const key=calendarDateKey(d);
+    const dayItems=byDay.get(key)||[];
+    return `<div class="appointment-day-column ${key===todayKey?"is-today":""}">
+      <div class="appointment-day-header"><span>${weekdayLabels[i]}</span><strong>${pad2(d.getDate())}.${pad2(d.getMonth()+1)}.</strong><small>${dayItems.length} Termin${dayItems.length===1?"":"e"}</small></div>
+      <div class="appointment-day-items">${dayItems.length?dayItems.map(renderAppointmentCard).join(""):`<p class="muted-small">Keine Termine</p>`}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+function renderAppointmentMobileStrip(days,byDay,todayKey){
+  const weekdayLabels=["Mo","Di","Mi","Do","Fr","Sa","So"];
+  return `<div class="appointment-mobile-day-strip">${days.map((d,i)=>{
+    const key=calendarDateKey(d);
+    const count=(byDay.get(key)||[]).length;
+    return `<button type="button" class="appointment-mobile-day-button ${key===appointmentCalendarSelectedDay?"active":""} ${key===todayKey?"is-today":""}" data-appt-day="${key}">
+      <span>${weekdayLabels[i]}</span><strong>${pad2(d.getDate())}</strong><small>${count} Termin${count===1?"":"e"}</small>
+    </button>`;
+  }).join("")}</div>`;
+}
+function renderAppointmentMobileAgenda(days,byDay){
+  const selected=days.find(d=>calendarDateKey(d)===appointmentCalendarSelectedDay)||days[0];
+  const key=calendarDateKey(selected);
+  const items=byDay.get(key)||[];
+  const heading=selected.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long"}).toUpperCase();
+  return `<div class="appointment-mobile-agenda"><h3>${esc(heading)}</h3>${items.length?items.map(renderAppointmentCard).join(""):`<p class="muted-small">Keine Termine an diesem Tag.</p>`}</div>`;
+}
+function renderAppointmentListView(days,byDay){
+  const activeDays=days.filter(d=>(byDay.get(calendarDateKey(d))||[]).length);
+  if(!activeDays.length)return `<div class="empty-panel compact"><p>In dieser Kalenderwoche sind keine Termine geplant.</p></div>`;
+  return `<div class="appointments-list-view">${activeDays.map(d=>{
+    const key=calendarDateKey(d);
+    const items=byDay.get(key)||[];
+    const heading=d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long"}).toUpperCase();
+    return `<section class="appointments-list-day"><h3>${esc(heading)}</h3>${items.map(renderAppointmentCard).join("")}</section>`;
+  }).join("")}</div>`;
+}
+function bindAppointmentActions(){
+  $$('[data-appointment-action]').forEach(card=>{
+    const plant=plants.find(p=>p.id===card.dataset.plantId);
+    const visit=plant&&(plant.visits||[]).find(v=>v.id===card.dataset.visitId);
+    if(!plant||!visit)return;
+    card.querySelectorAll('[data-appt-action]').forEach(button=>{
+      button.onclick=()=>{
+        const action=button.dataset.apptAction;
+        if(action==="open"){
+          activePlantId=plant.id;savePlants();showPlantDashboard("overview");
+        }else if(action==="start-visit"){
+          activePlantId=plant.id;savePlants();showVisitMode(visit.id);
+        }else if(action==="navigate"){
+          window.open(googleMapsUrls(plant).navigate,"_blank","noopener");
+        }else if(action==="call"){
+          const phone=appointmentPhone(plant,visit);
+          if(phone)window.location.href=`tel:${phone.replace(/[^0-9+]/g,"")}`;
+        }else if(action==="email"){
+          const email=appointmentEmail(plant,visit);
+          if(email){
+            const subject=encodeURIComponent(visit.title||"Termin");
+            const bodyLines=[plant.master.name||"",visit.purpose||""].filter(Boolean);
+            const body=bodyLines.length?`&body=${encodeURIComponent(bodyLines.join("\n"))}`:"";
+            window.location.href=`mailto:${encodeURIComponent(email)}?subject=${subject}${body}`;
+          }
+        }else if(action==="complete"){
+          const wasDone=visit.status==="done";
+          if(!wasDone){
+            visit.status="done";
+            visit.completedAt=new Date().toISOString();
+            plant.updatedAt=new Date().toISOString();
+            if(!savePlants())return;
+            renderAppointmentsPage();
+            showCompletionFollowUpDialog({plant,sourceType:"visit",source:visit});
+          }
+        }
+      };
+    });
+  });
+}
+function renderAppointmentsPage(){
+  if(!appointmentCalendarWeekStart){
+    appointmentCalendarWeekStart=startOfCalendarWeek(new Date());
+    appointmentCalendarView="week";
+    appointmentCalendarSelectedDay=calendarDateKey(new Date());
+  }
+  const weekStart=appointmentCalendarWeekStart;
+  const days=Array.from({length:7},(_,i)=>addCalendarDays(weekStart,i));
+  const todayKey=calendarDateKey(new Date());
+  if(!days.some(d=>calendarDateKey(d)===appointmentCalendarSelectedDay)){
+    appointmentCalendarSelectedDay=days.some(d=>calendarDateKey(d)===todayKey)?todayKey:calendarDateKey(weekStart);
+  }
+  const byDay=new Map(days.map(d=>[calendarDateKey(d),[]]));
+  appointmentsForWeek(weekStart).forEach(item=>{
+    const key=calendarDateKey(item.start);
+    if(byDay.has(key))byDay.get(key).push(item);
+  });
+  appView.innerHTML=`${globalPageHeader("Einsatzplanung","Termine","Besuche, Anrufe und Kundenkontakte aus allen Anlagen.")}
+    <div class="appointments-calendar-toolbar">
+      <div class="appointments-week-navigation">
+        <button type="button" data-appt-nav="prev" aria-label="Vorherige Woche">‹</button>
+        <strong>${esc(calendarWeekRangeLabel(weekStart))}</strong>
+        <button type="button" data-appt-nav="next" aria-label="Nächste Woche">›</button>
+        <button type="button" class="button secondary" data-appt-nav="today">Heute</button>
+      </div>
+      <div class="appointments-view-toggle">
+        <button type="button" class="${appointmentCalendarView==="week"?"active":""}" data-appt-view="week">Woche</button>
+        <button type="button" class="${appointmentCalendarView==="list"?"active":""}" data-appt-view="list">Liste</button>
+      </div>
+    </div>
+    ${appointmentCalendarView==="week"
+      ?`${renderAppointmentWeekGrid(days,byDay,todayKey)}${renderAppointmentMobileStrip(days,byDay,todayKey)}${renderAppointmentMobileAgenda(days,byDay)}`
+      :renderAppointmentListView(days,byDay)}`;
+  $$('[data-appt-nav]').forEach(b=>b.onclick=()=>{
+    const action=b.dataset.apptNav;
+    if(action==="today"){
+      appointmentCalendarWeekStart=startOfCalendarWeek(new Date());
+      appointmentCalendarSelectedDay=calendarDateKey(new Date());
+    }else{
+      appointmentCalendarWeekStart=addCalendarDays(appointmentCalendarWeekStart,action==="prev"?-7:7);
+      const newDays=Array.from({length:7},(_,i)=>addCalendarDays(appointmentCalendarWeekStart,i));
+      const nowKey=calendarDateKey(new Date());
+      appointmentCalendarSelectedDay=newDays.some(d=>calendarDateKey(d)===nowKey)?nowKey:calendarDateKey(appointmentCalendarWeekStart);
+    }
+    renderAppointmentsPage();
+  });
+  $$('[data-appt-view]').forEach(b=>b.onclick=()=>{appointmentCalendarView=b.dataset.apptView;renderAppointmentsPage();});
+  $$('[data-appt-day]').forEach(b=>b.onclick=()=>{appointmentCalendarSelectedDay=b.dataset.apptDay;renderAppointmentsPage();});
+  bindAppointmentActions();
+}
 function isoDateOffset(days){
   const date=new Date();
   date.setHours(0,0,0,0);
@@ -2718,23 +2963,28 @@ function showVisitForm(visitId=null){
     id:crypto.randomUUID(),
     title:`Besuch ${plant.master.name||"Kläranlage"}`,
     start:localValue(now),end:localValue(end),purpose:"",contact:plant.contacts?.[0]?.name||"",
-    status:"planned",notes:""
+    appointmentType:"visit",status:"planned",notes:""
   };
-  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Besuchstermin`);
+  setView("plantDashboard");setBreadcrumb(`Anlagen › ${plant.master.name||"Unbenannte Anlage"} › Terminplanung`);
   appView.innerHTML=`<form id="visitForm" class="record-form">
-    <section class="page-header"><div><p class="eyebrow">Besuchstermin</p><h1>${existing?"Termin bearbeiten":"Neuen Termin anlegen"}</h1>
+    <section class="page-header"><div><p class="eyebrow">Terminplanung</p><h1>${existing?"Termin bearbeiten":"Neuen Termin anlegen"}</h1>
     <p class="subtitle">${esc(plant.master.name||"Unbenannte Anlage")}</p></div></section>
     <section class="form-section"><div class="form-grid">
+      ${selectField("appointmentType","Terminart",visit.appointmentType||"visit",[
+        ["visit","Vor-Ort-Besuch"],["call","Anruf"],["scheduling","Terminvereinbarung"],["email","E-Mail"],["followup","Nachfassen"],["other","Sonstiger Termin"]
+      ])}
       ${field("title","Termintitel",visit.title)}
       ${selectField("status","Status",visit.status,[["planned","Geplant"],["done","Erledigt"],["cancelled","Abgesagt"]])}
       ${field("start","Beginn",visit.start,"datetime-local")}
       ${field("end","Ende",visit.end,"datetime-local")}
-      ${selectField("visitType","Besuchsart",visit.visitType,[
-        ["process-optimization","Prozessoptimierung"],["product-trial","Produktversuch"],["inventory","Bestandsaufnahme / Rundgang"],["follow-up","Nachkontrolle"],["technical-service","Technischer Service"],["consulting","Beratung"],["other","Sonstiger Termin"]
-      ])}
-      ${selectField("processArea","Prozessbereich",visit.processArea,[
-        ["","Bitte auswählen"],["inlet","Zulauf / mechanische Stufe"],["biology","Biologische Stufe"],["secondary-clarifier","Nachklärung"],["phosphorus","Phosphatfällung"],["sludge-treatment","Schlammbehandlung"],["dewatering","Schlammentwässerung"],["digester","Faulturm"],["filtrate","Zentrat / Filtrat"],["channel","Kanal / Pumpwerk"],["odor","Abluft / Geruch"],["other","Sonstiger Bereich"]
-      ])}
+      <div class="form-grid span-2" data-visit-only-fields>
+        ${selectField("visitType","Besuchsart",visit.visitType,[
+          ["process-optimization","Prozessoptimierung"],["product-trial","Produktversuch"],["inventory","Bestandsaufnahme / Rundgang"],["follow-up","Nachkontrolle"],["technical-service","Technischer Service"],["consulting","Beratung"],["other","Sonstiger Termin"]
+        ])}
+        ${selectField("processArea","Prozessbereich",visit.processArea,[
+          ["","Bitte auswählen"],["inlet","Zulauf / mechanische Stufe"],["biology","Biologische Stufe"],["secondary-clarifier","Nachklärung"],["phosphorus","Phosphatfällung"],["sludge-treatment","Schlammbehandlung"],["dewatering","Schlammentwässerung"],["digester","Faulturm"],["filtrate","Zentrat / Filtrat"],["channel","Kanal / Pumpwerk"],["odor","Abluft / Geruch"],["other","Sonstiger Bereich"]
+        ])}
+      </div>
       ${field("purpose","Anlass / Zweck",visit.purpose)}
       <label class="field-label">Ansprechpartner<select name="contact">
         <option value="">Kein Ansprechpartner</option>
@@ -2745,13 +2995,19 @@ function showVisitForm(visitId=null){
     </div></section>
     <div class="sticky-form-actions"><button type="button" class="button secondary" id="cancelVisit">Abbrechen</button><button type="submit" class="button primary">Termin speichern</button></div>
   </form>`;
+  const toggleVisitOnlyFields=()=>{
+    const isVisit=$("[name=appointmentType]").value==="visit";
+    $("[data-visit-only-fields]").classList.toggle("hidden",!isVisit);
+  };
+  toggleVisitOnlyFields();
+  $("[name=appointmentType]").onchange=toggleVisitOnlyFields;
   $("#cancelVisit").onclick=showPlantDashboard;
   $("#visitForm").onsubmit=e=>{
     e.preventDefault();
     const fd=new FormData(e.currentTarget);
     const saved=normalizeVisit(existing?{...existing,id:visit.id}:{id:visit.id});
     const wasDone=Boolean(existing?.status==="done");
-    for(const key of ["title","status","start","end","visitType","processArea","purpose","contact","objective","notes"])saved[key]=fd.get(key)||"";
+    for(const key of ["appointmentType","title","status","start","end","visitType","processArea","purpose","contact","objective","notes"])saved[key]=fd.get(key)||"";
     const start=isoLocalToDate(saved.start), end=isoLocalToDate(saved.end);
     if(!start||!end||end<=start)return alert("Das Terminende muss nach dem Beginn liegen.");
     if(saved.status==="done"&&!saved.completedAt)saved.completedAt=new Date().toISOString();
@@ -2768,7 +3024,7 @@ function showVisitForm(visitId=null){
 function renderVisitCards(plant,visits){
   return visits.map(v=>`<article class="visit-card">
       <div class="visit-date"><strong>${formatDateTime(v.start)}</strong><span>bis ${formatDateTime(v.end)}</span></div>
-      <div class="visit-main"><div class="visit-title-row"><h3>${esc(v.title||"Besuchstermin")}</h3><span class="status-chip ${visitStatusClass(v.status)}">${visitStatusLabel(v.status)}</span></div>
+      <div class="visit-main"><div class="visit-title-row"><h3>${esc(v.title||"Besuchstermin")}</h3><span class="appointment-type-badge">${appointmentTypeMeta(v.appointmentType).icon} ${esc(appointmentTypeMeta(v.appointmentType).shortLabel)}</span><span class="status-chip ${visitStatusClass(v.status)}">${visitStatusLabel(v.status)}</span></div>
         ${(()=>{const done=VISIT_CHECKLIST.filter(([key])=>v.checklist?.[key]).length;return `<div class="visit-progress"><span style="width:${Math.round(done/VISIT_CHECKLIST.length*100)}%"></span></div><small>${done} von ${VISIT_CHECKLIST.length} Besuchspunkten erledigt</small>`})()}
         <p><strong>Anlass:</strong> ${esc(v.purpose||"Nicht hinterlegt")}</p>
         ${v.notes?`<p class="visit-notes"><strong>Informationen und Notizen:</strong><br>${esc(v.notes)}</p>`:""}
