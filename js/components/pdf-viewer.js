@@ -1,18 +1,55 @@
-const PDFJS_MODULE_URL = new URL('../vendor/pdfjs/pdf.min.mjs', import.meta.url).href;
-const PDFJS_WORKER_URL = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
+const PDFJS_LOCAL_MODULE_URL = new URL('../vendor/pdfjs/pdf.min.mjs', import.meta.url).href;
+const PDFJS_LOCAL_WORKER_URL = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
+const PDFJS_CDN_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
+const PDFJS_CDN_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 let pdfjsPromise;
 
 async function loadPdfJs(){
   if(!pdfjsPromise){
-    pdfjsPromise=import(PDFJS_MODULE_URL).then(pdfjs=>{
-      pdfjs.GlobalWorkerOptions.workerSrc=PDFJS_WORKER_URL;
-      return pdfjs;
+    pdfjsPromise=(async()=>{
+      try{
+        const pdfjs=await import(PDFJS_LOCAL_MODULE_URL);
+        pdfjs.GlobalWorkerOptions.workerSrc=PDFJS_LOCAL_WORKER_URL;
+        return pdfjs;
+      }catch(localError){
+        console.warn('Lokales PDF.js ist nicht verfügbar, Online-Fallback wird versucht.',localError);
+        if(navigator.onLine===false) throw localError;
+        const pdfjs=await import(PDFJS_CDN_MODULE_URL);
+        pdfjs.GlobalWorkerOptions.workerSrc=PDFJS_CDN_WORKER_URL;
+        return pdfjs;
+      }
+    })().catch(error=>{
+      pdfjsPromise=null;
+      throw error;
     });
   }
   return pdfjsPromise;
 }
 
 function clamp(value,min,max){return Math.min(max,Math.max(min,value))}
+
+function mountNativePdfViewer(container,blob,{fileName='Dokument.pdf',reason=''}={}){
+  const objectUrl=URL.createObjectURL(blob);
+  container.classList.add('pdf-viewer','pdf-viewer-native');
+  container.innerHTML=`
+    <div class="pdf-viewer-toolbar" role="toolbar" aria-label="PDF-Werkzeuge">
+      <span class="pdf-native-label">Browser-PDF-Anzeige</span>
+      <button type="button" data-pdf-open>Original öffnen</button>
+      <button type="button" data-pdf-download>Speichern</button>
+    </div>
+    ${reason?`<div class="pdf-viewer-message pdf-native-note"><span>Integrierter PDF-Renderer nicht verfügbar – Browseranzeige wird verwendet.</span></div>`:''}
+    <div class="pdf-viewer-stage pdf-native-stage">
+      <iframe class="pdf-native-frame" title="${String(fileName).replace(/["&<>]/g,'')}" src="${objectUrl}#view=FitH" loading="eager"></iframe>
+    </div>`;
+  container.querySelector('[data-pdf-open]').onclick=()=>window.open(objectUrl,'_blank','noopener');
+  container.querySelector('[data-pdf-download]').onclick=()=>{
+    const a=document.createElement('a');
+    a.href=objectUrl;
+    a.download=fileName;
+    a.click();
+  };
+  return {destroy(){URL.revokeObjectURL(objectUrl);container.innerHTML=''}};
+}
 
 export async function mountPdfViewer(container,blob,{fileName='Dokument.pdf'}={}){
   if(!container) throw new Error('PDF-Viewer-Container fehlt.');
@@ -51,7 +88,6 @@ export async function mountPdfViewer(container,blob,{fileName='Dokument.pdf'}={}
     if(!pdf||destroyed)return;
     if(renderTask){try{renderTask.cancel()}catch{}}
     const page=await pdf.getPage(pageNumber);
-    const baseViewport=page.getViewport({scale:1,rotation});
     const outputScale=Math.max(1,window.devicePixelRatio||1);
     const viewport=page.getViewport({scale,rotation});
     canvas.width=Math.floor(viewport.width*outputScale);
@@ -64,7 +100,6 @@ export async function mountPdfViewer(container,blob,{fileName='Dokument.pdf'}={}
     message.hidden=true;
     renderTask=page.render({canvasContext:ctx,viewport,transform:outputScale===1?null:[outputScale,0,0,outputScale,0,0]});
     try{await renderTask.promise}catch(error){if(error?.name!=='RenderingCancelledException')throw error}
-    void baseViewport;
   }
 
   async function fitWidth(){
@@ -85,10 +120,7 @@ export async function mountPdfViewer(container,blob,{fileName='Dokument.pdf'}={}
     await fitWidth();
   }catch(error){
     console.error('PDF.js-Viewer:',error);
-    message.hidden=false;
-    message.innerHTML=`<strong>PDF konnte nicht angezeigt werden.</strong><br><span>${String(error?.message||error)}</span>`;
-    canvas.hidden=true;
-    throw error;
+    return mountNativePdfViewer(container,blob,{fileName,reason:error?.message||String(error)});
   }
 
   container.querySelector('[data-pdf-prev]').onclick=()=>{if(pageNumber>1){pageNumber--;renderPage()}};
