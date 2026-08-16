@@ -2,6 +2,12 @@
 
 Offline-fähige PWA für Abwassertechnik und anlagenbezogene Außendienstdaten.
 
+## Architektur
+
+Für VTA Copilot gilt verbindlich: **Produktivsystem und Demo-Organisation sind strikt getrennte Datenräume.** Beide verwenden denselben Anwendungscode und dieselben Funktionen, dürfen aber niemals Benutzer-, Anlagen-, Besuchs-, Berichts-, Dokument- oder sonstige Geschäftsdaten miteinander vermischen.
+
+Die vollständigen Architektur- und Abnahmeregeln stehen in [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Neu in 0.8.6.2
 
 - Schlammentwässerung als eigener Bereich der Anlagenakte
