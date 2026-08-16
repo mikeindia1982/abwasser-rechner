@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.20';
+const CACHE='abwasser-rechner-v0.11.0-alpha.21';
 const FILES=[
   "./",
   "./index.html",
@@ -16,9 +16,6 @@ const FILES=[
   "./js/services/audit-service.js",
   "./js/services/operator-lookup-service.js",
   "./js/components/pdf-viewer.js",
-  "./js/vendor/pdfjs/pdf.min.mjs",
-  "./js/vendor/pdfjs/pdf.worker.min.mjs",
-  "./js/vendor/pdfjs/LICENSE",
   "./js/qrcode-offline.js",
   "./js/utils.js",
   "./js/calculators.js",
