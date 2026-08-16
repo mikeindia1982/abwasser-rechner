@@ -7,6 +7,7 @@ const FILES=[
   "./icon-192.png",
   "./icon-512.png",
   "./js/app.js?v=0.11.0-alpha.19",
+  "./js/sidebar-tasks.js?v=0.11.0-alpha.19",
   "./js/components/product-image.js",
   "./js/db/database.js",
   "./js/repositories/document-repository.js",
