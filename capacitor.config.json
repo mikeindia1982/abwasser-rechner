@@ -1,0 +1,8 @@
+{
+  "appId": "de.vta.copilot",
+  "appName": "VTA Copilot",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic"
+  }
+}
