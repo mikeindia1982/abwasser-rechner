@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.38';
+const CACHE='abwasser-rechner-v0.11.0-alpha.39';
 const FILES=[
   "./",
   "./index.html",
@@ -19,7 +19,7 @@ const FILES=[
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/app.js?v=0.11.0-alpha.19",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
-  "./js/sidebar-tasks.js?v=0.11.0-alpha.19",
+  "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
   "./js/visit-guide-enhancements.js?v=0.11.0-alpha.24",
   "./js/visit-report-enhancements.js?v=0.11.0-alpha.25",
