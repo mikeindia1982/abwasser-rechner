@@ -1,0 +1,33 @@
+name: Apply neutral core refactor
+
+on:
+  push:
+    branches:
+      - preview/tenant-platform-alpha47
+    paths:
+      - scripts/apply-neutral-core-refactor.mjs
+      - js/editions/**
+      - .github/workflows/apply-neutral-core-refactor.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: preview/tenant-platform-alpha47
+      - name: Apply guarded refactor
+        run: node scripts/apply-neutral-core-refactor.mjs
+      - name: Commit refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/app.js js/demo-workspace.js js/demo-organization-loader.js js/demo-organization.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Refactor app core for tenant editions"
+          git push origin HEAD:preview/tenant-platform-alpha47
