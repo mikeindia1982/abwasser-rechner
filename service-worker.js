@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.42';
+const CACHE='abwasser-rechner-v0.11.0-alpha.43';
 const FILES=[
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const FILES=[
   "./demo-workspace.css?v=0.11.0-alpha.29",
   "./navigation-enhancements.css?v=0.11.0-alpha.37",
   "./firebase-auth.css?v=0.11.0-alpha.40",
+  "./firebase-plant-migration.css?v=0.11.0-alpha.43",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
   "./icon-192.png",
@@ -21,6 +22,7 @@ const FILES=[
   "./js/app.js?v=0.11.0-alpha.19",
   "./js/firebase-config.js?v=0.11.0-alpha.42",
   "./js/firebase-auth.js?v=0.11.0-alpha.42",
+  "./js/firebase-plant-migration.js?v=0.11.0-alpha.43",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
