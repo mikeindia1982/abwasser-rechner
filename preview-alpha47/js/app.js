@@ -10,6 +10,9 @@ import * as requestModule from "./product-requests.js";
 import {renderTenderRadarPage,getTenderUnreadCount} from "./tenders/tender-radar-ui.js";
 import {tenderScanService} from "./tenders/services/tender-scan-service.js";
 
+const ACTIVE_TENANT=globalThis.AbwasserPlatform?.tenant||{id:"platform",appName:"Abwasser Plattform",defaultProfile:null,app:{}};
+const EDITION_APP=ACTIVE_TENANT.app||{};
+
 const VERSION="0.11.0-alpha.13";
 const STORAGE_FAVORITES="abwasser-favorites-v07";
 const STORAGE_MENU="abwasser-menu-v07";
@@ -24,9 +27,10 @@ const STORAGE_PRODUCTS="abwasser-products-v092";
 const STORAGE_DOCUMENTS="abwasser-documents-v010";
 const STORAGE_REVERSE_GEOCODE_CACHE="abwasser-reverse-geocode-v01";
 const STORAGE_SALES_REMINDER_NOTICE="abwasser-sales-reminder-notice-v01";
-const STORAGE_GOOGLE_MAPS_KEY="vta-google-maps-api-key-v01";
-const STORAGE_GOOGLE_MAPS_MAP_ID="vta-google-maps-map-id-v01";
-const BUILT_IN_DEMO_PLANT_ID="vta-demo-plant-001";
+const STORAGE_GOOGLE_MAPS_KEY=EDITION_APP.storageKeys?.googleMapsApiKey||"abwasser-google-maps-api-key-v01";
+const STORAGE_GOOGLE_MAPS_MAP_ID=EDITION_APP.storageKeys?.googleMapsMapId||"abwasser-google-maps-map-id-v01";
+const BUILT_IN_DEMO_PLANT_ID=EDITION_APP.demoPlant?.id||"demo-plant-001";
+const PRODUCT_FILE_DB_NAME=globalThis.AbwasserPlatform?.tenantDatabaseName?.("abwasser-product-documents-v1")||"abwasser-product-documents-v1";
 let googleMapsApiPromise=null;
 
 const categoryMeta={
@@ -420,7 +424,7 @@ function createBuiltInDemoPlant(){
     id:BUILT_IN_DEMO_PLANT_ID,
     createdAt,updatedAt:createdAt,
     master:{
-      name:"VTA Testanlage Musterstadt",internalNumber:"DEMO-001",type:"municipal",mainProcess:"activated-sludge",
+      name:EDITION_APP.demoPlant?.name||"Testanlage Musterstadt",internalNumber:"DEMO-001",type:"municipal",mainProcess:"activated-sludge",
       processStages:["screening","grit-grease","pre-denitrification","nitrification","simultaneous-precipitation","secondary-clarification","sludge-dewatering"]
     },
     address:{street:"Musterstraße 1",postalCode:"12345",city:"Musterstadt",country:"Deutschland",latitude:"51.1657",longitude:"10.4515"},
@@ -428,7 +432,7 @@ function createBuiltInDemoPlant(){
     operator:{name:"Zweckverband Musterwasser",customerNumber:"DEMO-KD-001",phone:"+49 30 12345678",email:"demo-betreiber@example.com"},
     contacts:[{name:"Max Mustermann",role:"Betriebsleiter",department:"",email:"max.mustermann@example.com",phone:"+49 30 12345678",mobile:"+49 170 1234567",preferred:"",notes:""}],
     sludgeDewatering:{
-      enabled:true,status:"active",process:"screw-press",manufacturer:"VTA Demo",model:"SP-100",year:"2022",unitCount:"1",operationMode:"continuous",
+      enabled:true,status:"active",process:"screw-press",manufacturer:EDITION_APP.demoPlant?.dewateringManufacturer||"Demo Maschinenbau",model:"SP-100",year:"2022",unitCount:"1",operationMode:"continuous",
       throughputM3h:"8",inletTsPercent:"2.5",outletTsPercent:"25",polymerKgPerTds:"8",polymerStation:true,feedPump:true,filtrateRouting:"Rückführung in den Zulauf"
     },
     tankSystems:[{
@@ -449,6 +453,7 @@ function createBuiltInDemoPlant(){
   });
 }
 function ensureBuiltInDemoPlant(){
+  if(EDITION_APP.demoPlant?.enabled!==true)return;
   const existing=plants.some(plant=>plant.id===BUILT_IN_DEMO_PLANT_ID);
   if(existing)return;
   const demoPlant=createBuiltInDemoPlant();
@@ -458,8 +463,8 @@ function ensureBuiltInDemoPlant(){
 }
 
 
-const defaultEmployeeProfile=()=>({
-  schemaVersion:1,firstName:"",lastName:"",jobTitle:"Vertriebsingenieur",company:"VTA",department:"Außendienst",
+const defaultEmployeeProfile=()=>structuredClone(ACTIVE_TENANT.defaultProfile||{
+  schemaVersion:1,firstName:"",lastName:"",jobTitle:"Vertriebsingenieur",company:"",department:"Außendienst",
   employeeNumber:"",region:"",branch:"",email:"",mobile:"",phone:"",website:"",street:"",postalCode:"",city:"",country:"Deutschland",notes:""
 });
 function normalizeEmployeeProfile(value={}){return {...defaultEmployeeProfile(),...(value&&typeof value==="object"?value:{})};}
@@ -489,26 +494,7 @@ function qrSvg(text,size=220){
 function downloadVCard(){const blob=new Blob([employeeVCard()],{type:"text/vcard;charset=utf-8"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`${employeeDisplayName().replace(/[^a-z0-9äöüß]+/gi,"-").toLowerCase()||"kontakt"}.vcf`;a.click();URL.revokeObjectURL(url);}
 
 
-const seededProducts=[
-  {
-    id:"product-aquafix-70-plus",name:"VTA Aquafix® 70 plus",materialNumber:"33",productType:"chemical",category:"Fällungs- und Flockungsmittel",status:"active",isActive:true,
-    packageSizes:["25 kg Sack","60 kg Fass","1.000 kg IBC","Tanklastzug"],
-    notes:"Flüssiges Fällungs- und Flockungsmittel in wässriger Lösung.",applications:["Fällung","Flockung"],problems:[],benefits:[],
-    technical:{state:"flüssig",color:"gelb, grün",ph:"< 2",density:"ca. 1,3 g/cm³",solubility:"vollständig mischbar",storageStability:"12 Monate"},
-    safety:{signalWord:"Gefahr",hazardStatements:["H290","H318"],unNumber:"UN1760",transportClass:"8",waterHazardClass:"1"},
-    documents:[],createdAt:"2026-07-26T00:00:00.000Z",updatedAt:"2026-07-26T00:00:00.000Z",reviewStatus:"seeded"
-  },
-  {
-    id:"product-biokat",name:"VTA Biokat®",materialNumber:"",productType:"chemical",category:"Biologische Prozessunterstützung",status:"active",isActive:true,
-    packageSizes:["25 kg Sack","60 kg Fass","1.000 kg IBC","Tanklastzug"],
-    notes:"Maßgeschneiderte Bio-Kost zur Stabilisierung und Aktivierung der biologischen Reinigungsleistung.",
-    applications:["Biologische Abwasserreinigung","Belebungsanlage"],
-    problems:["Blähschlamm","Schwimmschlamm","starke Fädigkeit","lockere und instabile Flocken","gestörte Reinigungsleistung"],
-    benefits:["Verbessert Reinigungsleistung und Schlammeigenschaften","Kompakte und stabile Flocken","Reduziert Energie- und Produktverbrauch","Biologisch verträglich"],
-    technical:{state:"",color:"",ph:"",density:"",solubility:"",storageStability:""},safety:{signalWord:"",hazardStatements:[],unNumber:"",transportClass:"",waterHazardClass:""},
-    documents:[],createdAt:"2026-07-26T00:00:00.000Z",updatedAt:"2026-07-26T00:00:00.000Z",reviewStatus:"seeded"
-  }
-];
+const seededProducts=structuredClone(EDITION_APP.seedProducts||[]);
 function normalizeProduct(x={}){
   const category=String(x.category||"").trim();
   const productType=x.productType==="technical"?"technical":x.productType==="chemical"?"chemical":(isChemicalProduct({productType:x.productType,category})?"chemical":"technical");
@@ -723,8 +709,13 @@ async function extractPdfTextBasic(file){
 function inferProductFromPdf(text,fileName,type){
   const hay=cleanPdfText(`${fileName.replace(/\.pdf$/i,"")} ${text}`);
   let name="";
-  const vta=hay.match(/VTA\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9®+\- ]{2,45}/);
-  if(vta)name=vta[0].replace(/(?:_D-de|Sicherheitsdatenblatt|Factsheet).*$/i,"").trim();
+  for(const matcher of EDITION_APP.productImport?.namePatterns||[]){
+    const match=hay.match(matcher);
+    if(match){
+      name=match[0].replace(/(?:_D-de|Sicherheitsdatenblatt|Factsheet).*$/i,"").trim();
+      break;
+    }
+  }
   if(!name)name=fileName.replace(/\.pdf$/i,"").replace(/[_-](?:D-de|DE)$/i,"").replace(/_/g," ").trim();
   const material=(hay.match(/Materialnummer\s*:?\s*(\d+)/i)||[])[1]||"";
   const date=(hay.match(/(?:Überarbeitet am|Stand|Version)\s*:?\s*(\d{2}\.\d{2}\.\d{4})/i)||[])[1]||"";
@@ -791,7 +782,7 @@ function enqueueProductPdfs(files){
   renderProductImportQueueStatus();processProductImportQueue();
 }
 
-function openProductDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open("abwasser-product-documents-v1",1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("files"))req.result.createObjectStore("files")};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function openProductDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open(PRODUCT_FILE_DB_NAME,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("files"))req.result.createObjectStore("files")};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function storeProductFile(key,file){const db=await openProductDb();const record={blob:file instanceof Blob?file:new Blob([file],{type:file?.type||"application/pdf"}),fileName:file?.name||"Dokument.pdf",mimeType:file?.type||"application/pdf",size:file?.size||0,storedAt:new Date().toISOString()};return new Promise((resolve,reject)=>{const tx=db.transaction("files","readwrite");tx.objectStore("files").put(record,key);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)};tx.onabort=()=>{db.close();reject(tx.error||new Error("IndexedDB-Transaktion abgebrochen"))}})}
 async function getProductFile(key){const db=await openProductDb();return new Promise((resolve,reject)=>{const req=db.transaction("files","readonly").objectStore("files").get(key);req.onsuccess=()=>{const value=req.result;db.close();resolve(value?.blob instanceof Blob?value.blob:value instanceof Blob?value:null)};req.onerror=()=>{db.close();reject(req.error)}})}
 async function deleteProductFile(key){const db=await openProductDb();return new Promise((resolve,reject)=>{const tx=db.transaction("files","readwrite");tx.objectStore("files").delete(key);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)}})}
@@ -1111,7 +1102,7 @@ function loadGoogleMapsApi(){
   const apiKey=localStorage.getItem(STORAGE_GOOGLE_MAPS_KEY)?.trim();
   if(!apiKey)return Promise.reject(new Error("Google Maps API-Schlüssel fehlt."));
   googleMapsApiPromise=new Promise((resolve,reject)=>{
-    const callbackName="__vtaGoogleMapsReady";
+    const callbackName="__abwasserGoogleMapsReady";
     const script=document.createElement("script");
     const cleanup=()=>{delete window[callbackName];script.remove()};
     window[callbackName]=()=>{
@@ -1680,7 +1671,7 @@ function showGlobalPage(page){
   else if(page==="reports") appView.innerHTML=renderGlobalPlaceholder("📊","Berichte","Besuchsberichte, Jahresübersichten und technische Auswertungen.","Berichte werden schrittweise aus Anlagen-, Besuchs- und Projektdaten erzeugt.");
   else if(page==="settings"){
     const storedMapId=localStorage.getItem(STORAGE_GOOGLE_MAPS_MAP_ID)||"";
-    appView.innerHTML=`${globalPageHeader("Konfiguration","Einstellungen","Lokale Einstellungen für VTA Copilot.")}<section class="form-section"><h2>Google Maps</h2><div class="form-grid"><label class="field-label">Google Maps API-Schlüssel<input id="googleMapsApiKey" type="password" value="${esc(localStorage.getItem(STORAGE_GOOGLE_MAPS_KEY)||"")}"></label><label class="field-label">Google Maps Map-ID<input id="googleMapsMapId" type="text" value="${esc(storedMapId)}"><span id="googleMapsMapIdHint" class="form-note">${storedMapId?"":"Für Tests wird DEMO_MAP_ID verwendet."}</span></label></div><div class="form-actions"><button type="button" class="button primary" id="saveGoogleMapsSettings">Maps-Einstellungen speichern</button><button type="button" class="button secondary" id="removeGoogleMapsKey">API-Schlüssel entfernen</button></div><p class="form-note">Die Google-Maps-Konfiguration wird lokal auf diesem Gerät gespeichert.</p></section>`;
+    appView.innerHTML=`${globalPageHeader("Konfiguration","Einstellungen","Lokale Einstellungen für "+(ACTIVE_TENANT.appName||"Abwasser Plattform")+".")}<section class="form-section"><h2>Google Maps</h2><div class="form-grid"><label class="field-label">Google Maps API-Schlüssel<input id="googleMapsApiKey" type="password" value="${esc(localStorage.getItem(STORAGE_GOOGLE_MAPS_KEY)||"")}"></label><label class="field-label">Google Maps Map-ID<input id="googleMapsMapId" type="text" value="${esc(storedMapId)}"><span id="googleMapsMapIdHint" class="form-note">${storedMapId?"":"Für Tests wird DEMO_MAP_ID verwendet."}</span></label></div><div class="form-actions"><button type="button" class="button primary" id="saveGoogleMapsSettings">Maps-Einstellungen speichern</button><button type="button" class="button secondary" id="removeGoogleMapsKey">API-Schlüssel entfernen</button></div><p class="form-note">Die Google-Maps-Konfiguration wird lokal auf diesem Gerät gespeichert.</p></section>`;
     const mapIdInput=$("#googleMapsMapId"),mapIdHint=$("#googleMapsMapIdHint");
     mapIdInput.oninput=()=>{mapIdHint.textContent=mapIdInput.value.trim()?"":"Für Tests wird DEMO_MAP_ID verwendet."};
     $("#saveGoogleMapsSettings").onclick=()=>{
@@ -1843,7 +1834,7 @@ function renderPlants(){
   $$("[data-edit-plant]").forEach(b=>b.onclick=()=>showPlantForm(b.dataset.editPlant));
   $$("[data-delete-plant]").forEach(b=>b.onclick=()=>{
     if(b.dataset.deletePlant===BUILT_IN_DEMO_PLANT_ID){
-      alert("Die VTA Testanlage ist fest im Code hinterlegt und kann nicht gelöscht werden.");
+      alert("Die vorkonfigurierte Testanlage ist fest in dieser Edition hinterlegt und kann nicht gelöscht werden.");
       return;
     }
     const p=plants.find(x=>x.id===b.dataset.deletePlant);

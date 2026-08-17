@@ -1,5 +1,6 @@
 (()=>{
   'use strict';
+  if(globalThis.__ABWASSER_PREVIEW_TENANT__==='platform')return;
 
   const MODE_KEY='vta-workspace-mode-v01';
   const PROD_SNAPSHOT_KEY='vta-production-workspace-snapshot-v01';
