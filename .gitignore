@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+DerivedData/
+*.xcuserstate
+**/xcuserdata/
+
+# Capacitor copies the generated web bundle into the native project.
+# The source of truth remains the root web app plus scripts/build-native.mjs.
+ios/App/App/public/
