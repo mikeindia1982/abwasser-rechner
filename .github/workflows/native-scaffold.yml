@@ -1,0 +1,59 @@
+name: native scaffold
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'package.json'
+      - 'capacitor.config.json'
+      - '.nvmrc'
+      - 'scripts/**'
+      - 'js/native-runtime.js'
+      - 'tests/native-scaffold.test.mjs'
+      - '.github/workflows/native-scaffold.yml'
+      - 'index.html'
+      - '*.css'
+      - 'images/**'
+      - 'products/**'
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'capacitor.config.json'
+      - '.nvmrc'
+      - 'scripts/**'
+      - 'js/native-runtime.js'
+      - 'tests/native-scaffold.test.mjs'
+      - '.github/workflows/native-scaffold.yml'
+      - 'index.html'
+      - '*.css'
+      - 'images/**'
+      - 'products/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Capacitor dependencies
+        run: npm install --package-lock=false --ignore-scripts
+      - name: Native scaffold tests
+        run: npm run test:native-scaffold
+      - name: Build native web bundle
+        run: npm run native:build
+      - name: Native doctor
+        run: npm run native:doctor
+      - name: Verify native bundle
+        run: |
+          test -f dist/index.html
+          test -f dist/js/app.js
+          test -f dist/js/native-runtime.js
+          test -f dist/native-build.json
+          test ! -d dist/preview-alpha47
+          test ! -f dist/service-worker.js
