@@ -25,6 +25,16 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /plants/{plantId} {
+      allow read: if accountActive();
+      allow create: if isAdmin()
+        && request.resource.data.id == plantId
+        && request.resource.data.cloud.version == 1
+        && request.resource.data.cloud.source == 'local-migration'
+        && request.resource.data.cloud.migratedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
