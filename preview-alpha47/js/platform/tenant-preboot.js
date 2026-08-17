@@ -56,6 +56,17 @@
     remove.forEach(key => nativeRemove.call(this, key));
   };
 
+  // Read-only bridge for selected productive browser data. It deliberately
+  // exposes no write operation, so preview changes cannot mutate production.
+  globalThis.AbwasserPreviewStorage = Object.freeze({
+    tenantId,
+    namespace,
+    readProductive(key) {
+      if (tenantId !== 'vta' || !managed(key)) return null;
+      return nativeGet.call(localStorage, String(key));
+    }
+  });
+
   // Neutral edition starts without vendor profile/products and removes the
   // built-in VTA demo plant left behind by older preview builds.
   if (tenantId === 'platform') {
