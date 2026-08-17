@@ -10,8 +10,11 @@ export const DB_NAME = tenantId === 'vta'
   ? BASE_DB_NAME
   : `${BASE_DB_NAME}-${tenantId}`;
 
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const STORES = Object.freeze({
+  organizations:'organizations',
+  memberships:'memberships',
+  organizationSettings:'organizationSettings',
   documents:'documents', files:'files', products:'products', plants:'plants', customers:'customers',
   projects:'projects', relations:'relations', auditLog:'auditLog', settings:'settings'
 });
