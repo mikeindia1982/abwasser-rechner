@@ -1,0 +1,56 @@
+name: ios bootstrap
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'package.json'
+      - 'capacitor.config.json'
+      - 'scripts/**'
+      - 'js/native-runtime.js'
+      - '.github/workflows/ios-bootstrap.yml'
+      - 'index.html'
+      - '*.css'
+      - 'images/**'
+      - 'products/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xcode-build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Capacitor dependencies
+        run: npm install --package-lock=false --ignore-scripts
+      - name: Build native web bundle
+        run: npm run native:build
+      - name: Generate iOS project
+        run: npx cap add ios
+      - name: Synchronize plugins and web bundle
+        run: npx cap sync ios
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Compile iOS app for simulator
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Archive generated iOS project for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: vta-copilot-ios-scaffold
+          path: ios
+          if-no-files-found: error
+          retention-days: 3
