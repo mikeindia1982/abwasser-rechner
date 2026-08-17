@@ -9,6 +9,20 @@ on:
       - 'capacitor.config.json'
       - 'scripts/**'
       - 'js/native-runtime.js'
+      - 'ios/**'
+      - '.github/workflows/ios-bootstrap.yml'
+      - 'index.html'
+      - '*.css'
+      - 'images/**'
+      - 'products/**'
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - 'scripts/**'
+      - 'js/native-runtime.js'
+      - 'ios/**'
       - '.github/workflows/ios-bootstrap.yml'
       - 'index.html'
       - '*.css'
@@ -17,7 +31,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   xcode-build:
@@ -25,13 +39,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: develop
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Capacitor dependencies and lock versions
-        run: npm install --ignore-scripts
+          cache: npm
+      - name: Install locked Capacitor dependencies
+        run: npm ci --ignore-scripts
       - name: Build native web bundle
         run: npm run native:build
       - name: Ensure iOS project exists
@@ -41,6 +54,10 @@ jobs:
           fi
       - name: Synchronize plugins and web bundle
         run: npx cap sync ios
+      - name: Check committed native metadata is synchronized
+        run: |
+          rm -rf ios/App/App/public
+          git diff --exit-code -- ios
       - name: Show Xcode version
         run: xcodebuild -version
       - name: Compile iOS app for simulator
@@ -53,20 +70,7 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
-      - name: Commit validated native metadata to develop
-        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-        run: |
-          rm -rf ios/App/App/public
-          git add ios package-lock.json
-          if git diff --cached --quiet; then
-            echo 'Native project and dependency lock are already current.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'chore: sync validated iOS project and dependency lock'
-          git push origin HEAD:develop
-      - name: Archive generated iOS project for inspection
+      - name: Archive iOS project for inspection
         uses: actions/upload-artifact@v4
         with:
           name: vta-copilot-ios-scaffold
