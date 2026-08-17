@@ -1,0 +1,19 @@
+name: Tenant preview validation
+
+on:
+  push:
+    branches:
+      - preview/tenant-platform-alpha47
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate tenant preview
+        run: node scripts/validate-tenant-preview.mjs
