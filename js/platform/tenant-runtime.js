@@ -199,7 +199,6 @@ export function switchTenant(tenantId) {
   if (!target || target.id === activeTenant.id) return;
 
   snapshotTenantStorage(activeTenant.id);
-  localStorage.setItem(ACTIVE_TENANT_KEY, target.id);
 
   const url = new URL(window.location.href);
   url.searchParams.set("tenant", target.id);
