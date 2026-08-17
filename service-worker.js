@@ -1,4 +1,5 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.55-openmaps1';
+const CACHE_PREFIX='abwasser-rechner-';
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.55-openmaps1`;
 const FILES=[
   "./",
   "./index.html",
@@ -76,7 +77,7 @@ self.addEventListener("activate",event=>{
   event.waitUntil((async()=>{
     await self.clients.claim();
     const keys=await caches.keys();
-    await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
+    await Promise.all(keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE).map(key=>caches.delete(key)));
 
     const clients=await self.clients.matchAll({type:"window",includeUncontrolled:true});
     await Promise.all(clients.map(async client=>{
