@@ -1,0 +1,29 @@
+name: Platform validation
+
+on:
+  push:
+    branches:
+      - refactor/tenant-platform
+  pull_request:
+    paths:
+      - "js/platform/**"
+      - "js/repositories/organization-repository.js"
+      - "js/db/database.js"
+      - "index.html"
+      - "service-worker.js"
+      - "manifest-*.webmanifest"
+      - "vta.html"
+      - "platform.html"
+      - "scripts/validate-platform.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate platform architecture
+        run: node scripts/validate-platform.mjs
