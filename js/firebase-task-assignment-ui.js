@@ -4,11 +4,9 @@ const BUILD='0.11.0-alpha.46';
 const PLANTS_KEY='abwasser-plants-v07';
 const TASKS='tasks';
 let firestoreApi=null;
-let authApi=null;
 let db=null;
 let auth=null;
 let dialog=null;
-let observer=null;
 let scheduled=false;
 
 const session=()=>window.VTAFirebaseSession||null;
@@ -25,7 +23,6 @@ function users(){
   if(myUid&&!list.some(user=>(user.uid||user.id)===myUid))list.unshift({uid:myUid,...me});
   return list.filter(user=>user&&user.active!==false&&(user.uid||user.id));
 }
-
 function userId(user){return String(user?.uid||user?.id||'')}
 function userName(user){
   const name=[user?.firstName,user?.lastName].filter(Boolean).join(' ').trim();
@@ -44,6 +41,27 @@ function readTask(taskId){
   return null;
 }
 
+function updateLocalAssignment(taskId,target){
+  try{
+    const plants=JSON.parse(localStorage.getItem(PLANTS_KEY)||'[]');
+    if(!Array.isArray(plants))return;
+    let changed=false;
+    for(const plant of plants){
+      const action=(Array.isArray(plant?.actions)?plant.actions:[]).find(item=>String(item?.id||'')===String(taskId));
+      if(!action)continue;
+      action.assignedToUserId=userId(target);
+      action.assignedToName=userName(target);
+      action.updatedAt=new Date().toISOString();
+      changed=true;
+      break;
+    }
+    if(changed){
+      localStorage.setItem(PLANTS_KEY,JSON.stringify(plants));
+      window.dispatchEvent(new CustomEvent('vta:cloud-tasks-updated',{detail:{reason:'assignment-ui',build:BUILD}}));
+    }
+  }catch(error){console.warn('Lokale Aufgaben-Zuweisung konnte nicht aktualisiert werden',error)}
+}
+
 async function ensureFirebase(){
   if(db&&auth?.currentUser)return;
   const base=`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
@@ -52,7 +70,7 @@ async function ensureFirebase(){
     import(`${base}/firebase-auth.js`),
     import(`${base}/firebase-firestore.js`)
   ]);
-  authApi=authModule;firestoreApi=firestoreModule;
+  firestoreApi=firestoreModule;
   const app=appModule.getApps().length?appModule.getApp():appModule.initializeApp(firebaseConfig);
   auth=authModule.getAuth(app);db=firestoreModule.getFirestore(app);
   if(!auth.currentUser)throw new Error('Keine aktive Firebase-Anmeldung.');
@@ -69,6 +87,7 @@ async function assignTask(taskId,newUid){
     updatedAt:new Date().toISOString(),
     updatedByUserId:uid()
   });
+  updateLocalAssignment(taskId,target);
   window.dispatchEvent(new CustomEvent('vta:task-assignment-changed',{detail:{taskId:String(taskId),assignedToUserId:userId(target),assignedToName:userName(target),build:BUILD}}));
   return target;
 }
@@ -78,7 +97,6 @@ function dueLabel(value){
   const date=new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString('de-DE');
 }
-
 function priorityLabel(value){return value==='high'?'Hoch':'Normal'}
 
 function ensureDialog(){
@@ -95,17 +113,17 @@ function plantOpenButton(card){
   return [...card.querySelectorAll('button')].find(button=>button.textContent.trim()==='Anlage öffnen'&&!button.hidden)||null;
 }
 
-function renderAssignmentChoices(taskId,currentUid){
-  if(!manager())return '';
+function renderAssignmentChoices(currentUid){
   const list=users();
   if(!list.length)return '<p class="firebase-task-detail-note">Mitarbeiterliste wird geladen …</p>';
   return `<div class="firebase-task-people" role="list">${list.map(user=>{
     const id=userId(user),selected=id===currentUid;
-    return `<button type="button" class="firebase-task-person ${selected?'selected':''}" data-task-assign-user="${esc(id)}" role="listitem" aria-pressed="${selected?'true':'false'}"><span class="firebase-task-person-avatar">${esc(userName(user).split(/\s+/).map(part=>part[0]||'').join('').slice(0,2).toUpperCase()||'MA')}</span><span><strong>${esc(userName(user))}</strong><small>${esc(user?.role||'Mitarbeiter')}${selected?' · aktuell':''}</small></span><span class="firebase-task-person-check">${selected?'✓':'→'}</span></button>`;
+    const initials=userName(user).split(/\s+/).map(part=>part[0]||'').join('').slice(0,2).toUpperCase()||'MA';
+    return `<button type="button" class="firebase-task-person ${selected?'selected':''}" data-task-assign-user="${esc(id)}" role="listitem" aria-pressed="${selected?'true':'false'}"><span class="firebase-task-person-avatar">${esc(initials)}</span><span><strong>${esc(userName(user))}</strong><small>${esc(user?.role||'Mitarbeiter')}${selected?' · aktuell':''}</small></span><span class="firebase-task-person-check">${selected?'✓':'→'}</span></button>`;
   }).join('')}</div>`;
 }
 
-function openDetail(card){
+function openDetail(card,{focusAssignment=false}={}){
   const taskId=card?.dataset?.actionId||'';
   const found=readTask(taskId);
   if(!found)return;
@@ -118,31 +136,27 @@ function openDetail(card){
     <div class="firebase-task-detail-facts"><div><span>Status</span><strong>${action.status==='done'?'Erledigt':'Offen'}</strong></div><div><span>Priorität</span><strong>${esc(priorityLabel(action.priority))}</strong></div><div><span>Fälligkeit</span><strong>${esc(dueLabel(action.dueDate))}</strong></div><div><span>Zuständig</span><strong>${esc(currentName)}</strong></div></div>
     ${action.contactName?`<p class="firebase-task-detail-note"><strong>Ansprechpartner:</strong> ${esc(action.contactName)}</p>`:''}
     ${action.description?`<p class="firebase-task-detail-note">${esc(action.description)}</p>`:''}
-    <section class="firebase-task-detail-section"><div><p class="eyebrow">Zuweisung</p><h3>${manager()?'Mitarbeiter auswählen':'Zuständigkeit'}</h3></div>${manager()?renderAssignmentChoices(taskId,currentUid):`<p class="firebase-task-detail-note">${esc(currentName)}</p>`}</section>
+    <section class="firebase-task-detail-section" data-task-assignment-section><div><p class="eyebrow">Zuweisung</p><h3>${manager()?'Mitarbeiter direkt auswählen':'Zuständigkeit'}</h3></div>${manager()?renderAssignmentChoices(currentUid):`<p class="firebase-task-detail-note">${esc(currentName)}</p>`}</section>
     <footer class="firebase-task-detail-actions"><button type="button" class="button secondary" data-task-detail-close>Schließen</button>${plantOpenButton(card)?'<button type="button" class="button primary" data-task-open-plant>Anlage öffnen</button>':''}</footer>
   </div>`;
   dlg.querySelectorAll('[data-task-detail-close]').forEach(button=>button.addEventListener('click',()=>dlg.close()));
   dlg.querySelector('[data-task-open-plant]')?.addEventListener('click',()=>{dlg.close();plantOpenButton(card)?.click()});
   dlg.querySelectorAll('[data-task-assign-user]').forEach(button=>button.addEventListener('click',async()=>{
-    const newUid=button.dataset.taskAssignUser;
+    const section=button.closest('[data-task-assignment-section]');
+    section?.querySelectorAll('.firebase-task-save-ok,.firebase-task-save-error').forEach(item=>item.remove());
     dlg.querySelectorAll('[data-task-assign-user]').forEach(item=>item.disabled=true);
     try{
-      const target=await assignTask(taskId,newUid);
-      action.assignedToUserId=userId(target);action.assignedToName=userName(target);
-      button.closest('.firebase-task-detail-section')?.insertAdjacentHTML('beforeend',`<p class="firebase-task-save-ok">Zugewiesen an ${esc(userName(target))}.</p>`);
-      window.setTimeout(()=>{decorate();openDetail(card)},350);
+      const target=await assignTask(taskId,button.dataset.taskAssignUser);
+      section?.insertAdjacentHTML('beforeend',`<p class="firebase-task-save-ok">Zugewiesen an ${esc(userName(target))}.</p>`);
+      window.setTimeout(()=>openDetail(card,{focusAssignment:true}),300);
     }catch(error){
       console.error('Aufgabe konnte nicht zugewiesen werden',error);
-      button.closest('.firebase-task-detail-section')?.insertAdjacentHTML('beforeend',`<p class="firebase-task-save-error">${esc(error?.message||'Zuweisung fehlgeschlagen.')}</p>`);
+      section?.insertAdjacentHTML('beforeend',`<p class="firebase-task-save-error">${esc(error?.message||'Zuweisung fehlgeschlagen.')}</p>`);
       dlg.querySelectorAll('[data-task-assign-user]').forEach(item=>item.disabled=false);
     }
   }));
-  if(typeof dlg.showModal==='function')dlg.showModal();else dlg.setAttribute('open','');
-}
-
-async function openAssignment(card){
-  openDetail(card);
-  window.setTimeout(()=>dialog?.querySelector('.firebase-task-detail-section')?.scrollIntoView({block:'nearest'}),0);
+  if(!dlg.open){if(typeof dlg.showModal==='function')dlg.showModal();else dlg.setAttribute('open','')}
+  if(focusAssignment)requestAnimationFrame(()=>dlg.querySelector('[data-task-assignment-section]')?.scrollIntoView({block:'nearest'}));
 }
 
 function dedupePlantButtons(card){
@@ -150,47 +164,47 @@ function dedupePlantButtons(card){
   buttons.slice(1).forEach(button=>button.hidden=true);
 }
 
+function ensureActionButtons(card){
+  let actions=card.querySelector('.task-actions');
+  if(!actions){actions=document.createElement('div');actions.className='task-actions';card.append(actions)}
+  if(!actions.querySelector('[data-task-detail-open]')){
+    const open=document.createElement('button');open.type='button';open.className='firebase-task-open-button';open.dataset.taskDetailOpen='';open.textContent='Aufgabe öffnen';
+    open.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openDetail(card)});
+    actions.insertBefore(open,actions.firstChild);
+  }
+  if(manager()&&!actions.querySelector('[data-task-assign-open]')){
+    const assign=document.createElement('button');assign.type='button';assign.className='firebase-task-assign-button';assign.dataset.taskAssignOpen='';assign.textContent='Zuweisen';
+    assign.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openDetail(card,{focusAssignment:true})});
+    const openButton=actions.querySelector('[data-task-detail-open]');openButton?.insertAdjacentElement('afterend',assign);
+  }
+}
+
 function decorateCard(card){
   const taskId=card.dataset.actionId||'';
   if(!taskId)return;
   const found=readTask(taskId);
   const host=card.querySelector('.firebase-task-assignee');
-  if(host){
-    const action=found?.action||{};
-    const assignedName=action.assignedToName||host.querySelector('select option:checked')?.textContent||session()?.profile?.firstName||'Mitarbeiter';
-    if(manager()){
-      if(!host.querySelector('[data-task-assign-open]')){
-        host.innerHTML=`<span class="firebase-task-assignee-name">Zuständig: <strong>${esc(assignedName)}</strong></span><button type="button" class="firebase-task-assign-button" data-task-assign-open>Zuweisen</button><span class="firebase-task-cloud-chip">Cloud</span>`;
-        host.querySelector('[data-task-assign-open]')?.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openAssignment(card)});
-      }
-    }
+  if(host&&manager()){
+    const assignedName=found?.action?.assignedToName||host.querySelector('select option:checked')?.textContent||'Mitarbeiter';
+    host.dataset.mobileAssignmentUi='1';
+    host.dataset.assignedName=assignedName;
   }
-  let actions=card.querySelector('.task-actions');
-  if(!actions){actions=document.createElement('div');actions.className='task-actions';card.append(actions)}
-  if(!actions.querySelector('[data-task-detail-open]')){
-    const button=document.createElement('button');button.type='button';button.className='firebase-task-open-button';button.dataset.taskDetailOpen='';button.textContent='Aufgabe öffnen';
-    button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openDetail(card)});
-    actions.insertBefore(button,actions.firstChild);
-  }
+  ensureActionButtons(card);
   dedupePlantButtons(card);
 }
 
 function decorate(){
-  if(document.querySelector('.global-task-list'))document.querySelectorAll('.global-task-list [data-action-id][data-plant-id]').forEach(decorateCard);
+  document.querySelectorAll('.global-task-list [data-action-id][data-plant-id]').forEach(decorateCard);
 }
-
-function queueDecorate(){
-  if(scheduled)return;scheduled=true;
-  requestAnimationFrame(()=>{scheduled=false;decorate()});
-}
+function queueDecorate(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;decorate()})}
 
 function start(){
   decorate();
   const root=document.querySelector('#mainContent')||document.body;
-  observer=new MutationObserver(queueDecorate);
-  observer.observe(root,{childList:true,subtree:true});
+  new MutationObserver(queueDecorate).observe(root,{childList:true,subtree:true});
   window.addEventListener('vta:cloud-tasks-updated',queueDecorate);
   window.addEventListener('vta:firebase-session',queueDecorate);
+  window.addEventListener('vta:task-assignment-changed',queueDecorate);
   window.addEventListener('pageshow',queueDecorate);
 }
 
