@@ -7,7 +7,18 @@
   <meta name="application-name" content="Abwasser Rechner">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Abwasser Rechner">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link id="appManifest" rel="manifest" href="manifest-vta.webmanifest">
+  <script>
+    (() => {
+      const requested = new URLSearchParams(window.location.search).get("tenant");
+      const stored = localStorage.getItem("abwasser-active-tenant-v1");
+      const tenant = requested === "platform" || requested === "vta"
+        ? requested
+        : (stored === "platform" || stored === "vta" ? stored : "vta");
+      document.getElementById("appManifest").href =
+        tenant === "platform" ? "manifest-platform.webmanifest" : "manifest-vta.webmanifest";
+    })();
+  </script>
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css?v=0.11.0-alpha.9">
   <title>Abwasser Rechner v0.11.0-alpha.9</title>
