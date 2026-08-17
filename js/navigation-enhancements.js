@@ -114,13 +114,9 @@
       return;
     }
 
-    // app.js initialisiert seine History erst beim ersten setView(). Danach kann
-    // der gespeicherte Zustand über den bereits vorhandenen popstate-Handler
-    // ohne direkten Zugriff auf modulinterne Funktionen wiederhergestellt werden.
-    if(!history.state?.appNav){
-      setTimeout(restoreBootTarget,60);
-      return;
-    }
+    // app.js initialisiert seine History erst beim ersten setView(). Erst danach
+    // wird der gespeicherte Zustand über den vorhandenen popstate-Handler geladen.
+    if(!history.state?.appNav)return;
 
     if(sameNavigation(history.state,bootTarget)){
       restorationFinished=true;
@@ -154,7 +150,7 @@
     let attempts=0;
     const waitForApp=()=>{
       restoreBootTarget();
-      if(restorationFinished||attempts>=40)return;
+      if(restorationFinished||attempts>=80)return;
       attempts+=1;
       setTimeout(waitForApp,75);
     };
