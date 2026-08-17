@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>VTA Edition</title>
+  <script>
+    const target = new URL("./", window.location.href);
+    target.searchParams.set("tenant", "vta");
+    window.location.replace(target.toString());
+  </script>
+</head>
+<body>
+  <p>VTA Edition wird geöffnet …</p>
+  <noscript><a href="./?tenant=vta">VTA Edition öffnen</a></noscript>
+</body>
+</html>
