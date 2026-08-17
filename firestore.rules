@@ -11,12 +11,12 @@ service cloud.firestore {
     }
 
     function accountActive() {
-      return signedIn()
-        && (!('active' in ownUserData()) || ownUserData().active == true);
+      return signedIn() && ownUserData().get('active', true) == true;
     }
 
     function isAdmin() {
-      return accountActive() && ownUserData().role == 'admin';
+      return accountActive()
+        && ownUserData().get('role', ownUserData().get('role:', '')) == 'admin';
     }
 
     match /users/{userId} {
