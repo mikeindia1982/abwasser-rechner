@@ -24,6 +24,12 @@ export const TENANT_CONFIGS = Object.freeze({
     shortName: "VTA",
     brandMark: "VTA",
     companyName: "VTA Austria GmbH",
+    organization: Object.freeze({
+      id: "org-vta-austria",
+      name: "VTA Austria GmbH",
+      type: "company",
+      editionId: "vta",
+    }),
     slogan: "Digitale Anlagen- und Vertriebsunterstützung für die Abwassertechnik",
     footer:
       "Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.",
@@ -67,6 +73,12 @@ export const TENANT_CONFIGS = Object.freeze({
     shortName: "Abwasser",
     brandMark: "AP",
     companyName: "",
+    organization: Object.freeze({
+      id: "org-platform-demo",
+      name: "Demo-Organisation",
+      type: "demo",
+      editionId: "platform",
+    }),
     slogan: "Herstellerneutrale Plattform für Wasser- und Abwassertechnik",
     footer:
       "Herstellerneutrale Fachanwendung. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sind separat zu prüfen.",
