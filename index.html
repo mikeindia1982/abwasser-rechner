@@ -16,10 +16,46 @@
   <link rel="stylesheet" href="visits-ui.css?v=0.11.0-alpha.28">
   <link rel="stylesheet" href="demo-workspace.css?v=0.11.0-alpha.29">
   <link rel="stylesheet" href="navigation-enhancements.css?v=0.11.0-alpha.37">
+  <link rel="stylesheet" href="firebase-auth.css?v=0.11.0-alpha.40">
   <title>VTA Copilot v0.11.0-alpha.9</title>
 </head>
 <body>
-<div class="app-layout">
+<div id="firebaseAuthGate" class="firebase-auth-gate" aria-live="polite">
+  <section class="firebase-auth-card" aria-labelledby="firebaseAuthTitle">
+    <div class="firebase-auth-brand"><span class="firebase-auth-brand-mark">VTA</span><span><strong>VTA Copilot</strong><small>Sicherer Mitarbeiterzugang</small></span></div>
+    <p class="eyebrow">Anmeldung</p>
+    <h1 id="firebaseAuthTitle">VTA Copilot</h1>
+    <p class="firebase-auth-copy">Melde dich mit deinem freigeschalteten Mitarbeiterkonto an.</p>
+
+    <div id="firebaseAuthLoading" class="firebase-auth-loading">
+      <span class="firebase-auth-spinner" aria-hidden="true"></span>
+      <strong id="firebaseAuthLoadingText">Firebase-Anmeldung wird geprüft …</strong>
+    </div>
+
+    <form id="firebaseLoginForm" class="firebase-login-form" hidden>
+      <label class="firebase-login-field">E-Mail-Adresse<input id="firebaseLoginEmail" type="email" autocomplete="username" inputmode="email" required></label>
+      <label class="firebase-login-field">Passwort<input id="firebaseLoginPassword" type="password" autocomplete="current-password" minlength="6" required></label>
+      <p id="firebaseLoginError" class="firebase-login-error" role="alert"></p>
+      <button id="firebaseLoginSubmit" class="button primary firebase-login-submit" type="submit">Anmelden</button>
+    </form>
+
+    <div id="firebaseAuthIssue" class="firebase-auth-issue" hidden>
+      <strong>Firebase-Verbindung noch nicht vollständig</strong>
+      <p id="firebaseAuthIssueMessage"></p>
+      <div class="firebase-auth-issue-actions">
+        <button id="firebaseAuthRetry" class="button primary" type="button">Erneut prüfen</button>
+        <button id="firebaseAuthLocalFallback" class="button secondary" type="button">Lokale App vorübergehend öffnen</button>
+        <button id="firebaseAuthIssueLogout" class="button secondary" type="button">Abmelden</button>
+      </div>
+    </div>
+
+    <div class="firebase-auth-separator">Präsentation</div>
+    <button id="firebaseOpenDemo" class="firebase-demo-button" type="button">Demo-Modus öffnen</button>
+    <p class="firebase-auth-note">Produktiv- und Demo-Daten bleiben weiterhin getrennte Datenräume.</p>
+  </section>
+</div>
+
+<div class="app-layout" inert>
   <aside id="sidebar" class="sidebar" aria-label="Hauptnavigation">
     <div class="brand-row">
       <button id="homeButton" class="brand-button" type="button" aria-label="Zur Startseite">
@@ -128,6 +164,7 @@
 <script src="js/demo-workspace.js?v=0.11.0-alpha.29"></script>
 <script src="js/navigation-enhancements.js?v=0.11.0-alpha.38"></script>
 <script type="module" src="js/app.js?v=0.11.0-alpha.19"></script>
+<script type="module" src="js/firebase-auth.js?v=0.11.0-alpha.40"></script>
 <script src="js/startup-dashboard-guard.js?v=0.11.0-alpha.37"></script>
 <script src="js/sidebar-tasks.js?v=0.11.0-alpha.39"></script>
 <script src="js/document-review-enhancements.js?v=0.11.0-alpha.23"></script>
