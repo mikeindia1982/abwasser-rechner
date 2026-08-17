@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-preview-alpha47-';
-const CACHE=`${CACHE_PREFIX}v3`;
+const CACHE=`${CACHE_PREFIX}v4`;
 const FILES=[
   "./",
   "./index.html",
@@ -19,7 +19,7 @@ const FILES=[
   "./manifest-platform.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
-  "./js/platform/tenant-preboot.js?v=preview-alpha47-fix1",
+  "./js/platform/tenant-preboot.js?v=preview-alpha47-fix2",
   "./js/platform/tenant-config.js",
   "./js/editions/vta/edition-data.js",
   "./js/editions/platform/edition-data.js",
@@ -31,6 +31,7 @@ const FILES=[
   "./js/demo-workspace.js?v=0.11.0-alpha.29",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/app.js?v=0.11.0-alpha.19",
+  "./js/preview-task-mirror.js?v=preview-alpha47-taskfix1",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
