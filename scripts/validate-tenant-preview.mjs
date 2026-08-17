@@ -34,12 +34,17 @@ assert.ok(vta.app.seedProducts.length>=2,'VTA edition must retain its configured
 
 assert.ok(preboot.includes("PREVIEW_PREFIX = 'abwasser-preview-alpha47'"),'Preview localStorage namespace missing');
 assert.ok(preboot.includes("tenantId === 'vta'"),'VTA clone isolation missing');
+assert.ok(preboot.includes("cleanupMarkerKey = 'abwasser-platform-demo-cleanup-v01'"),'Neutral demo cleanup migration missing');
+assert.ok(preboot.includes("legacyDemoPlantId = 'demo-plant-001'"),'Legacy demo plant id cleanup missing');
+assert.ok(preboot.includes("stored.filter(plant => plant?.id !== legacyDemoPlantId)"),'Legacy demo plant removal missing');
 assert.ok(database.includes('preview-alpha47-${tenantId}'),'Preview IndexedDB isolation missing');
 assert.ok(index.includes('js/platform/tenant-preboot.js'),'Tenant preboot missing');
 assert.ok(index.indexOf('tenant-preboot.js')<index.indexOf('js/app.js'),'Tenant preboot must load before app');
 assert.ok(!index.includes('src="js/firebase-auth.js'),'Firebase auth must not execute in preview');
 assert.ok(!index.includes('src="js/firebase-task-sync.js'),'Firebase task sync must not execute in preview');
 assert.ok(worker.includes("CACHE_PREFIX='abwasser-preview-alpha47-'"),'Preview cache prefix missing');
+assert.ok(worker.includes("CACHE=`${CACHE_PREFIX}v3`"),'Preview cache version must refresh stale tenant scripts');
+assert.ok(worker.includes('tenant-preboot.js?v=preview-alpha47-fix1'),'Neutral cleanup preboot must be cache-busted');
 assert.ok(worker.includes('key.startsWith(CACHE_PREFIX)&&key!==CACHE'),'Preview worker must only delete its own caches');
 assert.ok(worker.includes('./js/editions/vta/edition-data.js'),'VTA edition data must be available offline');
 assert.ok(worker.includes('./js/editions/platform/edition-data.js'),'Platform edition data must be available offline');
@@ -58,4 +63,4 @@ assert.ok(demoLoader.includes("__ABWASSER_PREVIEW_TENANT__==='platform')return")
 assert.ok(demoOrganization.includes("__ABWASSER_PREVIEW_TENANT__==='platform')return"),'VTA demo organization must be disabled in neutral preview');
 assert.ok(documentRepository.includes("tenantDatabaseName('abwasser-product-documents-v1')"),'Legacy PDF database must be isolated in preview');
 
-console.log('Tenant preview validation passed with neutral core boundaries.');
+console.log('Tenant preview validation passed with neutral core boundaries and stale demo cleanup.');
