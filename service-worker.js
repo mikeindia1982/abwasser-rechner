@@ -1,4 +1,5 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.47';
+const CACHE_PREFIX='abwasser-preview-alpha47-';
+const CACHE=`${CACHE_PREFIX}v1`;
 const FILES=[
   "./",
   "./index.html",
@@ -14,19 +15,20 @@ const FILES=[
   "./firebase-task-sync.css?v=0.11.0-alpha.45",
   "./firebase-task-assignment-ui.css?v=0.11.0-alpha.47",
   "./demo-organization.css?v=0.11.0-alpha.33",
-  "./manifest.webmanifest",
+  "./manifest-vta.webmanifest",
+  "./manifest-platform.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
+  "./js/platform/tenant-preboot.js?v=preview-alpha47",
+  "./js/platform/tenant-config.js",
+  "./js/platform/tenant-runtime.js?v=preview-alpha47",
+  "./js/platform/organization-bootstrap.js?v=preview-alpha47",
+  "./js/repositories/organization-repository.js",
   "./js/demo-organization-loader.js?v=0.11.0-alpha.33",
   "./js/demo-organization.js?v=0.11.0-alpha.33",
   "./js/demo-workspace.js?v=0.11.0-alpha.29",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/app.js?v=0.11.0-alpha.19",
-  "./js/firebase-config.js?v=0.11.0-alpha.42",
-  "./js/firebase-auth.js?v=0.11.0-alpha.42",
-  "./js/firebase-plant-migration.js?v=0.11.0-alpha.43",
-  "./js/firebase-task-sync.js?v=0.11.0-alpha.45",
-  "./js/firebase-task-assignment-ui.js?v=0.11.0-alpha.47",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
@@ -59,47 +61,44 @@ const FILES=[
   "./js/process/process-schema-3d.js"
 ];
 
-self.addEventListener("install",event=>{
+self.addEventListener('install',event=>{
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));
 });
 
-self.addEventListener("activate",event=>{
+self.addEventListener('activate',event=>{
   event.waitUntil(Promise.all([
     self.clients.claim(),
     caches.keys().then(keys=>Promise.all(
-      keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))
+      keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE).map(key=>caches.delete(key))
     ))
   ]));
 });
 
-self.addEventListener("fetch",event=>{
-  if(event.request.method!=="GET") return;
-
-  const isNavigation=event.request.mode==="navigate";
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET')return;
+  const isNavigation=event.request.mode==='navigate';
   if(isNavigation){
     event.respondWith(
       fetch(event.request)
         .then(response=>{
-          const copy=response.clone();
-          caches.open(CACHE).then(cache=>cache.put("./index.html",copy));
+          if(response.ok){
+            const copy=response.clone();
+            caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+          }
           return response;
         })
-        .catch(()=>caches.match("./index.html"))
+        .catch(async()=>await caches.match(event.request)||caches.match('./index.html'))
     );
     return;
   }
-
   event.respondWith(
-    caches.match(event.request).then(cached=>{
-      if(cached) return cached;
-      return fetch(event.request).then(response=>{
-        if(response.ok){
-          const copy=response.clone();
-          caches.open(CACHE).then(cache=>cache.put(event.request,copy));
-        }
-        return response;
-      });
-    })
+    caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
+      if(response.ok){
+        const copy=response.clone();
+        caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+      }
+      return response;
+    }))
   );
 });
