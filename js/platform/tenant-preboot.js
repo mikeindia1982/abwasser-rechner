@@ -56,10 +56,28 @@
     remove.forEach(key => nativeRemove.call(this, key));
   };
 
-  // Neutral edition starts without VTA profile/products if no preview data exists.
+  // Neutral edition starts without vendor profile/products and removes the
+  // built-in VTA demo plant left behind by older preview builds.
   if (tenantId === 'platform') {
     const profileKey = 'abwasser-employee-profile-v087';
     const productKey = 'abwasser-products-v092';
+    const plantsKey = 'abwasser-plants-v07';
+    const activePlantKey = 'abwasser-active-plant-v07';
+    const cleanupMarkerKey = 'abwasser-platform-demo-cleanup-v01';
+    const legacyDemoPlantId = 'demo-plant-001';
+
+    if (localStorage.getItem(cleanupMarkerKey) !== '1') {
+      try {
+        const stored = JSON.parse(localStorage.getItem(plantsKey) || '[]');
+        if (Array.isArray(stored)) {
+          const filtered = stored.filter(plant => plant?.id !== legacyDemoPlantId);
+          if (filtered.length !== stored.length) localStorage.setItem(plantsKey, JSON.stringify(filtered));
+        }
+      } catch {}
+      if (localStorage.getItem(activePlantKey) === legacyDemoPlantId) localStorage.removeItem(activePlantKey);
+      localStorage.setItem(cleanupMarkerKey, '1');
+    }
+
     if (localStorage.getItem(profileKey) === null) {
       localStorage.setItem(profileKey, JSON.stringify({
         schemaVersion: 1,
