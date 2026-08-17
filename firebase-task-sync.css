@@ -1,0 +1,24 @@
+.firebase-task-assignee-field{display:flex;flex-direction:column;gap:.18rem;min-width:10.5rem;font-size:.68rem;font-weight:700;color:var(--muted,#667085)}
+.firebase-task-assignee-field select,.firebase-task-assignee select{min-height:2.5rem;border:1px solid rgba(15,76,92,.18);border-radius:.6rem;background:#fff;color:inherit;padding:.42rem .55rem;font:inherit}
+.firebase-task-assignee{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;font-size:.72rem}
+.firebase-task-assignee label{display:flex;align-items:center;gap:.4rem;font-weight:700;color:var(--muted,#667085)}
+.firebase-task-assignee select{min-height:2rem;padding:.28rem .45rem;font-size:.72rem}
+.firebase-task-cloud-chip,.firebase-task-local-chip{display:inline-flex;align-items:center;min-height:1.55rem;padding:.15rem .45rem;border-radius:999px;font-size:.65rem;font-weight:800;letter-spacing:.01em}
+.firebase-task-cloud-chip{background:rgba(15,76,92,.09);color:#0f4c5c}
+.firebase-task-local-chip{background:rgba(180,83,9,.09);color:#92400e}
+.firebase-task-assignee-name{font-weight:700;color:var(--muted,#667085)}
+.firebase-task-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:0 0 1rem;padding:.85rem 1rem;border:1px solid rgba(15,76,92,.12);border-radius:.9rem;background:rgba(255,255,255,.78);box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.firebase-task-toolbar-status{display:flex;align-items:center;gap:.65rem;min-width:0}
+.firebase-task-toolbar-status div{display:flex;flex-direction:column;min-width:0}
+.firebase-task-toolbar-status strong{font-size:.82rem}
+.firebase-task-toolbar-status small{margin-top:.08rem;color:var(--muted,#667085);font-size:.7rem}
+.firebase-task-dot{width:.65rem;height:.65rem;border-radius:50%;flex:none;background:#94a3b8;box-shadow:0 0 0 .22rem rgba(148,163,184,.12)}
+.firebase-task-dot.ok{background:#15803d;box-shadow:0 0 0 .22rem rgba(21,128,61,.12)}
+.firebase-task-dot.error{background:#b91c1c;box-shadow:0 0 0 .22rem rgba(185,28,28,.12)}
+.firebase-task-dot.loading{animation:firebase-task-pulse 1.2s ease-in-out infinite}
+.firebase-task-toolbar-actions{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}
+.firebase-task-filter{display:inline-flex;padding:.2rem;border-radius:.65rem;background:rgba(15,76,92,.07)}
+.firebase-task-filter button{border:0;border-radius:.5rem;background:transparent;padding:.4rem .65rem;font-size:.72rem;font-weight:800;color:#475569;cursor:pointer}
+.firebase-task-filter button.active{background:#fff;color:#0f4c5c;box-shadow:0 1px 4px rgba(15,23,42,.08)}
+@keyframes firebase-task-pulse{0%,100%{opacity:.45}50%{opacity:1}}
+@media(max-width:760px){.firebase-task-toolbar{align-items:stretch}.firebase-task-toolbar-actions{width:100%;justify-content:space-between}.firebase-task-assignee-field{min-width:100%}.quick-action-form .firebase-task-assignee-field select{width:100%}}
