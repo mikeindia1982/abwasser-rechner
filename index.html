@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0f4c5c">
+  <meta name="application-name" content="Abwasser Rechner">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Abwasser Rechner">
   <link rel="manifest" href="manifest.webmanifest">
@@ -16,10 +17,10 @@
   <aside id="sidebar" class="sidebar" aria-label="Hauptnavigation">
     <div class="brand-row">
       <button id="homeButton" class="brand-button" type="button" aria-label="Zur Startseite">
-        <span class="brand-mark">AR</span>
+        <span class="brand-mark" data-brand-mark>AR</span>
         <span class="brand-copy">
-          <strong>Abwasser Rechner</strong>
-          <small>Version 0.11.0-alpha.9</small>
+          <strong data-brand-app-name>Abwasser Rechner</strong>
+          <small><span data-brand-edition>VTA Edition</span> · Version 0.11.0-alpha.9</small>
         </span>
       </button>
       <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
@@ -106,12 +107,13 @@
       </section>
     </main>
 
-    <footer>
+    <footer data-brand-footer>
       Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
     </footer>
   </div>
 </div>
 <script src="js/qrcode-offline.js"></script>
+<script type="module" src="js/platform/tenant-runtime.js?v=tenant-1"></script>
 <script type="module" src="js/app.js?v=0.11.0-alpha.9"></script>
 </body>
 </html>
