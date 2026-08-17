@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-preview-alpha47-';
-const CACHE=`${CACHE_PREFIX}v1`;
+const CACHE=`${CACHE_PREFIX}v2`;
 const FILES=[
   "./",
   "./index.html",
@@ -21,6 +21,8 @@ const FILES=[
   "./icon-512.png",
   "./js/platform/tenant-preboot.js?v=preview-alpha47",
   "./js/platform/tenant-config.js",
+  "./js/editions/vta/edition-data.js",
+  "./js/editions/platform/edition-data.js",
   "./js/platform/tenant-runtime.js?v=preview-alpha47",
   "./js/platform/organization-bootstrap.js?v=preview-alpha47",
   "./js/repositories/organization-repository.js",
