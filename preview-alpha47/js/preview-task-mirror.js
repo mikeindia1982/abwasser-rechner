@@ -62,6 +62,10 @@
     </article>`;
   }
 
+  function taskSignature(plant,action){
+    return JSON.stringify([plant?.master?.name||'',action?.title||'',action?.taskType||'general',action?.priority||'normal',action?.dueDate||'',action?.assignedToName||'']);
+  }
+
   function ensureNotice(list,count){
     let notice=list.parentElement?.querySelector?.('[data-preview-task-mirror-notice]');
     if(!count){notice?.remove();return}
@@ -69,9 +73,9 @@
       notice=document.createElement('div');
       notice.className='empty-panel compact';
       notice.dataset.previewTaskMirrorNotice=BUILD;
+      notice.innerHTML='<p><strong>Preview-Aufgaben:</strong> Aktuelle lokale Aufgaben aus dem produktiven VTA-Datenraum werden hier nur lesend gespiegelt. Änderungen in der Preview bleiben getrennt.</p>';
       list.parentElement?.insertBefore(notice,list);
     }
-    notice.innerHTML='<p><strong>Preview-Aufgaben:</strong> Aktuelle lokale Aufgaben aus dem produktiven VTA-Datenraum werden hier nur lesend gespiegelt. Änderungen in der Preview bleiben getrennt.</p>';
   }
 
   function reconcile(){
@@ -79,14 +83,34 @@
     const list=document.querySelector('.global-task-list');
     if(!list)return;
 
-    list.querySelectorAll('[data-preview-productive-task]').forEach(card=>card.remove());
-
-    const existingIds=new Set([...list.querySelectorAll('[data-action-id]')].map(card=>String(card.dataset.actionId||'')));
+    const localIds=new Set([...list.querySelectorAll('[data-action-id]:not([data-preview-productive-task])')].map(card=>String(card.dataset.actionId||'')));
     const mirrored=productiveTasks()
-      .filter(({action})=>String(action?.id||'')&&!existingIds.has(String(action.id)))
+      .filter(({action})=>String(action?.id||'')&&!localIds.has(String(action.id)))
       .sort((a,b)=>String(a.action.dueDate||'9999-12-31').localeCompare(String(b.action.dueDate||'9999-12-31'))||String(a.action.title||'').localeCompare(String(b.action.title||'')));
+    const desired=new Map(mirrored.map(item=>[String(item.action.id),item]));
 
-    for(const {plant,action} of mirrored)list.insertAdjacentHTML('beforeend',cardHtml(plant,action));
+    list.querySelectorAll('[data-preview-productive-task]').forEach(card=>{
+      const id=String(card.dataset.actionId||'');
+      const item=desired.get(id);
+      if(!item){card.remove();return}
+      const signature=taskSignature(item.plant,item.action);
+      if(card.dataset.previewTaskSignature!==signature){
+        const holder=document.createElement('div');
+        holder.innerHTML=cardHtml(item.plant,item.action);
+        const replacement=holder.firstElementChild;
+        replacement.dataset.previewTaskSignature=signature;
+        card.replaceWith(replacement);
+      }
+      desired.delete(id);
+    });
+
+    for(const {plant,action} of desired.values()){
+      const holder=document.createElement('div');
+      holder.innerHTML=cardHtml(plant,action);
+      const card=holder.firstElementChild;
+      card.dataset.previewTaskSignature=taskSignature(plant,action);
+      list.append(card);
+    }
 
     const visibleCards=[...list.querySelectorAll('[data-action-id]')];
     list.querySelectorAll('.empty-panel').forEach(panel=>panel.hidden=visibleCards.length>0);
