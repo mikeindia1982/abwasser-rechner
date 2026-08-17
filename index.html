@@ -4,10 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0f4c5c">
+  <meta name="application-name" content="VTA Copilot Preview">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="VTA Copilot">
+  <meta name="apple-mobile-web-app-title" content="VTA Copilot Preview">
+  <script src="js/platform/tenant-preboot.js?v=preview-alpha47"></script>
   <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link id="appManifest" rel="manifest" href="manifest-vta.webmanifest">
+  <script>document.getElementById('appManifest').href=globalThis.__ABWASSER_PREVIEW_TENANT__==='platform'?'manifest-platform.webmanifest':'manifest-vta.webmanifest';</script>
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css?v=0.11.0-alpha.19">
   <link rel="stylesheet" href="document-fixes.css?v=0.11.0-alpha.23">
@@ -20,52 +23,26 @@
   <link rel="stylesheet" href="firebase-plant-migration.css?v=0.11.0-alpha.43">
   <link rel="stylesheet" href="firebase-task-sync.css?v=0.11.0-alpha.45">
   <link rel="stylesheet" href="firebase-task-assignment-ui.css?v=0.11.0-alpha.47">
-  <title>VTA Copilot v0.11.0-alpha.9</title>
+  <title>VTA Copilot Preview</title>
 </head>
 <body>
-<div id="firebaseAuthGate" class="firebase-auth-gate" aria-live="polite">
+<div id="firebaseAuthGate" class="firebase-auth-gate" hidden aria-live="polite">
   <section class="firebase-auth-card" aria-labelledby="firebaseAuthTitle">
-    <div class="firebase-auth-brand"><span class="firebase-auth-brand-mark">VTA</span><span><strong>VTA Copilot</strong><small>Sicherer Mitarbeiterzugang</small></span></div>
-    <p class="eyebrow">Anmeldung</p>
+    <div class="firebase-auth-brand"><span class="firebase-auth-brand-mark">VTA</span><span><strong>VTA Copilot</strong><small>Preview · lokaler Datenraum</small></span></div>
+    <p class="eyebrow">Preview</p>
     <h1 id="firebaseAuthTitle">VTA Copilot</h1>
-    <p class="firebase-auth-copy">Melde dich mit deinem freigeschalteten Mitarbeiterkonto an.</p>
-
-    <div id="firebaseAuthLoading" class="firebase-auth-loading">
-      <span class="firebase-auth-spinner" aria-hidden="true"></span>
-      <strong id="firebaseAuthLoadingText">Firebase-Anmeldung wird geprüft …</strong>
-    </div>
-
-    <form id="firebaseLoginForm" class="firebase-login-form" hidden>
-      <label class="firebase-login-field">E-Mail-Adresse<input id="firebaseLoginEmail" type="email" autocomplete="username" inputmode="email" required></label>
-      <label class="firebase-login-field">Passwort<input id="firebaseLoginPassword" type="password" autocomplete="current-password" minlength="6" required></label>
-      <p id="firebaseLoginError" class="firebase-login-error" role="alert"></p>
-      <button id="firebaseLoginSubmit" class="button primary firebase-login-submit" type="submit">Anmelden</button>
-    </form>
-
-    <div id="firebaseAuthIssue" class="firebase-auth-issue" hidden>
-      <strong>Firebase-Verbindung noch nicht vollständig</strong>
-      <p id="firebaseAuthIssueMessage"></p>
-      <div class="firebase-auth-issue-actions">
-        <button id="firebaseAuthRetry" class="button primary" type="button">Erneut prüfen</button>
-        <button id="firebaseAuthLocalFallback" class="button secondary" type="button">Lokale App vorübergehend öffnen</button>
-        <button id="firebaseAuthIssueLogout" class="button secondary" type="button">Abmelden</button>
-      </div>
-    </div>
-
-    <div class="firebase-auth-separator">Präsentation</div>
-    <button id="firebaseOpenDemo" class="firebase-demo-button" type="button">Demo-Modus öffnen</button>
-    <p class="firebase-auth-note">Produktiv- und Demo-Daten bleiben weiterhin getrennte Datenräume.</p>
+    <p class="firebase-auth-copy">Diese Preview arbeitet ohne produktive Firebase-Synchronisation.</p>
   </section>
 </div>
 
-<div class="app-layout" inert>
+<div class="app-layout">
   <aside id="sidebar" class="sidebar" aria-label="Hauptnavigation">
     <div class="brand-row">
       <button id="homeButton" class="brand-button" type="button" aria-label="Zur Startseite">
         <span class="brand-mark">VTA</span>
         <span class="brand-copy">
           <strong>VTA Copilot</strong>
-          <small>Version 0.11.0-alpha.19</small>
+          <small><span data-brand-edition>VTA Edition</span> · Preview alpha.47</small>
         </span>
       </button>
       <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
@@ -151,13 +128,13 @@
         <aside id="workspace" class="panel workspace">
           <div class="empty-state">
             <h2>Rechner auswählen</h2>
-            <p>Wähle links ein Werkzeug. Eingaben und Ergebnisse bleiben lokal auf deinem Gerät.</p>
+            <p>Wähle links ein Werkzeug. Eingaben und Ergebnisse bleiben lokal in diesem Preview-Datenraum.</p>
           </div>
         </aside>
       </section>
     </main>
 
-    <footer>
+    <footer data-brand-footer>
       Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
     </footer>
   </div>
@@ -166,11 +143,9 @@
 <script src="js/demo-organization-loader.js?v=0.11.0-alpha.33"></script>
 <script src="js/demo-workspace.js?v=0.11.0-alpha.29"></script>
 <script src="js/navigation-enhancements.js?v=0.11.0-alpha.38"></script>
+<script type="module" src="js/platform/tenant-runtime.js?v=preview-alpha47"></script>
+<script type="module" src="js/platform/organization-bootstrap.js?v=preview-alpha47"></script>
 <script type="module" src="js/app.js?v=0.11.0-alpha.19"></script>
-<script type="module" src="js/firebase-auth.js?v=0.11.0-alpha.42"></script>
-<script type="module" src="js/firebase-plant-migration.js?v=0.11.0-alpha.43"></script>
-<script type="module" src="js/firebase-task-sync.js?v=0.11.0-alpha.45"></script>
-<script type="module" src="js/firebase-task-assignment-ui.js?v=0.11.0-alpha.47"></script>
 <script src="js/startup-dashboard-guard.js?v=0.11.0-alpha.37"></script>
 <script src="js/sidebar-tasks.js?v=0.11.0-alpha.39"></script>
 <script src="js/document-review-enhancements.js?v=0.11.0-alpha.23"></script>
