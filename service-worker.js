@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.40';
+const CACHE='abwasser-rechner-v0.11.0-alpha.41';
 const FILES=[
   "./",
   "./index.html",
