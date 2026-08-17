@@ -1,7 +1,9 @@
 import {STORES,getAll,getOne,putOne,deleteOne,transaction,count} from '../db/database.js';
 import {audit} from '../services/audit-service.js';
 const LEGACY_KEY='abwasser-documents-v010';
-const LEGACY_FILE_DB='abwasser-product-documents-v1';
+const LEGACY_FILE_DB=globalThis.AbwasserPlatform?.preview
+  ? globalThis.AbwasserPlatform.tenantDatabaseName('abwasser-product-documents-v1')
+  : 'abwasser-product-documents-v1';
 async function legacyFile(id){
   return new Promise(resolve=>{const q=indexedDB.open(LEGACY_FILE_DB,1);q.onerror=()=>resolve(null);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('files'))q.result.createObjectStore('files')};q.onsuccess=()=>{const db=q.result;const r=db.transaction('files','readonly').objectStore('files').get(id);r.onsuccess=()=>{const v=r.result;resolve(v?.blob||v||null);db.close()};r.onerror=()=>{resolve(null);db.close()}}});
 }
