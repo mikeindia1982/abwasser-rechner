@@ -1,7 +1,7 @@
 export const FIREBASE_SDK_VERSION='12.16.0';
 
 export const firebaseConfig=Object.freeze({
-  apiKey:'AIzaSyCScfja2z2TmmRc9QBCthGsf25k6Bf4yDo',
+  apiKey:'AIzaSyCscfja2z2TmmRc9QBCthGsf25k6Bf4yDo',
   authDomain:'vta-copilot.firebaseapp.com',
   projectId:'vta-copilot',
   storageBucket:'vta-copilot.firebasestorage.app',
