@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function accountActive() {
+      return signedIn() && ownUserData().get('active', true) == true;
+    }
+
+    function role() {
+      return ownUserData().get('role', ownUserData().get('role:', ''));
+    }
+
+    function isAdmin() {
+      return accountActive() && role() == 'admin';
+    }
+
+    function isManager() {
+      return accountActive() && (role() == 'admin' || role() == 'teamlead');
+    }
+
+    match /users/{userId} {
+      allow read: if accountActive()
+        && (request.auth.uid == userId || isManager());
+      allow create, update, delete: if false;
+    }
+
+    match /plants/{plantId} {
+      allow read: if accountActive();
+      allow create: if isAdmin()
+        && request.resource.data.id == plantId
+        && request.resource.data.cloud.version == 1
+        && request.resource.data.cloud.source == 'local-migration'
+        && request.resource.data.cloud.migratedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /tasks/{taskId} {
+      allow read: if accountActive()
+        && (isManager() || resource.data.assignedToUserId == request.auth.uid);
+
+      allow create: if accountActive()
+        && request.resource.data.id == taskId
+        && request.resource.data.cloudVersion == 1
+        && request.resource.data.createdByUserId == request.auth.uid
+        && (isManager() || request.resource.data.assignedToUserId == request.auth.uid);
+
+      allow update: if isManager()
+        || (accountActive()
+          && resource.data.assignedToUserId == request.auth.uid
+          && request.resource.data.assignedToUserId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'completedAt',
+            'completionOutcome',
+            'updatedAt',
+            'updatedByUserId'
+          ]));
+
+      allow delete: if isManager();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

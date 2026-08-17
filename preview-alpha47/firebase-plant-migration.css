@@ -1,0 +1,49 @@
+.firebase-plant-migration-dialog{
+  width:min(920px,calc(100vw - 28px));
+  max-height:min(88vh,900px);
+  padding:0;
+  border:0;
+  border-radius:22px;
+  box-shadow:0 28px 80px rgba(15,43,54,.28);
+  background:#fff;
+}
+.firebase-plant-migration-dialog::backdrop{background:rgba(4,25,33,.55);backdrop-filter:blur(3px)}
+.firebase-plant-migration-card{display:flex;flex-direction:column;max-height:min(88vh,900px)}
+.firebase-plant-migration-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:24px 26px 10px}
+.firebase-plant-migration-head h2{margin:.2rem 0 0;font-size:1.45rem}
+.firebase-plant-migration-close{border:0;background:transparent;font-size:1.8rem;line-height:1;cursor:pointer;color:#4a5c63;padding:2px 6px}
+.firebase-plant-migration-intro{margin:0;padding:0 26px 18px;color:#55676d}
+.firebase-plant-migration-content{overflow:auto;padding:0 26px 8px}
+.firebase-plant-migration-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.firebase-plant-migration-summary article{border:1px solid #dbe5e8;border-radius:14px;padding:14px;background:#f8fbfc;display:flex;flex-direction:column;gap:3px}
+.firebase-plant-migration-summary article.ok{background:#f2fbf6;border-color:#c7e7d2}
+.firebase-plant-migration-summary article.warn{background:#fff8ec;border-color:#efd7a9}
+.firebase-plant-migration-summary strong{font-size:1.55rem;line-height:1;color:#173c48}
+.firebase-plant-migration-summary span{font-size:.82rem;color:#65777d}
+.firebase-plant-migration-note{padding:13px 14px;margin:0 0 16px;border-radius:12px;background:#eef6f8;color:#294c57;font-size:.9rem;line-height:1.45}
+.firebase-plant-migration-list{display:flex;flex-direction:column;gap:9px}
+.firebase-plant-migration-row{display:grid;grid-template-columns:76px 1fr;gap:12px;border:1px solid #dce6e9;border-radius:14px;padding:13px 14px;background:#fff}
+.firebase-plant-migration-row.new{border-color:#bfe1cc;background:#fbfefc}
+.firebase-plant-migration-row.conflict{border-color:#ead3a8;background:#fffcf7}
+.firebase-plant-migration-status{align-self:start;display:inline-flex;justify-content:center;border-radius:999px;padding:5px 8px;font-size:.75rem;font-weight:700;background:#edf2f4;color:#486068}
+.firebase-plant-migration-row.new .firebase-plant-migration-status{background:#e1f4e8;color:#24603a}
+.firebase-plant-migration-row.conflict .firebase-plant-migration-status{background:#fff0d5;color:#815b18}
+.firebase-plant-migration-row strong{display:block;color:#183d49}
+.firebase-plant-migration-row small{display:block;margin-top:2px;color:#6b7c82}
+.firebase-plant-migration-row p{margin:5px 0 0;color:#53666c;font-size:.86rem}
+.firebase-plant-migration-footnote{font-size:.82rem;color:#6c7d83;line-height:1.45;margin:14px 2px 4px}
+.firebase-plant-migration-loading,.firebase-plant-migration-empty,.firebase-plant-migration-error{padding:24px;border:1px dashed #cbd9dd;border-radius:14px;color:#566a71;text-align:center}
+.firebase-plant-migration-error{border-style:solid;border-color:#e7c3bd;background:#fff7f5;color:#7b3428;text-align:left}
+.firebase-plant-migration-error p{margin:.45rem 0 0}
+.firebase-plant-migration-actions{display:flex;justify-content:flex-end;gap:9px;padding:16px 26px 22px;border-top:1px solid #e6edef;background:#fff}
+.firebase-plant-migration-launcher{font-weight:650}
+@media (max-width:700px){
+  .firebase-plant-migration-dialog{width:calc(100vw - 14px);max-height:94vh;border-radius:18px}
+  .firebase-plant-migration-card{max-height:94vh}
+  .firebase-plant-migration-head{padding:18px 18px 8px}
+  .firebase-plant-migration-intro,.firebase-plant-migration-content{padding-left:18px;padding-right:18px}
+  .firebase-plant-migration-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .firebase-plant-migration-row{grid-template-columns:64px 1fr;padding:11px}
+  .firebase-plant-migration-actions{padding:13px 18px 18px;flex-wrap:wrap}
+  .firebase-plant-migration-actions .button{flex:1 1 140px}
+}

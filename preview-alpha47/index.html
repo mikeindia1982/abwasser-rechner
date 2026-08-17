@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f4c5c">
+  <meta name="application-name" content="VTA Copilot Preview">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="VTA Copilot Preview">
+  <script src="js/platform/tenant-preboot.js?v=preview-alpha47"></script>
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link id="appManifest" rel="manifest" href="manifest-vta.webmanifest">
+  <script>document.getElementById('appManifest').href=globalThis.__ABWASSER_PREVIEW_TENANT__==='platform'?'manifest-platform.webmanifest':'manifest-vta.webmanifest';</script>
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=0.11.0-alpha.19">
+  <link rel="stylesheet" href="document-fixes.css?v=0.11.0-alpha.23">
+  <link rel="stylesheet" href="visit-guide.css?v=0.11.0-alpha.24">
+  <link rel="stylesheet" href="visit-report.css?v=0.11.0-alpha.25">
+  <link rel="stylesheet" href="visits-ui.css?v=0.11.0-alpha.28">
+  <link rel="stylesheet" href="demo-workspace.css?v=0.11.0-alpha.29">
+  <link rel="stylesheet" href="navigation-enhancements.css?v=0.11.0-alpha.37">
+  <link rel="stylesheet" href="firebase-auth.css?v=0.11.0-alpha.40">
+  <link rel="stylesheet" href="firebase-plant-migration.css?v=0.11.0-alpha.43">
+  <link rel="stylesheet" href="firebase-task-sync.css?v=0.11.0-alpha.45">
+  <link rel="stylesheet" href="firebase-task-assignment-ui.css?v=0.11.0-alpha.47">
+  <title>VTA Copilot Preview</title>
+</head>
+<body>
+<div id="firebaseAuthGate" class="firebase-auth-gate" hidden aria-live="polite">
+  <section class="firebase-auth-card" aria-labelledby="firebaseAuthTitle">
+    <div class="firebase-auth-brand"><span class="firebase-auth-brand-mark">VTA</span><span><strong>VTA Copilot</strong><small>Preview · lokaler Datenraum</small></span></div>
+    <p class="eyebrow">Preview</p>
+    <h1 id="firebaseAuthTitle">VTA Copilot</h1>
+    <p class="firebase-auth-copy">Diese Preview arbeitet ohne produktive Firebase-Synchronisation.</p>
+  </section>
+</div>
+
+<div class="app-layout">
+  <aside id="sidebar" class="sidebar" aria-label="Hauptnavigation">
+    <div class="brand-row">
+      <button id="homeButton" class="brand-button" type="button" aria-label="Zur Startseite">
+        <span class="brand-mark">VTA</span>
+        <span class="brand-copy">
+          <strong>VTA Copilot</strong>
+          <small><span data-brand-edition>VTA Edition</span> · Preview alpha.47</small>
+        </span>
+      </button>
+      <button id="sidebarClose" class="icon-button sidebar-close" type="button" aria-label="Menü schließen">×</button>
+    </div>
+
+    <nav class="global-navigation" aria-label="Hauptbereiche">
+      <button class="global-nav-item active" type="button" data-global-view="today"><span>⌂</span><strong>Heute</strong></button>
+      <button class="global-nav-item" type="button" data-primary-view="plants"><span>KA</span><strong>Anlagen</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="appointments"><span>□</span><strong>Termine</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="tasks-global"><span>✓</span><strong>Aufgaben</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="documents"><span>📚</span><strong>Dokumente</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="products"><span>🧪</span><strong>Produkte</strong></button>
+      <button class="global-nav-item" type="button" data-global-view="tenders"><span>⚑</span><strong>Ausschreibungsradar</strong><small id="tenderUnreadBadge" class="nav-pill hidden">0</small></button>
+      <button class="global-nav-item" type="button" data-primary-view="calculators"><span>∑</span><strong>Rechner</strong></button>
+      <button id="demoOrganizationLauncher" class="global-nav-item hidden" type="button"><span>▦</span><strong>Demo-Organisation</strong><small>Pitch</small></button>
+    </nav>
+
+    <section class="plant-context">
+      <label for="activePlantSelect">Aktive Anlage</label>
+      <select id="activePlantSelect"></select>
+      <div class="plant-context-actions">
+        <button id="managePlantsButton" type="button">Anlagen verwalten</button>
+        <button id="newPlantButton" type="button">＋</button>
+      </div>
+    </section>
+
+    <div class="sidebar-search">
+      <input id="searchInput" type="search" placeholder="Rechner suchen">
+      <button id="clearSearch" type="button" aria-label="Suche löschen">×</button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <details class="sidebar-more">
+        <summary>Mehr &amp; Einstellungen</summary>
+        <button class="global-nav-item" type="button" data-global-view="projects"><span>↗</span><strong>Optimierungsprojekte</strong><small>vorbereitet</small></button>
+        <button class="global-nav-item" type="button" data-global-view="reports"><span>▥</span><strong>Berichte</strong><small>vorbereitet</small></button>
+        <button id="profileMenuButton" class="side-action" type="button">👤 Mitarbeiterprofil</button>
+        <button id="favoriteFilter" class="side-action" type="button">★ Rechner-Favoriten</button>
+        <button class="side-action" type="button" data-global-view="backup">💾 Backup</button>
+        <button id="exportPlantButton" class="side-action" type="button">Anlage exportieren</button>
+        <label class="side-action file-label">Anlage importieren<input id="importPlantInput" type="file" accept=".json,application/json"></label>
+        <button class="side-action" type="button" data-global-view="settings">⚙ Einstellungen</button>
+        <button class="side-action" type="button" data-global-view="system">ℹ Info &amp; System</button>
+        <button id="installButton" class="side-action hidden" type="button">App installieren</button>
+      </details>
+    </div>
+  </aside>
+
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <div class="content-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="sidebarOpen" class="icon-button menu-toggle" type="button" aria-label="Menü öffnen">☰</button>
+        <button id="breadcrumbHome" class="breadcrumb-home" type="button">Startseite</button>
+        <span id="breadcrumbSeparator" class="breadcrumb-separator hidden">›</span>
+        <span id="breadcrumbCurrent" class="breadcrumb-current"></span>
+      </div>
+      <div class="topbar-actions">
+        <span id="activePlantBadge" class="active-plant-badge"></span>
+        <button id="profileButton" class="profile-button" type="button" aria-label="Mitarbeiterprofil öffnen"><span id="profileAvatar">👤</span><span id="profileButtonName">Profil</span></button>
+        <button id="printButton" class="button secondary hidden" type="button">Drucken</button>
+      </div>
+    </header>
+
+    <main id="mainContent" class="main-content">
+      <section id="dashboard" class="dashboard-view"></section>
+      <section id="applicationView" class="application-view hidden"></section>
+
+      <section id="calculatorView" class="calculator-view hidden">
+        <div class="catalog-column">
+          <div class="catalog-header">
+            <div>
+              <p class="eyebrow" id="catalogEyebrow">Werkzeuge</p>
+              <h1 id="catalogTitle">Rechner</h1>
+              <p id="catalogDescription" class="subtitle">Wähle einen Rechner aus.</p>
+            </div>
+            <span id="calculatorCount" class="count"></span>
+          </div>
+          <div id="calculatorCards" class="card-grid"></div>
+        </div>
+
+        <aside id="workspace" class="panel workspace">
+          <div class="empty-state">
+            <h2>Rechner auswählen</h2>
+            <p>Wähle links ein Werkzeug. Eingaben und Ergebnisse bleiben lokal in diesem Preview-Datenraum.</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <footer data-brand-footer>
+      Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
+    </footer>
+  </div>
+</div>
+<script src="js/qrcode-offline.js"></script>
+<script src="js/demo-organization-loader.js?v=0.11.0-alpha.33"></script>
+<script src="js/demo-workspace.js?v=0.11.0-alpha.29"></script>
+<script src="js/navigation-enhancements.js?v=0.11.0-alpha.38"></script>
+<script type="module" src="js/platform/tenant-runtime.js?v=preview-alpha47"></script>
+<script type="module" src="js/platform/organization-bootstrap.js?v=preview-alpha47"></script>
+<script type="module" src="js/app.js?v=0.11.0-alpha.19"></script>
+<script src="js/startup-dashboard-guard.js?v=0.11.0-alpha.37"></script>
+<script src="js/sidebar-tasks.js?v=0.11.0-alpha.39"></script>
+<script src="js/document-review-enhancements.js?v=0.11.0-alpha.23"></script>
+<script src="js/visit-guide-enhancements.js?v=0.11.0-alpha.24"></script>
+<script src="js/visit-report-enhancements.js?v=0.11.0-alpha.25"></script>
+<script src="js/visits-ui-enhancements.js?v=0.11.0-alpha.28"></script>
+</body>
+</html>
