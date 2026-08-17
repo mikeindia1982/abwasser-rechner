@@ -1,10 +1,14 @@
 const BASE_DB_NAME = 'abwasser-rechner-v011';
-const activeTenant = globalThis.AbwasserPlatform?.tenant;
-const useLegacyDatabase = !activeTenant || activeTenant.storage?.preserveLegacyDatabase;
+const TENANT_STORAGE_KEY = 'abwasser-active-tenant-v1';
+const requestedTenant = new URLSearchParams(globalThis.location?.search || '').get('tenant');
+const storedTenant = globalThis.localStorage?.getItem(TENANT_STORAGE_KEY);
+const tenantId = ['vta','platform'].includes(requestedTenant)
+  ? requestedTenant
+  : (['vta','platform'].includes(storedTenant) ? storedTenant : 'vta');
 
-export const DB_NAME = useLegacyDatabase
+export const DB_NAME = tenantId === 'vta'
   ? BASE_DB_NAME
-  : `${BASE_DB_NAME}-${activeTenant.id}`;
+  : `${BASE_DB_NAME}-${tenantId}`;
 
 export const DB_VERSION = 1;
 export const STORES = Object.freeze({
