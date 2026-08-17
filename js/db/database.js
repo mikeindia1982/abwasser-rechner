@@ -1,12 +1,8 @@
 const BASE_DB_NAME='abwasser-rechner-v011';
-const TENANT_STORAGE_KEY='abwasser-active-tenant-v1';
 const requestedTenant=new URLSearchParams(globalThis.location?.search||'').get('tenant');
-const storedTenant=globalThis.localStorage?.getItem(TENANT_STORAGE_KEY);
-const tenantId=['vta','platform'].includes(requestedTenant)
-  ? requestedTenant
-  : (['vta','platform'].includes(storedTenant)?storedTenant:'vta');
+const tenantId=requestedTenant==='platform'?'platform':'vta';
 
-export const DB_NAME=tenantId==='vta'?BASE_DB_NAME:`${BASE_DB_NAME}-${tenantId}`;
+export const DB_NAME=`${BASE_DB_NAME}-preview-alpha47-${tenantId}`;
 export const DB_VERSION=3;
 export const STORES=Object.freeze({
   documents:'documents',files:'files',products:'products',plants:'plants',customers:'customers',
