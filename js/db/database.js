@@ -1,4 +1,10 @@
-export const DB_NAME = 'abwasser-rechner-v011';
+const BASE_DB_NAME = 'abwasser-rechner-v011';
+const activeTenant = globalThis.AbwasserPlatform?.tenant;
+
+export const DB_NAME = activeTenant?.storage?.preserveLegacyDatabase
+  ? BASE_DB_NAME
+  : `${BASE_DB_NAME}-${activeTenant?.id || 'platform'}`;
+
 export const DB_VERSION = 1;
 export const STORES = Object.freeze({
   documents:'documents', files:'files', products:'products', plants:'plants', customers:'customers',
