@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.55-openmaps1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.56-commercial1`;
 const FILES=[
   "./",
   "./index.html",
@@ -36,6 +36,7 @@ const FILES=[
   "./js/sales-workspace-ui.js?v=0.11.0-alpha.52",
   "./js/sales-offers-ui.js?v=0.11.0-alpha.52",
   "./js/field-sales-dashboard.js?v=0.11.0-alpha.53",
+  "./js/customer-supply-intelligence.js?v=0.11.0-alpha.56",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
