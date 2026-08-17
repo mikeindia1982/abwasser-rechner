@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.54';
+const CACHE='abwasser-rechner-v0.11.0-alpha.55-openmaps1';
 const FILES=[
   "./",
   "./index.html",
@@ -25,6 +25,7 @@ const FILES=[
   "./js/demo-workspace.js?v=0.11.0-alpha.29",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/app.js?v=0.11.0-alpha.19",
+  "./js/open-map-provider.js?v=0.11.0-alpha.55",
   "./js/firebase-config.js?v=0.11.0-alpha.42",
   "./js/firebase-auth.js?v=0.11.0-alpha.42",
   "./js/firebase-plant-migration.js?v=0.11.0-alpha.43",
@@ -77,9 +78,6 @@ self.addEventListener("activate",event=>{
     const keys=await caches.keys();
     await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
 
-    // Nach einem neuen Release darf eine bereits geöffnete PWA nicht auf der
-    // vorherigen HTML-/JS-Generation stehen bleiben. Alle offenen Fenster werden
-    // einmal neu navigiert; Fehler einzelner Clients dürfen die Aktivierung nicht blockieren.
     const clients=await self.clients.matchAll({type:"window",includeUncontrolled:true});
     await Promise.all(clients.map(async client=>{
       try{await client.navigate(client.url)}catch(error){console.warn("PWA-Client konnte nach Update nicht neu geladen werden",error)}
@@ -90,8 +88,6 @@ self.addEventListener("activate",event=>{
 self.addEventListener("fetch",event=>{
   if(event.request.method!=="GET") return;
 
-  // Die isolierte Tenant-Preview besitzt einen eigenen Service Worker.
-  // Root-PWA und Preview dürfen sich weder Navigation noch Offline-Cache teilen.
   const requestUrl=new URL(event.request.url);
   const previewPath=new URL("./preview-alpha47/",self.registration.scope).pathname;
   if(requestUrl.pathname.startsWith(previewPath)) return;
