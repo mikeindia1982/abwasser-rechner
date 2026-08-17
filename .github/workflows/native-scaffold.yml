@@ -5,6 +5,7 @@ on:
     branches: [develop]
     paths:
       - 'package.json'
+      - 'package-lock.json'
       - 'capacitor.config.json'
       - '.nvmrc'
       - 'scripts/**'
@@ -18,6 +19,7 @@ on:
   pull_request:
     paths:
       - 'package.json'
+      - 'package-lock.json'
       - 'capacitor.config.json'
       - '.nvmrc'
       - 'scripts/**'
@@ -41,8 +43,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Capacitor dependencies
-        run: npm install --package-lock=false --ignore-scripts
+          cache: npm
+      - name: Install locked Capacitor dependencies
+        run: npm ci --ignore-scripts
       - name: Native scaffold tests
         run: npm run test:native-scaffold
       - name: Build native web bundle
