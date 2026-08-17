@@ -18,7 +18,15 @@
     const style = document.createElement("style");
     style.id = "sidebarTaskPreviewStyles";
     style.textContent = `
-      .sidebar-task-nav { position: relative; }
+      .sidebar-task-nav {
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
+      }
+      .sidebar-task-nav.active {
+        background: rgba(255,255,255,.14) !important;
+        color: #fff;
+      }
       .global-nav-item > .sidebar-task-count {
         margin-left: auto;
         width: auto;
@@ -33,10 +41,13 @@
         font-size: .72rem;
         font-weight: 800;
         line-height: 1;
+        pointer-events: none;
       }
       .global-nav-item > .sidebar-task-count[hidden] { display: none; }
       .sidebar-task-preview {
-        margin: -.18rem .55rem .55rem 2.5rem;
+        position: relative;
+        z-index: 1;
+        margin: 0 .55rem .55rem 2.5rem;
         padding: .35rem 0 .2rem;
         border-left: 1px solid rgba(255,255,255,.14);
       }
@@ -153,6 +164,27 @@
     return overdue ? `Überfällig · ${label}` : `Fällig ${label}`;
   }
 
+  function bindTaskTabActivation(navButton) {
+    if (!navButton || navButton.dataset.sidebarTaskTabBound === "1") return;
+    navButton.dataset.sidebarTaskTabBound = "1";
+
+    // Der Aufgaben-Preview hängt direkt unter demselben Navigationseintrag. Auf
+    // Safari/PWA kann dessen DOM-Dekoration den normalen onclick-Pfad unzuverlässig
+    // machen. Wir führen den von app.js gesetzten Handler deshalb am Aufgaben-Tab
+    // gezielt in der Capture-Phase genau einmal aus.
+    navButton.addEventListener("click", event => {
+      const appHandler = navButton.onclick;
+      if (typeof appHandler !== "function") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      try {
+        appHandler.call(navButton, event);
+      } catch (error) {
+        console.error("Aufgaben-Navigation konnte nicht geöffnet werden", error);
+      }
+    }, true);
+  }
+
   function openGlobalTasks(actionId = "") {
     const navButton = document.querySelector('[data-global-view="tasks-global"]');
     if (!navButton) return;
@@ -174,6 +206,7 @@
     const navButton = document.querySelector('[data-global-view="tasks-global"]');
     if (!navButton) return null;
     navButton.classList.add("sidebar-task-nav");
+    bindTaskTabActivation(navButton);
 
     let count = navButton.querySelector(".sidebar-task-count");
     if (!count) {
