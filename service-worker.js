@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.50';
+const CACHE='abwasser-rechner-v0.11.0-alpha.51';
 const FILES=[
   "./",
   "./index.html",
@@ -69,12 +69,19 @@ self.addEventListener("install",event=>{
 });
 
 self.addEventListener("activate",event=>{
-  event.waitUntil(Promise.all([
-    self.clients.claim(),
-    caches.keys().then(keys=>Promise.all(
-      keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))
-    ))
-  ]));
+  event.waitUntil((async()=>{
+    await self.clients.claim();
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
+
+    // Nach einem neuen Release darf eine bereits geöffnete PWA nicht auf der
+    // vorherigen HTML-/JS-Generation stehen bleiben. Alle offenen Fenster werden
+    // einmal neu navigiert; Fehler einzelner Clients dürfen die Aktivierung nicht blockieren.
+    const clients=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+    await Promise.all(clients.map(async client=>{
+      try{await client.navigate(client.url)}catch(error){console.warn("PWA-Client konnte nach Update nicht neu geladen werden",error)}
+    }));
+  })());
 });
 
 self.addEventListener("fetch",event=>{
