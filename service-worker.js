@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.51';
+const CACHE='abwasser-rechner-v0.11.0-alpha.52';
 const FILES=[
   "./",
   "./index.html",
@@ -13,8 +13,8 @@ const FILES=[
   "./firebase-plant-migration.css?v=0.11.0-alpha.43",
   "./firebase-task-sync.css?v=0.11.0-alpha.45",
   "./firebase-task-assignment-ui.css?v=0.11.0-alpha.47",
-  "./sales-simplified-ui.css?v=0.11.0-alpha.48",
-  "./sales-offers-ui.css?v=0.11.0-alpha.50",
+  "./sales-simplified-ui.css?v=0.11.0-alpha.52",
+  "./sales-offers-ui.css?v=0.11.0-alpha.52",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
   "./icon-192.png",
@@ -29,8 +29,8 @@ const FILES=[
   "./js/firebase-plant-migration.js?v=0.11.0-alpha.43",
   "./js/firebase-task-sync.js?v=0.11.0-alpha.45",
   "./js/firebase-task-assignment-ui.js?v=0.11.0-alpha.47",
-  "./js/sales-simplified-ui-v2.js?v=0.11.0-alpha.49",
-  "./js/sales-offers-ui.js?v=0.11.0-alpha.50",
+  "./js/sales-workspace-ui.js?v=0.11.0-alpha.52",
+  "./js/sales-offers-ui.js?v=0.11.0-alpha.52",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
