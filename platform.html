@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Platform Edition</title>
+  <script>
+    const target = new URL("./", window.location.href);
+    target.searchParams.set("tenant", "platform");
+    window.location.replace(target.toString());
+  </script>
+</head>
+<body>
+  <p>Platform Edition wird geöffnet …</p>
+  <noscript><a href="./?tenant=platform">Platform Edition öffnen</a></noscript>
+</body>
+</html>
