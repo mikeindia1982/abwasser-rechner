@@ -34,7 +34,7 @@ const uid=()=>session()?.user?.uid||session()?.profile?.uid||'';
 const role=()=>session()?.role||'';
 const manager=()=>['admin','teamlead'].includes(role());
 const online=()=>Boolean(session()?.authenticated&&!session()?.offline&&localStorage.getItem(MODE_KEY)!=='demo');
-const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char]||char));
+const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const meta=type=>TASK_TYPES[type]||TASK_TYPES.general;
 
 function readPlants(){
