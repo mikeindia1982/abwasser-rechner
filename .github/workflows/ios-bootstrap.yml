@@ -5,6 +5,7 @@ on:
     branches: [develop]
     paths:
       - 'package.json'
+      - 'package-lock.json'
       - 'capacitor.config.json'
       - 'scripts/**'
       - 'js/native-runtime.js'
@@ -29,12 +30,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Capacitor dependencies
-        run: npm install --package-lock=false --ignore-scripts
+      - name: Install Capacitor dependencies and lock versions
+        run: npm install --ignore-scripts
       - name: Build native web bundle
         run: npm run native:build
-      - name: Generate iOS project
-        run: npx cap add ios
+      - name: Ensure iOS project exists
+        run: |
+          if [ ! -d ios/App/App.xcodeproj ]; then
+            npx cap add ios
+          fi
       - name: Synchronize plugins and web bundle
         run: npx cap sync ios
       - name: Show Xcode version
@@ -49,18 +53,18 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
-      - name: Commit validated iOS project to develop
+      - name: Commit validated native metadata to develop
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
           rm -rf ios/App/App/public
-          git add ios
+          git add ios package-lock.json
           if git diff --cached --quiet; then
-            echo 'Generated iOS project is already current.'
+            echo 'Native project and dependency lock are already current.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'feat: add validated Capacitor iOS project'
+          git commit -m 'chore: sync validated iOS project and dependency lock'
           git push origin HEAD:develop
       - name: Archive generated iOS project for inspection
         uses: actions/upload-artifact@v4
