@@ -1,0 +1,35 @@
+{
+  "name": "vta-copilot",
+  "version": "0.11.0-alpha.57",
+  "private": true,
+  "type": "module",
+  "description": "VTA Copilot web core with Capacitor iOS packaging",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "native:build": "node scripts/build-native.mjs",
+    "native:doctor": "node scripts/native-doctor.mjs",
+    "test:native-scaffold": "node --test tests/native-scaffold.test.mjs",
+    "ios:add": "npm run native:build && npx cap add ios",
+    "ios:copy": "npm run native:build && npx cap copy ios",
+    "ios:sync": "npm run native:build && npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npm run ios:sync && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/local-notifications": "^8.0.0",
+    "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/ios": "^8.0.0"
+  }
+}
