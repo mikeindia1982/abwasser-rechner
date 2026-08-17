@@ -1,4 +1,4 @@
-const CACHE='abwasser-rechner-v0.11.0-alpha.9';
+const CACHE='abwasser-rechner-v0.11.0-alpha.9-tenant1';
 const FILES=[
   "./",
   "./index.html",
@@ -6,6 +6,8 @@ const FILES=[
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
+  "./js/platform/tenant-runtime.js?v=tenant-1",
+  "./js/platform/tenant-config.js",
   "./js/app.js?v=0.11.0-alpha.9",
   "./js/db/database.js",
   "./js/repositories/document-repository.js",
