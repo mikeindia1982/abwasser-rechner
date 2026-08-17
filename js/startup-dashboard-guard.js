@@ -15,9 +15,18 @@
     return localStorage.getItem(ORG_ACTIVE_KEY)==='1';
   }
 
-  function forceTodayAsStartupPage(){
-    if(organizationActive())return;
-    try{localStorage.setItem(GLOBAL_PAGE_KEY,'today')}catch{}
+  function intendedNavigation(){
+    const saved=window.__vtaNavigationRestoreTarget;
+    if(saved?.appNav)return saved;
+    if(history.state?.appNav)return history.state;
+    return null;
+  }
+
+  function homeRequested(){
+    if(organizationActive())return false;
+    const intended=intendedNavigation();
+    if(intended?.appNav)return intended.view==='dashboard';
+    return (localStorage.getItem(GLOBAL_PAGE_KEY)||'today')==='today';
   }
 
   function safeJson(key,fallback){
@@ -104,7 +113,7 @@
   }
 
   function renderRescue(){
-    if(organizationActive())return;
+    if(!homeRequested())return;
     const dashboard=document.querySelector('#dashboard');
     if(!dashboard)return;
     const currentRescue=dashboard.querySelector('[data-startup-dashboard-rescue]');
@@ -184,8 +193,10 @@
   }
 
   function openHome(){
-    if(finished||organizationActive())return;
-    forceTodayAsStartupPage();
+    if(finished||!homeRequested()){
+      finished=true;
+      return;
+    }
     renderRescue();
 
     const home=document.querySelector('#homeButton');
@@ -215,14 +226,13 @@
     });
   }
 
-  // Bei jedem echten Start ist "Heute" die definierte Startseite.
-  forceTodayAsStartupPage();
-
+  // Die sichere Startseite greift nur noch, wenn "Heute" wirklich der zu
+  // restaurierende Zustand ist. Andere Seiten dürfen Reloads unverändert überleben.
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',()=>{renderRescue();openHome()},{once:true});
-  }else{
+    document.addEventListener('DOMContentLoaded',()=>{if(homeRequested()){renderRescue();openHome()}},{once:true});
+  }else if(homeRequested()){
     renderRescue();
     openHome();
   }
-  window.addEventListener('load',()=>{if(!finished)openHome()},{once:true});
+  window.addEventListener('load',()=>{if(!finished&&homeRequested())openHome()},{once:true});
 })();
