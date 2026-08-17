@@ -1,37 +1,33 @@
 /**
- * Zentrale Branding-Konfiguration
- * --------------------------------
- * Alle sichtbaren Informationen der Anwendung
- * werden ausschließlich hier gepflegt.
+ * Kompatibilitätsschicht für bestehende Branding-Aufrufe.
+ *
+ * Die führende Konfiguration liegt in js/platform/tenant-config.js.
+ * Dieses Modul liest den aktiven Mandanten aus der Runtime, damit ältere
+ * Komponenten nicht wieder Unternehmensdaten hart verdrahten.
  */
 
+const tenant = globalThis.AbwasserPlatform?.tenant;
+
 export const BRANDING = {
-  // App
-  appName: "Abwasser-Rechner",
-  shortName: "Abwasser",
-
-  // Firma
-  company: "Krause",
-
-  // Slogan
-  slogan: "Engineering für die Abwassertechnik",
-
-  // Logo
-  logo: "./branding/logo.svg",
-
-  // Farben
+  appName: tenant?.appName || "Abwasser Plattform",
+  shortName: tenant?.shortName || "Abwasser",
+  company: tenant?.companyName || "",
+  slogan:
+    tenant?.slogan ||
+    "Herstellerneutrale Plattform für Wasser- und Abwassertechnik",
+  logo: "./icon-192.png",
   colors: {
-    primary: "#0057B8",
-    primaryDark: "#003B73",
-    accent: "#00A6B2",
-    background: "#F5F7FA",
+    primary: tenant?.colors?.primary || "#0f4c5c",
+    primaryDark: tenant?.colors?.primaryDark || "#0a3945",
+    accent: tenant?.colors?.accent || "#2c7a7b",
+    background: tenant?.colors?.background || "#eef4f4",
     surface: "#FFFFFF",
-    text: "#1B1B1B",
+    text: "#17353c",
   },
-
-  // Dokumente
   documents: {
     reportTitle: "Technischer Berechnungsbericht",
-    footer: "Erstellt mit dem Abwasser-Rechner",
+    footer: tenant?.companyName
+      ? `Erstellt mit ${tenant.appName} · ${tenant.companyName}`
+      : `Erstellt mit ${tenant?.appName || "Abwasser Plattform"}`,
   },
 };
