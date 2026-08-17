@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-preview-alpha47-';
-const CACHE=`${CACHE_PREFIX}v4`;
+const CACHE=`${CACHE_PREFIX}v5`;
 const FILES=[
   "./",
   "./index.html",
@@ -31,6 +31,7 @@ const FILES=[
   "./js/demo-workspace.js?v=0.11.0-alpha.29",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/app.js?v=0.11.0-alpha.19",
+  "../js/open-map-provider.js?v=0.11.0-alpha.55",
   "./js/preview-task-mirror.js?v=preview-alpha47-taskfix1",
   "./js/startup-dashboard-guard.js?v=0.11.0-alpha.37",
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
