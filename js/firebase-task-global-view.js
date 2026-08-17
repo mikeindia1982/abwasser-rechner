@@ -34,7 +34,7 @@ const uid=()=>session()?.user?.uid||session()?.profile?.uid||'';
 const role=()=>session()?.role||'';
 const manager=()=>['admin','teamlead'].includes(role());
 const online=()=>Boolean(session()?.authenticated&&!session()?.offline&&localStorage.getItem(MODE_KEY)!=='demo');
-const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char]||char));
 const meta=type=>TASK_TYPES[type]||TASK_TYPES.general;
 
 function readPlants(){
@@ -119,7 +119,6 @@ function ensureEmptyState(list){
 
 function reconcile(){
   const list=document.querySelector('.global-task-list');if(!list)return;
-  const currentIds=new Set([...list.querySelectorAll('[data-action-id]')].map(card=>String(card.dataset.actionId||'')));
   for(const task of cloudTasks.values()){
     const id=String(task.id||'');if(!id)continue;
     let card=list.querySelector(`[data-action-id="${CSS.escape(id)}"]`);
@@ -129,9 +128,13 @@ function reconcile(){
     }
     if(!card){list.insertAdjacentHTML('beforeend',cardHtml(task));card=list.querySelector(`[data-action-id="${CSS.escape(id)}"]`)}
     if(card){card.hidden=!visibleFor(task);card.dataset.cloudTaskKnown='1'}
-    currentIds.delete(id);
   }
   if(ready){
+    list.querySelectorAll('[data-action-id][data-cloud-task-known]').forEach(card=>{
+      const id=String(card.dataset.actionId||'');
+      if(cloudTasks.has(id))return;
+      if(card.dataset.cloudGlobalCard)card.remove();else card.hidden=true;
+    });
     list.querySelectorAll('[data-cloud-global-card]').forEach(card=>{if(!cloudTasks.has(String(card.dataset.actionId||'')))card.remove()});
   }
   const cards=[...list.querySelectorAll('[data-action-id]')];
