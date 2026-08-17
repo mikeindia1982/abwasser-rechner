@@ -1,6 +1,7 @@
+import { getActiveTenant } from "./tenant-runtime.js";
 import { organizationRepository } from "../repositories/organization-repository.js";
 
-const tenant = globalThis.AbwasserPlatform?.tenant;
+const tenant = getActiveTenant();
 
 if (tenant?.organization?.id) {
   organizationRepository
