@@ -1,5 +1,6 @@
-import {FIREBASE_SDK_VERSION,firebaseConfig} from './firebase-config.js';
+import {FIREBASE_SDK_VERSION,firebaseConfig} from './firebase-config.js?v=0.11.0-alpha.42';
 
+const AUTH_BUILD='0.11.0-alpha.42';
 const MODE_KEY='vta-workspace-mode-v01';
 const SESSION_CACHE_KEY='vta-firebase-session-cache-v01';
 const LAST_EMAIL_KEY='vta-firebase-last-email-v01';
@@ -17,9 +18,26 @@ let readyResolve;
 const ready=new Promise(resolve=>{readyResolve=resolve});
 let readySettled=false;
 
+const diagnostics={
+  build:AUTH_BUILD,
+  configRevision:AUTH_BUILD,
+  sdkVersion:FIREBASE_SDK_VERSION,
+  stage:'boot',
+  authReady:false,
+  authenticated:false,
+  profileLoaded:false,
+  role:'',
+  offline:false,
+  lastError:''
+};
+
 const refs={};
 const $=selector=>document.querySelector(selector);
 const isDemo=()=>localStorage.getItem(MODE_KEY)==='demo';
+
+function updateDiagnostics(patch={}){
+  Object.assign(diagnostics,patch);
+}
 
 function settleReady(){
   if(readySettled)return;
@@ -149,9 +167,10 @@ function showAccountDialog(){
     dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
   }
   const verified=readCache()?.verifiedAt;
+  const diag=`Auth ${diagnostics.authenticated?'✓':'–'} · Profil ${diagnostics.profileLoaded?'✓':'–'} · Rolle ${diagnostics.role?'✓':'–'} · ${diagnostics.build}`;
   dialog.innerHTML=`<div class="firebase-account-card">
     <div class="firebase-account-head"><div class="firebase-account-avatar">${initials(currentProfile,currentUser)}</div><div><p class="eyebrow">Firebase-Konto</p><h2>${escapeHtml(displayName(currentProfile,currentUser))}</h2><p>${escapeHtml(currentProfile.email||currentUser.email||'')}</p></div><button type="button" data-firebase-close aria-label="Schließen">×</button></div>
-    <dl class="firebase-account-facts"><div><dt>Rolle</dt><dd>${escapeHtml(ROLE_LABELS[currentProfile.role]||currentProfile.role)}</dd></div><div><dt>Status</dt><dd>${currentOffline?'Offline · zuletzt verifiziert':'Online verifiziert'}</dd></div>${verified?`<div><dt>Letzte Prüfung</dt><dd>${escapeHtml(new Date(verified).toLocaleString('de-DE'))}</dd></div>`:''}</dl>
+    <dl class="firebase-account-facts"><div><dt>Rolle</dt><dd>${escapeHtml(ROLE_LABELS[currentProfile.role]||currentProfile.role)}</dd></div><div><dt>Status</dt><dd>${currentOffline?'Offline · zuletzt verifiziert':'Online verifiziert'}</dd></div><div><dt>Firebase-Diagnose</dt><dd>${escapeHtml(diag)}</dd></div>${verified?`<div><dt>Letzte Prüfung</dt><dd>${escapeHtml(new Date(verified).toLocaleString('de-DE'))}</dd></div>`:''}</dl>
     <p class="firebase-account-note">Anlagen, Aufgaben, Besuche und Dokumente bleiben in dieser Ausbaustufe weiterhin lokal auf diesem Gerät.</p>
     <div class="firebase-account-actions"><button class="button secondary" type="button" data-firebase-close>Schließen</button><button class="button primary" type="button" data-firebase-logout>Abmelden</button></div>
   </div>`;
@@ -166,11 +185,14 @@ function escapeHtml(value=''){
 
 function errorMessage(error){
   const code=String(error?.code||'');
+  if(code.includes('api-key-not-valid'))return 'Firebase-Konfiguration wird abgelehnt. Bitte App und Cache aktualisieren. [auth/api-key-not-valid]';
+  if(code==='profile/not-found')return 'Anmeldung erfolgreich, aber für dieses Konto fehlt das Firestore-Profil unter users/{UID}.';
+  if(code==='profile/inactive')return 'Dieses Benutzerkonto ist deaktiviert.';
   if(code.includes('invalid-credential')||code.includes('wrong-password')||code.includes('user-not-found'))return 'E-Mail-Adresse oder Passwort ist nicht korrekt.';
   if(code.includes('invalid-email'))return 'Bitte eine gültige E-Mail-Adresse eingeben.';
   if(code.includes('too-many-requests'))return 'Zu viele Anmeldeversuche. Bitte später erneut versuchen.';
   if(code.includes('network-request-failed')||code==='unavailable')return 'Firebase ist momentan nicht erreichbar. Prüfe die Internetverbindung.';
-  if(code.includes('permission-denied'))return 'Das Benutzerprofil darf noch nicht aus Firestore gelesen werden. Bitte die Firestore-Regeln veröffentlichen.';
+  if(code.includes('permission-denied'))return 'Anmeldung erfolgreich, aber Firestore blockiert das Benutzerprofil. Bitte die veröffentlichten Firestore-Regeln prüfen.';
   return error?.message||'Firebase konnte nicht initialisiert werden.';
 }
 
@@ -190,6 +212,15 @@ function unlockWithProfile(user,profile,{offline=false,cache=true}={}){
   currentProfile=profile;
   currentOffline=offline;
   if(cache&&!offline)writeCache(user,profile);
+  updateDiagnostics({
+    stage:offline?'offline-ready':'ready',
+    authReady:Boolean(authApi&&auth),
+    authenticated:true,
+    profileLoaded:true,
+    role:profile.role||'',
+    offline,
+    lastError:''
+  });
   hideGate();
   ensureAccountButton();
   dispatchSessionEvent();
@@ -197,6 +228,7 @@ function unlockWithProfile(user,profile,{offline=false,cache=true}={}){
 }
 
 async function verifyUser(user){
+  updateDiagnostics({stage:'profile-loading',authenticated:true,profileLoaded:false,role:'',offline:false,lastError:''});
   setGate('loading');
   refs.loadingText.textContent='Benutzerprofil wird geprüft …';
   try{
@@ -218,6 +250,7 @@ async function verifyUser(user){
     currentUser=user;
     currentProfile=null;
     currentOffline=false;
+    updateDiagnostics({stage:'profile-error',authenticated:true,profileLoaded:false,role:'',offline:false,lastError:code||'profile-error'});
     removeAccountButton();
     setGate('issue',errorMessage(error));
     dispatchSessionEvent();
@@ -229,6 +262,7 @@ async function logout(){
   clearCache();
   currentProfile=null;
   currentOffline=false;
+  updateDiagnostics({stage:'logout',authenticated:false,profileLoaded:false,role:'',offline:false,lastError:''});
   removeAccountButton();
   if(authApi&&auth)await authApi.signOut(auth);
   else{
@@ -240,6 +274,7 @@ async function logout(){
 
 async function signIn(email,password){
   if(!authApi||!auth)throw new Error('Firebase Authentication ist noch nicht bereit.');
+  updateDiagnostics({stage:'signing-in',lastError:''});
   await authApi.setPersistence(auth,authApi.browserLocalPersistence);
   return authApi.signInWithEmailAndPassword(auth,email,password);
 }
@@ -255,6 +290,7 @@ function useLocalFallback(){
   currentUser=fallbackUser;
   currentProfile={uid:fallbackUser.uid,email:fallbackUser.email||refs.email.value||'',firstName:'',lastName:'',role:'employee',active:true};
   currentOffline=true;
+  updateDiagnostics({stage:'local-fallback',authenticated:Boolean(fallbackUser),profileLoaded:true,role:'employee',offline:true,lastError:''});
   hideGate();
   ensureAccountButton();
   dispatchSessionEvent();
@@ -308,6 +344,8 @@ function bindUi(){
       await signIn(email,password);
       refs.password.value='';
     }catch(error){
+      const code=String(error?.code||'login-error');
+      updateDiagnostics({stage:'login-error',authenticated:false,profileLoaded:false,role:'',offline:false,lastError:code});
       refs.formError.textContent=errorMessage(error);
     }finally{
       refs.submit.disabled=false;
@@ -332,10 +370,12 @@ async function loadFirebaseSdk(){
 
 async function initializeFirebase(){
   if(isDemo()){
+    updateDiagnostics({stage:'demo',authReady:false,authenticated:false,profileLoaded:false,role:'',offline:false,lastError:''});
     hideGate();
     settleReady();
     return;
   }
+  updateDiagnostics({stage:'sdk-loading',authReady:false,authenticated:false,profileLoaded:false,role:'',offline:false,lastError:''});
   setGate('loading');
   refs.loadingText.textContent='Firebase-Anmeldung wird geprüft …';
   try{
@@ -346,12 +386,14 @@ async function initializeFirebase(){
     auth=authModule.getAuth(firebaseApp);
     db=firestoreModule.getFirestore(firebaseApp);
     await authModule.setPersistence(auth,authModule.browserLocalPersistence);
+    updateDiagnostics({stage:'auth-ready',authReady:true,lastError:''});
     authModule.onAuthStateChanged(auth,user=>{
       if(user)verifyUser(user);
       else{
         currentUser=null;
         currentProfile=null;
         currentOffline=false;
+        updateDiagnostics({stage:'login-required',authReady:true,authenticated:false,profileLoaded:false,role:'',offline:false,lastError:''});
         removeAccountButton();
         setGate('login');
         dispatchSessionEvent();
@@ -360,13 +402,15 @@ async function initializeFirebase(){
     });
   }catch(error){
     console.error('Firebase SDK konnte nicht geladen werden',error);
+    const code=String(error?.code||'sdk-error');
+    updateDiagnostics({stage:'sdk-error',authReady:false,authenticated:false,profileLoaded:false,role:'',offline:false,lastError:code});
     const cached=readCache();
     if(cached?.profile){
       const pseudoUser={uid:cached.uid,email:cached.email||cached.profile.email||''};
       unlockWithProfile(pseudoUser,normalizeProfile(cached.profile,pseudoUser),{offline:true,cache:false});
       return;
     }
-    setGate('issue','Firebase konnte nicht geladen werden. Für die erste Anmeldung wird eine Internetverbindung benötigt.');
+    setGate('issue',errorMessage(error));
     settleReady();
   }
 }
@@ -377,6 +421,7 @@ function initialize(){
   initializeFirebase();
 }
 
+window.VTAFirebaseDiagnostics=diagnostics;
 window.VTAFirebaseSession={
   ready,
   get user(){return currentUser},
