@@ -5,11 +5,11 @@
   if(!runtime?.enabled)return;
 
   const ROOT=document.documentElement;
-  const BUILD='0.11.0-alpha.57-native-ui2';
+  const BUILD='0.11.0-alpha.57-native-ui3';
   const VIEW_CLASSES=[
     'native-home','native-view-plants','native-view-plant','native-view-tasks',
     'native-view-calculator','native-view-documents','native-view-map',
-    'native-view-commercial','native-view-visit','native-view-form','native-history-idle'
+    'native-view-commercial','native-view-visit','native-view-schema','native-view-form','native-history-idle'
   ];
 
   let queued=false;
@@ -20,6 +20,23 @@
     if(!node)return false;
     if(node.classList.contains('hidden'))return false;
     return node.getClientRects().length>0;
+  }
+
+  function revealActiveTabs(){
+    const activeTabs=[
+      document.querySelector('.plant-subnav button.active'),
+      document.querySelector('.visits-ui-tabs button.active')
+    ].filter(Boolean);
+
+    for(const tab of activeTabs){
+      const strip=tab.parentElement;
+      if(!strip||strip.scrollWidth<=strip.clientWidth+2)continue;
+      const stripRect=strip.getBoundingClientRect();
+      const tabRect=tab.getBoundingClientRect();
+      if(tabRect.left<stripRect.left+8||tabRect.right>stripRect.right-8){
+        tab.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});
+      }
+    }
   }
 
   function updateViewClasses(){
@@ -34,7 +51,8 @@
     ROOT.classList.toggle('native-view-documents',Boolean(document.querySelector('.document-toolbar,.document-library-list,.document-detail-layout,.document-review-layout')));
     ROOT.classList.toggle('native-view-map',Boolean(document.querySelector('#plantsMapPanel:not(.hidden),.location-preview,.maplibregl-map')));
     ROOT.classList.toggle('native-view-commercial',Boolean(document.querySelector('.commercial-customer-card,.commercial-supply-section,.commercial-dashboard-panel,.commercial-notification-panel')));
-    ROOT.classList.toggle('native-view-visit',Boolean(document.querySelector('.visit-panel,.visit-photo-grid,#visitPhotoInput')));
+    ROOT.classList.toggle('native-view-visit',Boolean(document.querySelector('.visit-panel,.visit-photo-grid,#visitPhotoInput,.visits-ui-shell,.visits-ui-tabs,#startVisitMain')));
+    ROOT.classList.toggle('native-view-schema',Boolean(document.querySelector('.schema3d-section,.photo-process-layout,.photo-process-stage')));
     ROOT.classList.toggle('native-view-form',Boolean(document.querySelector('form.record-form,form#plantForm,form#documentReviewForm')));
 
     const back=document.querySelector('#vtaNavigationBack');
@@ -42,6 +60,7 @@
     ROOT.classList.toggle('native-history-idle',Boolean(back&&forward&&back.disabled&&forward.disabled));
 
     ROOT.dataset.nativeUiBuild=BUILD;
+    revealActiveTabs();
   }
 
   function queueUpdate(){
@@ -114,7 +133,7 @@
 
     window.visualViewport?.addEventListener('resize',()=>{updateViewport();setTimeout(keepFocusedControlVisible,80)});
     window.visualViewport?.addEventListener('scroll',updateViewport);
-    window.addEventListener('resize',updateViewport);
+    window.addEventListener('resize',()=>{updateViewport();revealActiveTabs()});
     window.addEventListener('popstate',queueUpdate);
     window.addEventListener('pageshow',()=>{queueUpdate();updateViewport()});
 
