@@ -4,10 +4,5 @@
   "webDir": "dist",
   "ios": {
     "contentInset": "automatic"
-  },
-  "plugins": {
-    "CapacitorHttp": {
-      "enabled": true
-    }
   }
 }
