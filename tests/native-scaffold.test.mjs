@@ -42,6 +42,16 @@ test('native bundle replaces browser Firebase auth with explicit native-webview 
   assert.match(auth, /browserLocalPersistence/);
 });
 
+test('native bundle owns an iOS-only safe-area and compact-header layer', async () => {
+  const build = await read('scripts/build-native.mjs');
+  const nativeCss = await read('native-ios.css');
+  assert.match(build, /native-ios\.css/);
+  assert.match(nativeCss, /html\.native-ios \.topbar/);
+  assert.match(nativeCss, /safe-area-inset-top/);
+  assert.match(nativeCss, /firebase-auth-gate/);
+  assert.match(nativeCss, /commercial-notification-panel/);
+});
+
 test('native runtime does not alter the normal web app', async () => {
   const runtime = await read('js/native-runtime.js');
   assert.match(runtime, /if \(!isNative\) return/);
