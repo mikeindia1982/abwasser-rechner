@@ -8,7 +8,7 @@ on:
       - 'package-lock.json'
       - 'capacitor.config.json'
       - 'scripts/**'
-      - 'js/native-runtime.js'
+      - 'js/native-*.js'
       - 'ios/**'
       - '.github/workflows/ios-bootstrap.yml'
       - 'index.html'
@@ -21,7 +21,7 @@ on:
       - 'package-lock.json'
       - 'capacitor.config.json'
       - 'scripts/**'
-      - 'js/native-runtime.js'
+      - 'js/native-*.js'
       - 'ios/**'
       - '.github/workflows/ios-bootstrap.yml'
       - 'index.html'
@@ -45,6 +45,8 @@ jobs:
           cache: npm
       - name: Install locked Capacitor dependencies
         run: npm ci --ignore-scripts
+      - name: Native scaffold tests
+        run: npm run test:native-scaffold
       - name: Build native web bundle
         run: npm run native:build
       - name: Ensure iOS project exists
