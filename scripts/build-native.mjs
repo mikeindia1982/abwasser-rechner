@@ -55,6 +55,16 @@ index = index.replace(
   appScriptPattern,
   '<script src="js/native-runtime.js?v=0.11.0-alpha.57"></script>\n$1'
 );
+
+const firebaseAuthPattern = /(<script\s+type=["']module["']\s+src=["']js\/firebase-auth\.js[^"']*["']><\/script>)/i;
+if (!firebaseAuthPattern.test(index)) {
+  throw new Error('Native build failed: firebase-auth.js script tag was not found in index.html.');
+}
+index = index.replace(
+  firebaseAuthPattern,
+  '$1\n<script type="module" src="js/native-firebase-auth-adapter.js?v=0.11.0-alpha.57-native-auth1"></script>'
+);
+
 index = index.replace(
   '</head>',
   '  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>'
