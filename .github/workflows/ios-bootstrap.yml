@@ -9,6 +9,8 @@ on:
       - 'capacitor.config.json'
       - 'scripts/**'
       - 'js/native-*.js'
+      - 'js/demo-management-dashboard.js'
+      - 'tests/demo-management-dashboard.test.mjs'
       - 'ios/**'
       - '.github/workflows/ios-bootstrap.yml'
       - 'index.html'
@@ -22,6 +24,8 @@ on:
       - 'capacitor.config.json'
       - 'scripts/**'
       - 'js/native-*.js'
+      - 'js/demo-management-dashboard.js'
+      - 'tests/demo-management-dashboard.test.mjs'
       - 'ios/**'
       - '.github/workflows/ios-bootstrap.yml'
       - 'index.html'
@@ -45,12 +49,15 @@ jobs:
           cache: npm
       - name: Install locked Capacitor dependencies
         run: npm ci --ignore-scripts
-      - name: Syntax-check native integration runtimes
+      - name: Syntax-check native and demo integration runtimes
         run: |
           node --check js/native-ios-integration.js
           node --check js/native-ios-deeplink.js
+          node --check js/demo-management-dashboard.js
       - name: Native scaffold tests
         run: npm run test:native-scaffold
+      - name: Demo management tests
+        run: npm run test:demo-management
       - name: Build native web bundle
         run: npm run native:build
       - name: Ensure iOS project exists
