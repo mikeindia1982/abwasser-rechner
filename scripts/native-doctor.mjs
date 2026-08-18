@@ -29,6 +29,7 @@ for (const path of [
   'js/native-runtime.js',
   'js/native-ui-hardening.js',
   'js/native-ios-integration.js',
+  'js/native-ios-deeplink.js',
   'js/native-firebase-auth.js',
   'native-ios.css',
   'native-ios-detail-fixes.css',
@@ -45,6 +46,8 @@ try {
   report(config.webDir === 'dist', 'Capacitor webDir is dist', config.webDir || 'missing');
   report(Boolean(config.appId), 'Capacitor appId configured', config.appId || 'missing');
   report(config.plugins?.CapacitorHttp?.enabled !== true, 'Global CapacitorHttp patch disabled', config.plugins?.CapacitorHttp?.enabled === true ? 'must be disabled' : 'yes');
+  const presentation = config.plugins?.LocalNotifications?.presentationOptions || [];
+  report(['badge','sound','banner','list'].every(item=>presentation.includes(item)), 'iOS local notification presentation configured', presentation.join(', ') || 'missing');
 } catch (error) {
   report(false, 'Capacitor config is valid JSON', error.message);
 }
@@ -73,6 +76,7 @@ if (distIndex) {
     const html = await readFile(join(root, 'dist', 'index.html'), 'utf8');
     report(html.includes('native-ui-hardening.js'), 'Native UI hardening injected into dist');
     report(html.includes('native-ios-integration.js'), 'Native iPhone integration injected into dist');
+    report(html.includes('native-ios-deeplink.js'), 'Native notification deep-link restore injected into dist');
     report(html.includes('native-firebase-auth.js'), 'Native Firebase auth injected into dist');
     report(html.includes('native-ios.css'), 'Native iOS stylesheet injected into dist');
     report(html.includes('native-ios-detail-fixes.css'), 'Native device-review stylesheet injected into dist');
