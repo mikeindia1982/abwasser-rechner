@@ -1,0 +1,265 @@
+/* VTA Copilot – native iOS presentation layer
+   Loaded only into the generated Capacitor bundle. The web/PWA layout remains unchanged. */
+
+html.native-ios{
+  --native-safe-top:env(safe-area-inset-top,0px);
+  --native-safe-right:env(safe-area-inset-right,0px);
+  --native-safe-bottom:env(safe-area-inset-bottom,0px);
+  --native-safe-left:env(safe-area-inset-left,0px);
+  min-height:100%;
+  background:var(--bg);
+}
+
+html.native-ios body{
+  min-height:100dvh;
+  padding:0;
+  overscroll-behavior-y:none;
+  -webkit-text-size-adjust:100%;
+}
+
+html.native-ios .app-layout,
+html.native-ios .content-shell{
+  min-height:100dvh;
+}
+
+/* The base web rule uses the top safe-area value as vertical padding,
+   which applies it to both top and bottom. On iPhone that doubles the
+   visual header height. Native iOS uses the safe area only at the top. */
+html.native-ios .topbar{
+  top:0;
+  min-height:58px;
+  padding-top:max(10px,var(--native-safe-top));
+  padding-right:max(12px,var(--native-safe-right));
+  padding-bottom:10px;
+  padding-left:max(12px,var(--native-safe-left));
+  gap:10px;
+  align-items:center;
+  background:rgba(238,244,244,.96);
+  -webkit-backdrop-filter:blur(18px);
+  backdrop-filter:blur(18px);
+}
+
+html.native-ios .topbar-left{
+  flex:1 1 auto;
+  min-width:0;
+  gap:5px;
+  overflow:hidden;
+}
+
+html.native-ios .topbar-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex:0 0 auto;
+  min-width:0;
+  gap:6px;
+}
+
+html.native-ios .menu-toggle{
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 40px;
+  width:40px;
+  height:40px;
+  padding:0;
+  border-radius:12px;
+}
+
+html.native-ios .navigation-history-controls{
+  gap:3px;
+}
+
+html.native-ios .navigation-history-button{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  background:rgba(255,255,255,.82);
+}
+
+html.native-ios .breadcrumb-home{
+  min-width:0;
+  max-width:112px;
+  padding:.45rem .3rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+html.native-ios .breadcrumb-current{
+  max-width:150px;
+}
+
+html.native-ios .profile-button,
+html.native-ios .firebase-session-button,
+html.native-ios .commercial-bell{
+  min-height:42px;
+}
+
+html.native-ios .profile-button{
+  max-width:160px;
+}
+
+html.native-ios .firebase-session-button{
+  max-width:165px;
+}
+
+/* Slide-out navigation must start below/inside the iOS safe area as well. */
+html.native-ios .brand-row{
+  padding-top:calc(var(--native-safe-top) + 10px);
+}
+
+html.native-ios .sidebar-bottom{
+  padding-bottom:calc(14px + var(--native-safe-bottom));
+}
+
+html.native-ios footer{
+  padding-bottom:calc(20px + var(--native-safe-bottom));
+}
+
+/* Login gate: keep the brand and first form control clear of Dynamic Island. */
+html.native-ios .firebase-auth-gate{
+  place-items:start center;
+  padding-top:calc(var(--native-safe-top) + 12px)!important;
+  padding-right:max(14px,var(--native-safe-right));
+  padding-bottom:calc(var(--native-safe-bottom) + 16px);
+  padding-left:max(14px,var(--native-safe-left));
+}
+
+html.native-ios .firebase-auth-card{
+  margin:0 auto;
+}
+
+/* Commercial alerts should never open underneath the system status area. */
+html.native-ios .commercial-notification-panel{
+  top:calc(var(--native-safe-top) + 62px);
+  right:max(12px,var(--native-safe-right));
+  max-height:calc(100dvh - var(--native-safe-top) - var(--native-safe-bottom) - 82px);
+}
+
+@media(max-width:620px){
+  html.native-ios .topbar{
+    padding-right:max(10px,var(--native-safe-right));
+    padding-left:max(10px,var(--native-safe-left));
+    gap:7px;
+  }
+
+  html.native-ios .topbar-left{
+    gap:3px;
+  }
+
+  html.native-ios .navigation-history-controls{
+    gap:2px;
+  }
+
+  html.native-ios .navigation-history-button{
+    width:38px;
+    height:38px;
+  }
+
+  html.native-ios .menu-toggle{
+    flex-basis:38px;
+    width:38px;
+    height:38px;
+  }
+
+  html.native-ios .breadcrumb-home{
+    max-width:82px;
+    font-size:.86rem;
+  }
+
+  html.native-ios .breadcrumb-current,
+  html.native-ios .breadcrumb-separator,
+  html.native-ios #activePlantBadge{
+    display:none!important;
+  }
+
+  html.native-ios .profile-button{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    padding:4px;
+    justify-content:center;
+  }
+
+  html.native-ios #profileButtonName{
+    display:none!important;
+  }
+
+  html.native-ios .firebase-session-button{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    padding:4px;
+    justify-content:center;
+  }
+
+  html.native-ios .firebase-session-copy{
+    display:none!important;
+  }
+
+  html.native-ios .commercial-bell{
+    position:relative;
+    width:42px;
+    height:42px;
+    min-width:42px;
+    max-width:42px;
+    padding:0!important;
+    overflow:hidden;
+    white-space:nowrap;
+    text-indent:-9999px;
+  }
+
+  html.native-ios .commercial-bell::before{
+    content:"🔔";
+    position:absolute;
+    inset:0;
+    display:grid;
+    place-items:center;
+    color:var(--text);
+    font-size:18px;
+    line-height:1;
+    text-indent:0;
+  }
+
+  html.native-ios .commercial-bell-count{
+    text-indent:0;
+  }
+
+  html.native-ios .main-content{
+    padding:16px max(14px,var(--native-safe-right)) 22px max(14px,var(--native-safe-left));
+  }
+
+  html.native-ios .commercial-notification-panel{
+    left:max(10px,var(--native-safe-left));
+    right:max(10px,var(--native-safe-right));
+    width:auto;
+  }
+}
+
+/* On compact iPhones, the Firebase identity indicator is redundant next to
+   the employee-profile button and steals valuable navigation width. */
+@media(max-width:430px){
+  html.native-ios .firebase-session-button{
+    display:none!important;
+  }
+
+  html.native-ios .breadcrumb-home{
+    max-width:76px;
+    font-size:.82rem;
+  }
+}
+
+@media(orientation:landscape) and (max-height:500px){
+  html.native-ios .topbar{
+    padding-top:max(6px,var(--native-safe-top));
+    padding-bottom:6px;
+  }
+
+  html.native-ios .brand-row{
+    padding-top:calc(var(--native-safe-top) + 6px);
+  }
+
+  html.native-ios .firebase-auth-gate{
+    padding-top:calc(var(--native-safe-top) + 8px)!important;
+  }
+}
