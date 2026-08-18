@@ -115,7 +115,7 @@ let renderQueued=false;
 let observer=null;
 
 const isDemo=()=>localStorage.getItem(MODE_KEY)==='demo';
-const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char]));
+const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function readJson(key,fallback){try{const value=JSON.parse(localStorage.getItem(key)||'null');return value??fallback}catch{return fallback}}
 function writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
 function clamp(value,min,max){return Math.min(max,Math.max(min,value))}
@@ -244,11 +244,12 @@ function renderOrderForecast(scope){
 function renderCustomerPortfolio(scope){
   const seg=scope.current.segment;
   const visible=seg==='all'?CUSTOMER_SEGMENTS:CUSTOMER_SEGMENTS.filter(item=>item.id===seg);
-  return `<div class="demo-mgmt-customer-stack" aria-label="Umsatzanteile Kundensegmente">${visible.map(item=>`<span class="segment-${item.id}" style="--share:${seg==='all'?item.share:100}%" title="${esc(item.label)} ${item.share}%"></span>`).join('')}</div><div class="demo-mgmt-customer-list">${visible.map(item=>`<button type="button" data-segment-jump="${item.id}"><span class="demo-mgmt-segment-dot segment-${item.id}"></span><span><strong>${esc(item.label)}</strong><small>${item.customers} Kunden · ${item.risk} mit Risiko</small></span><span><strong>${moneyCompact(item.revenue)}</strong><small>${item.share}% Umsatzanteil</small></span></button>`).join('')}</div>`;
+  const scopeScale=scope.current.region==='all'&&scope.current.employee==='all'?1:scope.ytdRatio;
+  return `<div class="demo-mgmt-customer-stack" aria-label="Umsatzanteile Kundensegmente">${visible.map(item=>`<span class="segment-${item.id}" style="--share:${seg==='all'?item.share:100}%" title="${esc(item.label)} ${item.share}%"></span>`).join('')}</div><div class="demo-mgmt-customer-list">${visible.map(item=>`<button type="button" data-segment-jump="${item.id}"><span class="demo-mgmt-segment-dot segment-${item.id}"></span><span><strong>${esc(item.label)}</strong><small>${Math.max(1,Math.round(item.customers*scopeScale))} Kunden · ${Math.max(0,Math.round(item.risk*scopeScale))} mit Risiko</small></span><span><strong>${moneyCompact(item.revenue*scopeScale)}</strong><small>${item.share}% Umsatzanteil</small></span></button>`).join('')}</div>`;
 }
 
 function renderProducts(scope){
-  const scale=scope.revenue/(PERIODS[scope.current.period]?.revenue||4820);
+  const scale=scope.revenue/PERIODS.ytd.revenue;
   return `<div class="demo-mgmt-product-list">${PRODUCTS.map(item=>`<div class="demo-mgmt-product-row"><div><strong>${esc(item.label)}</strong><small>${item.customers} aktive Kunden</small></div><div class="demo-mgmt-product-bar"><span style="--bar:${item.share}%"></span></div><div><strong>${moneyCompact(item.revenue*scale)}</strong><small class="positive">${pct(item.growth)}</small></div></div>`).join('')}</div><div class="demo-mgmt-top-products"><span>Top-Produkte</span>${TOP_PRODUCTS.map(item=>`<article><strong>${esc(item.label)}</strong><small>${moneyCompact(item.revenue*scale)} · ${item.customers} Kunden · ${pct(item.growth)}</small></article>`).join('')}</div>`;
 }
 
@@ -268,7 +269,9 @@ function renderField(scope){
     if(index===4)value=`${number(scope.trialSuccess,0)} %`;
     return `<article class="${item.tone||''}"><span>${esc(item.label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`;
   }).join('');
-  return `<div class="demo-mgmt-field-grid">${cards}</div><div class="demo-mgmt-funnel"><div><span>Besuche</span><strong>684</strong></div><i></i><div><span>Analysen</span><strong>142</strong></div><i></i><div><span>Versuche</span><strong>53</strong></div><i></i><div><span>Angebote</span><strong>41</strong></div><i></i><div class="final"><span>Aufträge</span><strong>19</strong></div></div>`;
+  const funnelScale=scope.period.visits/PERIODS.ytd.visits*(scope.current.region==='all'&&scope.current.employee==='all'?1:scope.ytdRatio)*(SEGMENTS[scope.current.segment]?.customerShare||1);
+  const funnel=value=>Math.max(1,Math.round(value*funnelScale));
+  return `<div class="demo-mgmt-field-grid">${cards}</div><div class="demo-mgmt-funnel"><div><span>Besuche</span><strong>${funnel(684)}</strong></div><i></i><div><span>Analysen</span><strong>${funnel(142)}</strong></div><i></i><div><span>Versuche</span><strong>${funnel(53)}</strong></div><i></i><div><span>Angebote</span><strong>${funnel(41)}</strong></div><i></i><div class="final"><span>Aufträge</span><strong>${funnel(19)}</strong></div></div>`;
 }
 
 function renderCrossSell(scope){
