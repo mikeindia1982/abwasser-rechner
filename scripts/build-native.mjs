@@ -43,6 +43,7 @@ for (const dir of runtimeDirs) {
 
 const indexPath = join(dist, 'index.html');
 if (!(await exists(indexPath))) throw new Error('Native build failed: dist/index.html is missing.');
+if (!(await exists(join(dist, 'native-ios.css')))) throw new Error('Native build failed: native-ios.css is missing.');
 
 let index = await readFile(indexPath, 'utf8');
 index = index.replace(/\s*<link[^>]+rel=["']manifest["'][^>]*>\s*/i, '\n');
@@ -67,7 +68,7 @@ index = index.replace(
 
 index = index.replace(
   '</head>',
-  '  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>'
+  '  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.57-native-ui1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>'
 );
 await writeFile(indexPath, index, 'utf8');
 
