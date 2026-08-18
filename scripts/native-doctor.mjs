@@ -30,6 +30,7 @@ for (const path of [
   'js/native-ui-hardening.js',
   'js/native-firebase-auth.js',
   'native-ios.css',
+  'native-ios-detail-fixes.css',
   'index.html'
 ]) {
   report(await exists(join(root, path)), `Required file: ${path}`);
@@ -55,6 +56,7 @@ if (distIndex) {
     report(html.includes('native-ui-hardening.js'), 'Native UI hardening injected into dist');
     report(html.includes('native-firebase-auth.js'), 'Native Firebase auth injected into dist');
     report(html.includes('native-ios.css'), 'Native iOS stylesheet injected into dist');
+    report(html.includes('native-ios-detail-fixes.css'), 'Native device-review stylesheet injected into dist');
   } catch (error) {
     report(false, 'Native dist index readable', error.message);
   }
