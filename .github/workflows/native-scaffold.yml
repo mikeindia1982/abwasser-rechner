@@ -57,10 +57,12 @@ jobs:
           test -f dist/index.html
           test -f dist/js/app.js
           test -f dist/js/native-runtime.js
+          test -f dist/js/native-ui-hardening.js
           test -f dist/js/native-firebase-auth.js
           test -f dist/native-ios.css
           test -f dist/native-build.json
           grep -q 'native-ios.css' dist/index.html
+          grep -q 'native-ui-hardening.js' dist/index.html
           grep -q 'native-firebase-auth.js' dist/index.html
           test ! -d dist/preview-alpha47
           test ! -f dist/service-worker.js
