@@ -45,8 +45,10 @@ jobs:
           cache: npm
       - name: Install locked Capacitor dependencies
         run: npm ci --ignore-scripts
-      - name: Syntax-check native integration runtime
-        run: node --check js/native-ios-integration.js
+      - name: Syntax-check native integration runtimes
+        run: |
+          node --check js/native-ios-integration.js
+          node --check js/native-ios-deeplink.js
       - name: Native scaffold tests
         run: npm run test:native-scaffold
       - name: Build native web bundle
