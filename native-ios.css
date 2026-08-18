@@ -1,11 +1,13 @@
 /* VTA Copilot – native iOS presentation layer
-   Loaded only into the generated Capacitor bundle. The web/PWA layout remains unchanged. */
+   Loaded only into the generated Capacitor bundle. Web/PWA layout remains unchanged. */
 
 html.native-ios{
   --native-safe-top:env(safe-area-inset-top,0px);
   --native-safe-right:env(safe-area-inset-right,0px);
   --native-safe-bottom:env(safe-area-inset-bottom,0px);
   --native-safe-left:env(safe-area-inset-left,0px);
+  --native-viewport-height:100dvh;
+  --native-keyboard-height:0px;
   min-height:100%;
   background:var(--bg);
 }
@@ -15,6 +17,7 @@ html.native-ios body{
   padding:0;
   overscroll-behavior-y:none;
   -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
 }
 
 html.native-ios .app-layout,
@@ -22,9 +25,26 @@ html.native-ios .content-shell{
   min-height:100dvh;
 }
 
-/* The base web rule uses the top safe-area value as vertical padding,
-   which applies it to both top and bottom. On iPhone that doubles the
-   visual header height. Native iOS uses the safe area only at the top. */
+html.native-ios button,
+html.native-ios a,
+html.native-ios input,
+html.native-ios select,
+html.native-ios textarea,
+html.native-ios summary,
+html.native-ios label{
+  touch-action:manipulation;
+}
+
+html.native-ios input,
+html.native-ios select,
+html.native-ios textarea{
+  font-size:16px;
+}
+
+html.native-ios textarea{resize:vertical}
+html.native-ios .main-content{overflow-x:hidden}
+
+/* Native top bar / safe area */
 html.native-ios .topbar{
   top:0;
   min-height:58px;
@@ -65,16 +85,14 @@ html.native-ios .menu-toggle{
   border-radius:12px;
 }
 
-html.native-ios .navigation-history-controls{
-  gap:3px;
-}
-
+html.native-ios .navigation-history-controls{gap:3px}
 html.native-ios .navigation-history-button{
   width:40px;
   height:40px;
   border-radius:12px;
   background:rgba(255,255,255,.82);
 }
+html.native-ios .navigation-history-button:disabled{opacity:.22}
 
 html.native-ios .breadcrumb-home{
   min-width:0;
@@ -84,39 +102,30 @@ html.native-ios .breadcrumb-home{
   overflow:hidden;
   text-overflow:ellipsis;
 }
+html.native-ios .breadcrumb-current{max-width:150px}
 
-html.native-ios .breadcrumb-current{
-  max-width:150px;
+html.native-ios.native-home .breadcrumb-home,
+html.native-ios.native-home .breadcrumb-separator,
+html.native-ios.native-home .breadcrumb-current,
+html.native-ios.native-home.native-history-idle .navigation-history-controls{
+  display:none!important;
 }
 
 html.native-ios .profile-button,
 html.native-ios .firebase-session-button,
-html.native-ios .commercial-bell{
-  min-height:42px;
-}
+html.native-ios .commercial-bell{min-height:42px}
+html.native-ios .profile-button{max-width:160px}
+html.native-ios .firebase-session-button{max-width:165px}
 
-html.native-ios .profile-button{
-  max-width:160px;
-}
+/* Side navigation */
+html.native-ios .brand-row{padding-top:calc(var(--native-safe-top) + 10px)}
+html.native-ios .sidebar-bottom{padding-bottom:calc(14px + var(--native-safe-bottom))}
+html.native-ios .sidebar .global-nav-item,
+html.native-ios .sidebar .side-action,
+html.native-ios .sidebar summary{min-height:46px}
+html.native-ios footer{padding-bottom:calc(20px + var(--native-safe-bottom))}
 
-html.native-ios .firebase-session-button{
-  max-width:165px;
-}
-
-/* Slide-out navigation must start below/inside the iOS safe area as well. */
-html.native-ios .brand-row{
-  padding-top:calc(var(--native-safe-top) + 10px);
-}
-
-html.native-ios .sidebar-bottom{
-  padding-bottom:calc(14px + var(--native-safe-bottom));
-}
-
-html.native-ios footer{
-  padding-bottom:calc(20px + var(--native-safe-bottom));
-}
-
-/* Login gate: keep the brand and first form control clear of Dynamic Island. */
+/* Login */
 html.native-ios .firebase-auth-gate{
   place-items:start center;
   padding-top:calc(var(--native-safe-top) + 12px)!important;
@@ -124,16 +133,248 @@ html.native-ios .firebase-auth-gate{
   padding-bottom:calc(var(--native-safe-bottom) + 16px);
   padding-left:max(14px,var(--native-safe-left));
 }
+html.native-ios .firebase-auth-card{margin:0 auto}
 
-html.native-ios .firebase-auth-card{
-  margin:0 auto;
+/* Shared page/form ergonomics */
+html.native-ios .page-header{gap:14px}
+html.native-ios .page-header h1{overflow-wrap:anywhere}
+html.native-ios .page-header-actions,
+html.native-ios .section-actions,
+html.native-ios .card-actions,
+html.native-ios .document-list-actions,
+html.native-ios .document-actions,
+html.native-ios .global-task-actions,
+html.native-ios .task-actions{
+  gap:8px;
 }
 
-/* Commercial alerts should never open underneath the system status area. */
+html.native-ios .button,
+html.native-ios .card-actions button,
+html.native-ios .document-actions button,
+html.native-ios .global-task-actions button,
+html.native-ios .task-actions button{
+  min-height:44px;
+}
+
+html.native-ios .record-card,
+html.native-ios .form-section,
+html.native-ios .panel,
+html.native-ios .plant-card,
+html.native-ios .visit-panel{
+  scroll-margin-top:calc(var(--native-safe-top) + 78px);
+}
+
+html.native-ios .form-grid input,
+html.native-ios .form-grid select,
+html.native-ios .form-grid textarea,
+html.native-ios .field-label input,
+html.native-ios .field-label select,
+html.native-ios .field-label textarea{
+  width:100%;
+}
+
+html.native-ios .sticky-form-actions{
+  bottom:0;
+  z-index:30;
+  padding-bottom:calc(12px + var(--native-safe-bottom));
+  background:rgba(238,244,244,.96);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+}
+
+/* Plants / CRM */
+html.native-ios .plants-view-toolbar{align-items:center}
+html.native-ios .plant-card{box-shadow:var(--shadow-card)}
+html.native-ios .plant-card .card-actions{display:flex;flex-wrap:wrap}
+html.native-ios .plant-card .card-actions button{flex:1 1 120px}
+html.native-ios .plant-card dl{overflow-wrap:anywhere}
+
+html.native-ios .plant-subnav{
+  position:sticky;
+  top:calc(var(--native-safe-top) + 58px);
+  z-index:24;
+  display:flex;
+  gap:6px;
+  max-width:100%;
+  padding:8px max(2px,var(--native-safe-left));
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+  background:rgba(238,244,244,.96);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+}
+html.native-ios .plant-subnav::-webkit-scrollbar{display:none}
+html.native-ios .plant-subnav button{
+  flex:0 0 auto;
+  min-height:42px;
+  scroll-snap-align:start;
+  white-space:nowrap;
+}
+
 html.native-ios .commercial-notification-panel{
   top:calc(var(--native-safe-top) + 62px);
   right:max(12px,var(--native-safe-right));
-  max-height:calc(100dvh - var(--native-safe-top) - var(--native-safe-bottom) - 82px);
+  max-height:calc(var(--native-viewport-height) - var(--native-safe-top) - 72px);
+}
+html.native-ios .commercial-startup-toast{
+  bottom:calc(12px + var(--native-safe-bottom));
+}
+
+/* Maps */
+html.native-ios .plants-map-panel,
+html.native-ios .location-preview{overflow:hidden;border-radius:18px}
+html.native-ios #plantsMap,
+html.native-ios .plants-map{
+  width:100%;
+  min-height:420px;
+  height:min(62dvh,620px);
+}
+html.native-ios .maplibregl-ctrl-group button{width:44px;height:44px}
+html.native-ios .maplibregl-popup-content{max-width:min(300px,78vw);font-size:.9rem}
+html.native-ios .maplibregl-popup-content button{min-height:40px}
+html.native-ios .location-preview-map{height:min(50dvh,430px)}
+
+/* Documents */
+html.native-ios .document-toolbar{gap:10px}
+html.native-ios .document-toolbar .button{min-height:48px}
+html.native-ios .document-filter-row input,
+html.native-ios .document-filter-row select{min-height:46px}
+html.native-ios .document-library-list article{scroll-margin-top:calc(var(--native-safe-top) + 80px)}
+html.native-ios .document-pdf-viewer{min-height:min(58dvh,650px)}
+html.native-ios .offline-pdf-panel{overflow:hidden}
+
+/* Tasks */
+html.native-ios .global-task-card,
+html.native-ios .action-item{
+  scroll-margin-top:calc(var(--native-safe-top) + 80px);
+}
+html.native-ios .task-meta{flex-wrap:wrap}
+html.native-ios .global-task-actions,
+html.native-ios .task-actions{display:flex;flex-wrap:wrap}
+html.native-ios .global-task-actions button,
+html.native-ios .task-actions button{flex:1 1 120px}
+html.native-ios .action-delete{flex:0 0 44px!important;width:44px}
+
+/* Calculator */
+html.native-ios .workspace{scroll-margin-top:calc(var(--native-safe-top) + 76px)}
+html.native-ios .calculator-card{min-height:128px}
+html.native-ios .form-actions .button{min-height:46px}
+
+/* Visits / camera-backed file input */
+html.native-ios #visitPhotoInput{font-size:16px}
+html.native-ios .visit-photo-grid img{width:100%;height:auto;display:block}
+html.native-ios .visit-photo-grid figure{overflow:hidden;border-radius:14px}
+html.native-ios .finding-entry input,
+html.native-ios .finding-entry select{min-height:46px}
+
+/* Dialogs / sheets */
+html.native-ios dialog[open]{max-width:calc(100vw - 24px)}
+html.native-ios .firebase-account-dialog,
+html.native-ios .request-modal{max-height:calc(var(--native-viewport-height) - 24px - var(--native-safe-top) - var(--native-safe-bottom))}
+html.native-ios .plant-sheet{padding-bottom:calc(16px + var(--native-safe-bottom))}
+
+/* Keyboard: avoid sticky controls covering the focused field. */
+html.native-ios.native-keyboard-open .sticky-form-actions{position:static}
+html.native-ios.native-keyboard-open .commercial-startup-toast{display:none}
+
+@media(max-width:760px){
+  html.native-ios .main-content{
+    padding:16px max(14px,var(--native-safe-right)) 22px max(14px,var(--native-safe-left));
+  }
+
+  html.native-ios .page-header{
+    display:grid;
+    grid-template-columns:1fr;
+    align-items:start;
+  }
+  html.native-ios .page-header h1{font-size:clamp(1.75rem,8vw,2.5rem)}
+  html.native-ios .page-header-actions{display:grid;grid-template-columns:1fr}
+  html.native-ios .page-header-actions .button,
+  html.native-ios .page-header-actions .file-label-inline{width:100%}
+
+  html.native-ios .form-grid{grid-template-columns:1fr!important}
+  html.native-ios .form-grid .span-2,
+  html.native-ios .commercial-grid .span-2{grid-column:1!important}
+
+  html.native-ios .plants-view-toolbar{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    width:100%;
+    gap:8px;
+  }
+  html.native-ios .plants-view-toggle{display:grid;grid-template-columns:1fr 1fr}
+  html.native-ios .plants-view-toggle button{min-height:46px}
+  html.native-ios #createPlantTop{min-height:46px}
+  html.native-ios .plant-grid{grid-template-columns:1fr!important}
+
+  html.native-ios .commercial-card-head{display:grid;grid-template-columns:1fr;gap:8px}
+  html.native-ios .commercial-grid{grid-template-columns:1fr!important}
+  html.native-ios .commercial-filter{width:100%;display:grid;grid-template-columns:1fr}
+  html.native-ios .commercial-filter select{width:100%;min-width:0}
+  html.native-ios .commercial-supply-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html.native-ios .commercial-notification-panel{
+    left:max(10px,var(--native-safe-left));
+    right:max(10px,var(--native-safe-right));
+    width:auto;
+  }
+  html.native-ios .commercial-startup-toast{
+    left:max(10px,var(--native-safe-left));
+    right:max(10px,var(--native-safe-right));
+    width:auto;
+  }
+
+  html.native-ios .global-task-card{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px;
+  }
+  html.native-ios .global-task-actions{width:100%}
+
+  html.native-ios .calculator-view{grid-template-columns:1fr!important;gap:18px}
+  html.native-ios .workspace{position:static;max-height:none;overflow:visible}
+  html.native-ios .card-grid{grid-template-columns:1fr!important}
+  html.native-ios .catalog-header{display:grid;grid-template-columns:1fr;align-items:start}
+  html.native-ios .form-actions{grid-template-columns:1fr!important}
+  html.native-ios .form-actions .button{width:100%}
+
+  html.native-ios .document-toolbar{display:grid;grid-template-columns:1fr}
+  html.native-ios .document-toolbar .button,
+  html.native-ios .document-toolbar .file-label-inline{width:100%}
+  html.native-ios .document-status-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html.native-ios .document-filter-row{display:grid!important;grid-template-columns:1fr!important}
+  html.native-ios .document-library-list article{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px;
+  }
+  html.native-ios .document-main{min-width:0}
+  html.native-ios .document-main h2{overflow-wrap:anywhere}
+  html.native-ios .document-list-actions{display:grid;grid-template-columns:1fr 1fr}
+  html.native-ios .document-detail-layout,
+  html.native-ios .document-review-layout{grid-template-columns:1fr!important}
+  html.native-ios .document-facts{order:-1}
+  html.native-ios .review-fields{min-width:0}
+
+  html.native-ios .finding-entry{display:grid!important;grid-template-columns:1fr!important;gap:8px}
+  html.native-ios .finding-entry .button{width:100%}
+  html.native-ios .visit-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+
+  html.native-ios .record-grid,
+  html.native-ios .product-detail-grid,
+  html.native-ios .system-grid,
+  html.native-ios .backup-center{grid-template-columns:1fr!important}
+
+  html.native-ios .sticky-form-actions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-left:calc(-1 * max(14px,var(--native-safe-left)));
+    margin-right:calc(-1 * max(14px,var(--native-safe-right)));
+    padding-left:max(14px,var(--native-safe-left));
+    padding-right:max(14px,var(--native-safe-right));
+  }
 }
 
 @media(max-width:620px){
@@ -142,49 +383,24 @@ html.native-ios .commercial-notification-panel{
     padding-left:max(10px,var(--native-safe-left));
     gap:7px;
   }
+  html.native-ios .topbar-left{gap:3px}
+  html.native-ios .navigation-history-controls{gap:2px}
+  html.native-ios .navigation-history-button{width:38px;height:38px}
+  html.native-ios .menu-toggle{flex-basis:38px;width:38px;height:38px}
 
-  html.native-ios .topbar-left{
-    gap:3px;
-  }
-
-  html.native-ios .navigation-history-controls{
-    gap:2px;
-  }
-
-  html.native-ios .navigation-history-button{
-    width:38px;
-    height:38px;
-  }
-
-  html.native-ios .menu-toggle{
-    flex-basis:38px;
-    width:38px;
-    height:38px;
-  }
-
-  html.native-ios .breadcrumb-home{
-    max-width:82px;
+  /* On iPhone show the actual destination, not a redundant “Startseite”. */
+  html.native-ios:not(.native-home) .breadcrumb-home,
+  html.native-ios:not(.native-home) .breadcrumb-separator{display:none!important}
+  html.native-ios:not(.native-home) .breadcrumb-current{
+    display:block!important;
+    max-width:min(32vw,150px);
     font-size:.86rem;
+    font-weight:800;
+    color:var(--accent);
   }
+  html.native-ios #activePlantBadge{display:none!important}
 
-  html.native-ios .breadcrumb-current,
-  html.native-ios .breadcrumb-separator,
-  html.native-ios #activePlantBadge{
-    display:none!important;
-  }
-
-  html.native-ios .profile-button{
-    width:42px;
-    height:42px;
-    min-width:42px;
-    padding:4px;
-    justify-content:center;
-  }
-
-  html.native-ios #profileButtonName{
-    display:none!important;
-  }
-
+  html.native-ios .profile-button,
   html.native-ios .firebase-session-button{
     width:42px;
     height:42px;
@@ -192,10 +408,9 @@ html.native-ios .commercial-notification-panel{
     padding:4px;
     justify-content:center;
   }
-
-  html.native-ios .firebase-session-copy{
-    display:none!important;
-  }
+  html.native-ios #profileButtonName,
+  html.native-ios .firebase-session-copy{display:none!important}
+  html.native-ios .firebase-session-button{display:none!important}
 
   html.native-ios .commercial-bell{
     position:relative;
@@ -208,7 +423,6 @@ html.native-ios .commercial-notification-panel{
     white-space:nowrap;
     text-indent:-9999px;
   }
-
   html.native-ios .commercial-bell::before{
     content:"🔔";
     position:absolute;
@@ -220,46 +434,33 @@ html.native-ios .commercial-notification-panel{
     line-height:1;
     text-indent:0;
   }
+  html.native-ios .commercial-bell-count{text-indent:0}
 
-  html.native-ios .commercial-bell-count{
-    text-indent:0;
-  }
-
-  html.native-ios .main-content{
-    padding:16px max(14px,var(--native-safe-right)) 22px max(14px,var(--native-safe-left));
-  }
-
-  html.native-ios .commercial-notification-panel{
-    left:max(10px,var(--native-safe-left));
-    right:max(10px,var(--native-safe-right));
-    width:auto;
-  }
+  html.native-ios .plants-view-toolbar{grid-template-columns:1fr}
+  html.native-ios #createPlantTop{width:100%}
+  html.native-ios .commercial-supply-metrics{grid-template-columns:1fr!important}
+  html.native-ios .document-status-cards{grid-template-columns:1fr 1fr!important}
 }
 
-/* On compact iPhones, the Firebase identity indicator is redundant next to
-   the employee-profile button and steals valuable navigation width. */
 @media(max-width:430px){
-  html.native-ios .firebase-session-button{
-    display:none!important;
-  }
-
-  html.native-ios .breadcrumb-home{
-    max-width:76px;
-    font-size:.82rem;
-  }
+  html.native-ios .topbar-actions{gap:4px}
+  html.native-ios .breadcrumb-current{max-width:30vw}
+  html.native-ios .visit-photo-grid{grid-template-columns:1fr 1fr!important}
+  html.native-ios .document-list-actions{grid-template-columns:1fr}
+  html.native-ios .sticky-form-actions{grid-template-columns:1fr}
 }
 
 @media(orientation:landscape) and (max-height:500px){
-  html.native-ios .topbar{
-    padding-top:max(6px,var(--native-safe-top));
-    padding-bottom:6px;
-  }
+  html.native-ios .topbar{padding-top:max(6px,var(--native-safe-top));padding-bottom:6px}
+  html.native-ios .brand-row{padding-top:calc(var(--native-safe-top) + 6px)}
+  html.native-ios .firebase-auth-gate{padding-top:calc(var(--native-safe-top) + 8px)!important}
+  html.native-ios #plantsMap,
+  html.native-ios .plants-map{height:68dvh;min-height:300px}
+  html.native-ios .plant-subnav{top:calc(var(--native-safe-top) + 50px)}
+}
 
-  html.native-ios .brand-row{
-    padding-top:calc(var(--native-safe-top) + 6px);
-  }
-
-  html.native-ios .firebase-auth-gate{
-    padding-top:calc(var(--native-safe-top) + 8px)!important;
-  }
+@media(prefers-reduced-motion:reduce){
+  html.native-ios *,
+  html.native-ios *::before,
+  html.native-ios *::after{scroll-behavior:auto!important}
 }
