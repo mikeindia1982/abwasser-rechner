@@ -4,5 +4,10 @@
   "webDir": "dist",
   "ios": {
     "contentInset": "automatic"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "presentationOptions": ["badge", "sound", "banner", "list"]
+    }
   }
 }
