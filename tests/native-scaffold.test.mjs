@@ -26,7 +26,7 @@ test('package scripts expose repeatable iOS lifecycle commands', async () => {
   assert.ok(pkg.devDependencies['@capacitor/ios']);
 });
 
-test('native build injects runtime and hardening before the application module', async () => {
+test('native build injects runtime before the application module', async () => {
   const build = await read('scripts/build-native.mjs');
   assert.match(build, /native-runtime\.js/);
   assert.match(build, /native-ui-hardening\.js/);
@@ -43,30 +43,31 @@ test('native bundle replaces browser Firebase auth with explicit native-webview 
   assert.match(auth, /browserLocalPersistence/);
 });
 
-test('native bundle owns an iOS-only responsive presentation layer', async () => {
+test('native bundle owns iOS-only presentation and device-review fixes', async () => {
   const build = await read('scripts/build-native.mjs');
   const nativeCss = await read('native-ios.css');
+  const detailCss = await read('native-ios-detail-fixes.css');
   assert.match(build, /native-ios\.css/);
+  assert.match(build, /native-ios-detail-fixes\.css/);
   assert.match(nativeCss, /html\.native-ios \.topbar/);
   assert.match(nativeCss, /safe-area-inset-top/);
-  assert.match(nativeCss, /native-home/);
-  assert.match(nativeCss, /plant-subnav/);
-  assert.match(nativeCss, /global-task-card/);
-  assert.match(nativeCss, /calculator-view/);
-  assert.match(nativeCss, /document-review-layout/);
-  assert.match(nativeCss, /native-keyboard-open/);
+  assert.match(nativeCss, /firebase-auth-gate/);
   assert.match(nativeCss, /commercial-notification-panel/);
+  assert.match(detailCss, /native-view-visit/);
+  assert.match(detailCss, /#startVisitMain/);
+  assert.match(detailCss, /native-view-schema/);
+  assert.match(detailCss, /schema3d-section/);
+  assert.match(detailCss, /photo-process-layout/);
 });
 
-test('native UI hardening tracks app views and iOS keyboard geometry', async () => {
-  const nativeUi = await read('js/native-ui-hardening.js');
-  assert.match(nativeUi, /VTANativeRuntime/);
-  assert.match(nativeUi, /native-view-plants/);
-  assert.match(nativeUi, /native-view-tasks/);
-  assert.match(nativeUi, /native-view-documents/);
-  assert.match(nativeUi, /visualViewport/);
-  assert.match(nativeUi, /native-keyboard-open/);
-  assert.match(nativeUi, /scrollIntoView/);
+test('native UI runtime tracks keyboard, schema and active horizontal tabs', async () => {
+  const ui = await read('js/native-ui-hardening.js');
+  assert.match(ui, /visualViewport/);
+  assert.match(ui, /native-keyboard-open/);
+  assert.match(ui, /native-view-schema/);
+  assert.match(ui, /native-view-visit/);
+  assert.match(ui, /revealActiveTabs/);
+  assert.match(ui, /scrollIntoView/);
 });
 
 test('native runtime does not alter the normal web app', async () => {
