@@ -22,7 +22,16 @@ function command(command, args = []) {
 const nodeMajor = Number(process.versions.node.split('.')[0]);
 report(nodeMajor >= 22, 'Node.js >= 22', process.version);
 
-for (const path of ['package.json', 'capacitor.config.json', 'scripts/build-native.mjs', 'js/native-runtime.js', 'index.html']) {
+for (const path of [
+  'package.json',
+  'capacitor.config.json',
+  'scripts/build-native.mjs',
+  'js/native-runtime.js',
+  'js/native-ui-hardening.js',
+  'js/native-firebase-auth.js',
+  'native-ios.css',
+  'index.html'
+]) {
   report(await exists(join(root, path)), `Required file: ${path}`);
 }
 
@@ -30,6 +39,7 @@ try {
   const config = JSON.parse(await readFile(join(root, 'capacitor.config.json'), 'utf8'));
   report(config.webDir === 'dist', 'Capacitor webDir is dist', config.webDir || 'missing');
   report(Boolean(config.appId), 'Capacitor appId configured', config.appId || 'missing');
+  report(config.plugins?.CapacitorHttp?.enabled !== true, 'Global CapacitorHttp patch disabled', config.plugins?.CapacitorHttp?.enabled === true ? 'must be disabled' : 'yes');
 } catch (error) {
   report(false, 'Capacitor config is valid JSON', error.message);
 }
@@ -39,6 +49,16 @@ checks.push({ ok: nodeModules, warning: true, label: 'npm dependencies installed
 
 const distIndex = await exists(join(root, 'dist', 'index.html'));
 checks.push({ ok: distIndex, warning: true, label: 'Native dist build exists', detail: distIndex ? 'yes' : 'run npm run native:build' });
+if (distIndex) {
+  try {
+    const html = await readFile(join(root, 'dist', 'index.html'), 'utf8');
+    report(html.includes('native-ui-hardening.js'), 'Native UI hardening injected into dist');
+    report(html.includes('native-firebase-auth.js'), 'Native Firebase auth injected into dist');
+    report(html.includes('native-ios.css'), 'Native iOS stylesheet injected into dist');
+  } catch (error) {
+    report(false, 'Native dist index readable', error.message);
+  }
+}
 
 const iosProject = await exists(join(root, 'ios', 'App', 'App.xcodeproj'));
 checks.push({ ok: iosProject, warning: true, label: 'iOS project generated', detail: iosProject ? 'yes' : 'run npm run ios:add once' });
