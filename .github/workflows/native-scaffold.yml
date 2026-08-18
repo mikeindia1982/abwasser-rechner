@@ -10,9 +10,11 @@ on:
       - '.nvmrc'
       - 'scripts/**'
       - 'js/native-*.js'
+      - 'js/demo-management-dashboard.js'
       - 'ios/App/App/*.swift'
       - 'ios/App/App/Info.plist'
       - 'tests/native-scaffold.test.mjs'
+      - 'tests/demo-management-dashboard.test.mjs'
       - '.github/workflows/native-scaffold.yml'
       - 'index.html'
       - '*.css'
@@ -26,9 +28,11 @@ on:
       - '.nvmrc'
       - 'scripts/**'
       - 'js/native-*.js'
+      - 'js/demo-management-dashboard.js'
       - 'ios/App/App/*.swift'
       - 'ios/App/App/Info.plist'
       - 'tests/native-scaffold.test.mjs'
+      - 'tests/demo-management-dashboard.test.mjs'
       - '.github/workflows/native-scaffold.yml'
       - 'index.html'
       - '*.css'
@@ -50,12 +54,15 @@ jobs:
           cache: npm
       - name: Install locked Capacitor dependencies
         run: npm ci --ignore-scripts
-      - name: Syntax-check native integration runtimes
+      - name: Syntax-check native and demo integration runtimes
         run: |
           node --check js/native-ios-integration.js
           node --check js/native-ios-deeplink.js
+          node --check js/demo-management-dashboard.js
       - name: Native scaffold tests
         run: npm run test:native-scaffold
+      - name: Demo management tests
+        run: npm run test:demo-management
       - name: Build native web bundle
         run: npm run native:build
       - name: Native doctor
@@ -69,10 +76,14 @@ jobs:
           test -f dist/js/native-ios-integration.js
           test -f dist/js/native-ios-deeplink.js
           test -f dist/js/native-firebase-auth.js
+          test -f dist/js/demo-management-dashboard.js
+          test -f dist/demo-management-dashboard.css
           test -f dist/native-ios.css
           test -f dist/native-ios-detail-fixes.css
           test -f dist/native-ios-integration.css
           test -f dist/native-build.json
+          grep -q 'demo-management-dashboard.css' dist/index.html
+          grep -q 'demo-management-dashboard.js' dist/index.html
           grep -q 'native-ios.css' dist/index.html
           grep -q 'native-ios-detail-fixes.css' dist/index.html
           grep -q 'native-ios-integration.css' dist/index.html
