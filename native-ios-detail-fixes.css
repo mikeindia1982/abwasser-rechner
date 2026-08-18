@@ -1,0 +1,152 @@
+/* VTA Copilot – focused iPhone fixes after native UI device review.
+   Loaded only by the generated Capacitor iOS bundle. */
+
+/* Visits: the desktop heading keeps actions beside the title. On iPhone this
+   pushes the action buttons outside the viewport. Stack heading and actions. */
+html.native-ios.native-view-visit .plant-page > .dashboard-section > .section-heading,
+html.native-ios.native-view-visit .dashboard-section > .section-heading:has(#startVisitMain){
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  align-items:start!important;
+  gap:12px!important;
+  width:100%;
+  min-width:0;
+}
+
+html.native-ios.native-view-visit .section-actions{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  width:100%;
+  min-width:0;
+  gap:8px;
+}
+
+html.native-ios.native-view-visit #startVisitMain,
+html.native-ios.native-view-visit #addVisit{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  white-space:normal;
+}
+
+html.native-ios .visits-ui-tabs{
+  max-width:100%;
+  overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+}
+html.native-ios .visits-ui-tabs button{
+  flex:0 0 auto;
+  scroll-snap-align:center;
+}
+html.native-ios .visits-ui-panel,
+html.native-ios .visits-ui-group,
+html.native-ios .visits-ui-list,
+html.native-ios .visit-card,
+html.native-ios .visit-card-actionbar{
+  min-width:0;
+  max-width:100%;
+}
+
+/* Process schema: the desktop section-heading is a horizontal flex row, which
+   squeezes the copy and toolbar into two columns on iPhone. The native view
+   stacks them and keeps the actual photo/process stage at full width. */
+html.native-ios.native-view-schema .schema3d-section > .section-heading{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  align-items:start!important;
+  gap:12px!important;
+  width:100%;
+  min-width:0;
+}
+
+html.native-ios.native-view-schema .schema3d-section > .section-heading > div{
+  min-width:0;
+  width:100%;
+}
+
+html.native-ios.native-view-schema .schema3d-section > .section-heading h2,
+html.native-ios.native-view-schema .schema3d-section > .section-heading .form-note{
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+
+html.native-ios.native-view-schema .schema-toolbar{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:8px!important;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+
+html.native-ios.native-view-schema .schema-filter-group{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  width:100%;
+  min-width:0;
+}
+
+html.native-ios.native-view-schema .schema-filter-group .button,
+html.native-ios.native-view-schema .schema-toolbar > .button{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  min-height:44px;
+  white-space:normal;
+  line-height:1.2;
+}
+
+html.native-ios.native-view-schema .schema3d-layout,
+html.native-ios.native-view-schema .photo-process-layout{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:12px!important;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+
+html.native-ios.native-view-schema .schema-stage-shell,
+html.native-ios.native-view-schema .photo-process-shell,
+html.native-ios.native-view-schema .photo-process-stage,
+html.native-ios.native-view-schema .schema-detail{
+  width:100%;
+  min-width:0!important;
+  max-width:100%;
+}
+
+html.native-ios.native-view-schema .photo-process-shell{
+  overflow:hidden!important;
+}
+
+html.native-ios.native-view-schema .photo-process-stage{
+  min-height:clamp(250px,63vw,340px)!important;
+  aspect-ratio:1271/827;
+}
+
+html.native-ios.native-view-schema .schema-detail{
+  position:static!important;
+  align-self:stretch;
+}
+
+html.native-ios.native-view-schema .photo-process-label{
+  max-width:min(160px,42vw);
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+@media(max-width:430px){
+  html.native-ios.native-view-visit .section-actions{
+    grid-template-columns:1fr!important;
+  }
+
+  html.native-ios.native-view-schema .schema-filter-group{
+    grid-template-columns:1fr 1fr;
+  }
+
+  html.native-ios.native-view-schema .photo-process-stage{
+    min-height:245px!important;
+  }
+}
