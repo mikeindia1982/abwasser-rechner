@@ -28,9 +28,13 @@ for (const path of [
   'scripts/build-native.mjs',
   'js/native-runtime.js',
   'js/native-ui-hardening.js',
+  'js/native-ios-integration.js',
   'js/native-firebase-auth.js',
   'native-ios.css',
   'native-ios-detail-fixes.css',
+  'native-ios-integration.css',
+  'ios/App/App/SceneDelegate.swift',
+  'ios/App/App/Info.plist',
   'index.html'
 ]) {
   report(await exists(join(root, path)), `Required file: ${path}`);
@@ -45,6 +49,20 @@ try {
   report(false, 'Capacitor config is valid JSON', error.message);
 }
 
+try {
+  const scene = await readFile(join(root, 'ios', 'App', 'App', 'SceneDelegate.swift'), 'utf8');
+  const plist = await readFile(join(root, 'ios', 'App', 'App', 'Info.plist'), 'utf8');
+  report(scene.includes('VTANativeIntegrationPlugin'), 'Native EventKit bridge registered');
+  report(scene.includes('requestFullAccessToEvents'), 'Calendar full-access request implemented');
+  report(scene.includes('registerPluginInstance'), 'Custom Capacitor plugin registration implemented');
+  report(plist.includes('NSCalendarsFullAccessUsageDescription'), 'iOS calendar full-access usage description present');
+  report(plist.includes('NSCalendarsUsageDescription'), 'Legacy iOS calendar usage description present');
+  report(plist.includes('NSCameraUsageDescription'), 'iOS camera usage description present');
+  report(plist.includes('NSPhotoLibraryUsageDescription'), 'iOS photo-library usage description present');
+} catch (error) {
+  report(false, 'Native iOS integration metadata readable', error.message);
+}
+
 const nodeModules = await exists(join(root, 'node_modules'));
 checks.push({ ok: nodeModules, warning: true, label: 'npm dependencies installed', detail: nodeModules ? 'yes' : 'run npm install' });
 
@@ -54,9 +72,11 @@ if (distIndex) {
   try {
     const html = await readFile(join(root, 'dist', 'index.html'), 'utf8');
     report(html.includes('native-ui-hardening.js'), 'Native UI hardening injected into dist');
+    report(html.includes('native-ios-integration.js'), 'Native iPhone integration injected into dist');
     report(html.includes('native-firebase-auth.js'), 'Native Firebase auth injected into dist');
     report(html.includes('native-ios.css'), 'Native iOS stylesheet injected into dist');
     report(html.includes('native-ios-detail-fixes.css'), 'Native device-review stylesheet injected into dist');
+    report(html.includes('native-ios-integration.css'), 'Native iPhone integration stylesheet injected into dist');
   } catch (error) {
     report(false, 'Native dist index readable', error.message);
   }
