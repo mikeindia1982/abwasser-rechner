@@ -13,6 +13,7 @@ test('Capacitor config points at the generated native bundle', async () => {
   assert.equal(config.appId, 'de.vta.copilot');
   assert.equal(config.webDir, 'dist');
   assert.notEqual(config.plugins?.CapacitorHttp?.enabled, true, 'CapacitorHttp must not globally patch Firebase networking');
+  assert.deepEqual(config.plugins?.LocalNotifications?.presentationOptions, ['badge','sound','banner','list']);
 });
 
 test('package scripts expose repeatable iOS lifecycle commands', async () => {
@@ -35,6 +36,7 @@ test('native build injects runtime and iPhone integration before the application
   assert.match(build, /native-runtime\.js/);
   assert.match(build, /native-ui-hardening\.js/);
   assert.match(build, /native-ios-integration\.js/);
+  assert.match(build, /native-ios-deeplink\.js/);
   assert.match(build, /native-ios-integration\.css/);
   assert.match(build, /js\\\/app\\\.js|js\\\/app\.js|js\/app/);
   assert.match(build, /runtimeDirs = \['js', 'images', 'products'\]/);
@@ -93,6 +95,15 @@ test('native iPhone integration covers calendar, notifications, maps, camera, fi
   assert.match(integration, /PHOTO_MAX_EDGE=1600/);
   assert.match(integration, /PHOTO_QUALITY=0\.78/);
   assert.match(integration, /Share\.share/);
+});
+
+test('native notification navigation restores the requested plant and page after app reload', async () => {
+  const deepLink = await read('js/native-ios-deeplink.js');
+  assert.match(deepLink, /localNotificationActionPerformed/);
+  assert.match(deepLink, /vta-native-pending-navigation-v1/);
+  assert.match(deepLink, /#activePlantSelect/);
+  assert.match(deepLink, /dispatchEvent\(new Event\('change'/);
+  assert.match(deepLink, /abwasser-plant-page-v091a/);
 });
 
 test('native EventKit bridge is registered without a third-party calendar dependency', async () => {
