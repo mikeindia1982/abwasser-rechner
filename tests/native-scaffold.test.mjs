@@ -12,7 +12,7 @@ test('Capacitor config points at the generated native bundle', async () => {
   assert.equal(config.appName, 'VTA Copilot');
   assert.equal(config.appId, 'de.vta.copilot');
   assert.equal(config.webDir, 'dist');
-  assert.equal(config.plugins?.CapacitorHttp?.enabled, true);
+  assert.notEqual(config.plugins?.CapacitorHttp?.enabled, true, 'CapacitorHttp must not globally patch Firebase networking');
 });
 
 test('package scripts expose repeatable iOS lifecycle commands', async () => {
@@ -29,9 +29,17 @@ test('package scripts expose repeatable iOS lifecycle commands', async () => {
 test('native build injects runtime before the application module', async () => {
   const build = await read('scripts/build-native.mjs');
   assert.match(build, /native-runtime\.js/);
-  assert.match(build, /native-firebase-auth-adapter\.js/);
   assert.match(build, /js\\\/app\\\.js|js\\\/app\.js|js\/app/);
   assert.match(build, /runtimeDirs = \['js', 'images', 'products'\]/);
+});
+
+test('native bundle replaces browser Firebase auth with explicit native-webview auth', async () => {
+  const build = await read('scripts/build-native.mjs');
+  const auth = await read('js/native-firebase-auth.js');
+  assert.match(build, /native-firebase-auth\.js/);
+  assert.match(build, /firebase-auth\\\.js|firebase-auth\.js/);
+  assert.match(auth, /initializeAuth\(/);
+  assert.match(auth, /browserLocalPersistence/);
 });
 
 test('native runtime does not alter the normal web app', async () => {
