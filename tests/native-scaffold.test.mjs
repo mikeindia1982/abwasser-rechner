@@ -23,13 +23,19 @@ test('package scripts expose repeatable iOS lifecycle commands', async () => {
   assert.ok(pkg.scripts['ios:add']);
   assert.ok(pkg.scripts['ios:sync']);
   assert.ok(pkg.scripts['ios:open']);
+  assert.ok(pkg.dependencies['@capacitor/camera']);
+  assert.ok(pkg.dependencies['@capacitor/filesystem']);
+  assert.ok(pkg.dependencies['@capacitor/local-notifications']);
+  assert.ok(pkg.dependencies['@capacitor/share']);
   assert.ok(pkg.devDependencies['@capacitor/ios']);
 });
 
-test('native build injects runtime before the application module', async () => {
+test('native build injects runtime and iPhone integration before the application module', async () => {
   const build = await read('scripts/build-native.mjs');
   assert.match(build, /native-runtime\.js/);
   assert.match(build, /native-ui-hardening\.js/);
+  assert.match(build, /native-ios-integration\.js/);
+  assert.match(build, /native-ios-integration\.css/);
   assert.match(build, /js\\\/app\\\.js|js\\\/app\.js|js\/app/);
   assert.match(build, /runtimeDirs = \['js', 'images', 'products'\]/);
 });
@@ -47,6 +53,7 @@ test('native bundle owns iOS-only presentation and device-review fixes', async (
   const build = await read('scripts/build-native.mjs');
   const nativeCss = await read('native-ios.css');
   const detailCss = await read('native-ios-detail-fixes.css');
+  const integrationCss = await read('native-ios-integration.css');
   assert.match(build, /native-ios\.css/);
   assert.match(build, /native-ios-detail-fixes\.css/);
   assert.match(nativeCss, /html\.native-ios \.topbar/);
@@ -58,6 +65,9 @@ test('native bundle owns iOS-only presentation and device-review fixes', async (
   assert.match(detailCss, /native-view-schema/);
   assert.match(detailCss, /schema3d-section/);
   assert.match(detailCss, /photo-process-layout/);
+  assert.match(integrationCss, /vta-native-action-sheet/);
+  assert.match(integrationCss, /native-integration-settings/);
+  assert.match(integrationCss, /native-calendar-linked/);
 });
 
 test('native UI runtime tracks keyboard, schema and active horizontal tabs', async () => {
@@ -68,6 +78,36 @@ test('native UI runtime tracks keyboard, schema and active horizontal tabs', asy
   assert.match(ui, /native-view-visit/);
   assert.match(ui, /revealActiveTabs/);
   assert.match(ui, /scrollIntoView/);
+});
+
+test('native iPhone integration covers calendar, notifications, maps, camera, filesystem and sharing', async () => {
+  const integration = await read('js/native-ios-integration.js');
+  assert.match(integration, /VTANativeIntegration/);
+  assert.match(integration, /upsertCalendarEvent/);
+  assert.match(integration, /deleteCalendarEvent/);
+  assert.match(integration, /LocalNotifications/);
+  assert.match(integration, /Apple Karten/);
+  assert.match(integration, /Camera\.getPhoto/);
+  assert.match(integration, /Camera\.pickImages/);
+  assert.match(integration, /Filesystem\.writeFile/);
+  assert.match(integration, /PHOTO_MAX_EDGE=1600/);
+  assert.match(integration, /PHOTO_QUALITY=0\.78/);
+  assert.match(integration, /Share\.share/);
+});
+
+test('native EventKit bridge is registered without a third-party calendar dependency', async () => {
+  const scene = await read('ios/App/App/SceneDelegate.swift');
+  const plist = await read('ios/App/App/Info.plist');
+  assert.match(scene, /import EventKit/);
+  assert.match(scene, /CAPBridgedPlugin/);
+  assert.match(scene, /requestFullAccessToEvents/);
+  assert.match(scene, /eventStore\.save/);
+  assert.match(scene, /eventStore\.remove/);
+  assert.match(scene, /registerPluginInstance\(VTANativeIntegrationPlugin\(\)\)/);
+  assert.match(plist, /NSCalendarsFullAccessUsageDescription/);
+  assert.match(plist, /NSCalendarsUsageDescription/);
+  assert.match(plist, /NSCameraUsageDescription/);
+  assert.match(plist, /NSPhotoLibraryUsageDescription/);
 });
 
 test('native runtime does not alter the normal web app', async () => {
