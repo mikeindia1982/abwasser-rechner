@@ -30,6 +30,10 @@
   <string>VTA Copilot benötigt Zugriff auf die Fotomediathek, um vorhandene Anlagen- und Dokumentationsbilder auszuwählen.</string>
   <key>NSPhotoLibraryAddUsageDescription</key>
   <string>VTA Copilot darf erzeugte oder bearbeitete Dokumentationsbilder in der Fotomediathek sichern.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>VTA Copilot benötigt Kalenderzugriff, um Kundentermine anzulegen, bei Änderungen zu aktualisieren und bei Bedarf wieder zu entfernen.</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>VTA Copilot benötigt Kalenderzugriff, um Kundentermine mit dem iOS-Kalender zu synchronisieren.</string>
   <key>NSFaceIDUsageDescription</key>
   <string>VTA Copilot kann Face ID verwenden, um den Zugriff auf die App und gespeicherte Zugangsdaten zusätzlich zu schützen.</string>
 	<key>UIApplicationSceneManifest</key>
