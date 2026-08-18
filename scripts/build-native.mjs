@@ -48,6 +48,7 @@ if (!(await exists(join(dist, 'native-ios-detail-fixes.css')))) throw new Error(
 if (!(await exists(join(dist, 'native-ios-integration.css')))) throw new Error('Native build failed: native-ios-integration.css is missing.');
 if (!(await exists(join(dist, 'js/native-ui-hardening.js')))) throw new Error('Native build failed: native-ui-hardening.js is missing.');
 if (!(await exists(join(dist, 'js/native-ios-integration.js')))) throw new Error('Native build failed: native-ios-integration.js is missing.');
+if (!(await exists(join(dist, 'js/native-ios-deeplink.js')))) throw new Error('Native build failed: native-ios-deeplink.js is missing.');
 
 let index = await readFile(indexPath, 'utf8');
 index = index.replace(/\s*<link[^>]+rel=["']manifest["'][^>]*>\s*/i, '\n');
@@ -58,7 +59,7 @@ if (!appScriptPattern.test(index)) {
 }
 index = index.replace(
   appScriptPattern,
-  '<script src="js/native-runtime.js?v=0.11.0-alpha.58"></script>\n<script src="js/native-ui-hardening.js?v=0.11.0-alpha.58-native-ui4"></script>\n<script src="js/native-ios-integration.js?v=0.11.0-alpha.58-native-integration1"></script>\n$1'
+  '<script src="js/native-runtime.js?v=0.11.0-alpha.58"></script>\n<script src="js/native-ui-hardening.js?v=0.11.0-alpha.58-native-ui4"></script>\n<script src="js/native-ios-integration.js?v=0.11.0-alpha.58-native-integration1"></script>\n<script src="js/native-ios-deeplink.js?v=0.11.0-alpha.58-native-integration1"></script>\n$1'
 );
 
 const firebaseAuthPattern = /<script\s+type=["']module["']\s+src=["']js\/firebase-auth\.js[^"']*["']><\/script>/i;
