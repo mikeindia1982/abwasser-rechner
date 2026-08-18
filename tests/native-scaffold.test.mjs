@@ -12,6 +12,7 @@ test('Capacitor config points at the generated native bundle', async () => {
   assert.equal(config.appName, 'VTA Copilot');
   assert.equal(config.appId, 'de.vta.copilot');
   assert.equal(config.webDir, 'dist');
+  assert.equal(config.plugins?.CapacitorHttp?.enabled, true);
 });
 
 test('package scripts expose repeatable iOS lifecycle commands', async () => {
@@ -28,6 +29,7 @@ test('package scripts expose repeatable iOS lifecycle commands', async () => {
 test('native build injects runtime before the application module', async () => {
   const build = await read('scripts/build-native.mjs');
   assert.match(build, /native-runtime\.js/);
+  assert.match(build, /native-firebase-auth-adapter\.js/);
   assert.match(build, /js\\\/app\\\.js|js\\\/app\.js|js\/app/);
   assert.match(build, /runtimeDirs = \['js', 'images', 'products'\]/);
 });
