@@ -3,16 +3,10 @@ import Network
 
 final class LocalWebServer {
     enum ServerError: LocalizedError {
-        case missingRoot
-        case invalidRequest
         case listenerFailed(String)
 
         var errorDescription: String? {
             switch self {
-            case .missingRoot:
-                return "Das lokale WebApp-Verzeichnis wurde nicht gefunden."
-            case .invalidRequest:
-                return "Ungültige lokale HTTP-Anfrage."
             case .listenerFailed(let message):
                 return "Lokaler Webserver konnte nicht gestartet werden: \(message)"
             }
@@ -129,13 +123,13 @@ final class LocalWebServer {
         }
 
         do {
-            let data = method == "HEAD" ? Data() : try Data(contentsOf: fileURL)
-            let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber)?.intValue ?? data.count
+            let fileData = try Data(contentsOf: fileURL)
+            let body = method == "HEAD" ? Data() : fileData
             send(
                 status: "200 OK",
-                body: data,
+                body: body,
                 contentType: mimeType(for: fileURL.pathExtension),
-                contentLength: fileSize,
+                contentLength: fileData.count,
                 cacheControl: fileURL.lastPathComponent == "service-worker.js" ? "no-cache" : "public, max-age=3600",
                 on: connection
             )
