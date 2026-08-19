@@ -10,7 +10,8 @@
 
   html,body{min-height:100%;overscroll-behavior-y:auto}
   .content-shell{padding-bottom:calc(var(--vta-bottom-nav-height) + env(safe-area-inset-bottom,0px))}
-  .main-content,.application-view,.plant-page{touch-action:pan-y}
+  .plant-page{touch-action:pan-y}
+  [data-open-plant],[data-edit-plant],[data-delete-plant],.plant-card button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .topbar{min-height:56px;padding:6px 12px;gap:8px}
   .topbar-left{flex:1;min-width:0;gap:5px}
   .menu-toggle,.breadcrumb-home,.breadcrumb-separator,#vtaNavigationForward,.active-plant-badge{display:none!important}
