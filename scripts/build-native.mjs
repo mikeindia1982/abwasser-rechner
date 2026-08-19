@@ -42,13 +42,31 @@ for (const dir of runtimeDirs) {
 }
 
 const indexPath = join(dist, 'index.html');
+const navigationRuntimePath = join(dist, 'js/navigation-enhancements.js');
 if (!(await exists(indexPath))) throw new Error('Native build failed: dist/index.html is missing.');
+if (!(await exists(navigationRuntimePath))) throw new Error('Native build failed: navigation-enhancements.js is missing.');
 if (!(await exists(join(dist, 'native-ios.css')))) throw new Error('Native build failed: native-ios.css is missing.');
 if (!(await exists(join(dist, 'native-ios-detail-fixes.css')))) throw new Error('Native build failed: native-ios-detail-fixes.css is missing.');
 if (!(await exists(join(dist, 'native-ios-integration.css')))) throw new Error('Native build failed: native-ios-integration.css is missing.');
 if (!(await exists(join(dist, 'js/native-ui-hardening.js')))) throw new Error('Native build failed: native-ui-hardening.js is missing.');
 if (!(await exists(join(dist, 'js/native-ios-integration.js')))) throw new Error('Native build failed: native-ios-integration.js is missing.');
 if (!(await exists(join(dist, 'js/native-ios-deeplink.js')))) throw new Error('Native build failed: native-ios-deeplink.js is missing.');
+
+// Navigation V2 observes the whole app DOM. Reassigning the visit label on every
+// observer pass creates another childList mutation in WebKit and can starve the
+// first paint indefinitely. Patch the generated native runtime so it only writes
+// when the visible label actually changes.
+let navigationRuntime = await readFile(navigationRuntimePath, 'utf8');
+const unstableVisitLabelUpdate = "if(visitLabel)visitLabel.textContent=visitId?'Fortsetzen':'Besuch';";
+const guardedVisitLabelUpdate = "const nextVisitLabel=visitId?'Fortsetzen':'Besuch';\n    if(visitLabel&&visitLabel.textContent!==nextVisitLabel)visitLabel.textContent=nextVisitLabel;";
+if (!navigationRuntime.includes(unstableVisitLabelUpdate)) {
+  throw new Error('Native build failed: Navigation V2 visit-label mutation pattern was not found.');
+}
+navigationRuntime = navigationRuntime.replace(unstableVisitLabelUpdate, guardedVisitLabelUpdate);
+if (!navigationRuntime.includes('visitLabel.textContent!==nextVisitLabel')) {
+  throw new Error('Native build failed: Navigation V2 mutation guard was not applied.');
+}
+await writeFile(navigationRuntimePath, navigationRuntime, 'utf8');
 
 let index = await readFile(indexPath, 'utf8');
 index = index.replace(/\s*<link[^>]+rel=["']manifest["'][^>]*>\s*/i, '\n');
@@ -62,7 +80,7 @@ index = index.replace(
 );
 index = index.replace(
   /js\/navigation-enhancements\.js\?v=[^"']+/i,
-  'js/navigation-enhancements.js?v=0.11.0-alpha.60-nav2'
+  'js/navigation-enhancements.js?v=0.11.0-alpha.63-nav3'
 );
 
 // Native Firebase is offline-first. The generated iOS bundle must never boot
