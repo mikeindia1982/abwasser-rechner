@@ -80,7 +80,7 @@ if (!firebaseAuthPattern.test(index)) {
 }
 index = index.replace(
   firebaseAuthPattern,
-  '<script type="module" src="js/native-firebase-auth.js?v=0.11.0-alpha.57-native-auth2"></script>'
+  '<script type="module" src="js/native-firebase-auth.js?v=0.11.0-alpha.61-native-auth3"></script>'
 );
 
 index = index.replace(
