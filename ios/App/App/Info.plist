@@ -30,6 +30,8 @@
   <string>VTA Copilot benötigt Zugriff auf die Fotomediathek, um vorhandene Anlagen- und Dokumentationsbilder auszuwählen.</string>
   <key>NSPhotoLibraryAddUsageDescription</key>
   <string>VTA Copilot darf erzeugte oder bearbeitete Dokumentationsbilder in der Fotomediathek sichern.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>VTA Copilot benötigt deinen Standort während der Nutzung, um beim Anlegen einer Anlage die GPS-Koordinaten und die Anlagenadresse zu erfassen.</string>
   <key>NSCalendarsFullAccessUsageDescription</key>
   <string>VTA Copilot benötigt Kalenderzugriff, um Kundentermine anzulegen, bei Änderungen zu aktualisieren und bei Bedarf wieder zu entfernen.</string>
   <key>NSCalendarsUsageDescription</key>
