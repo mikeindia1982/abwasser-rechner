@@ -22,39 +22,40 @@ struct WebAppView: UIViewRepresentable {
         webView.backgroundColor = UIColor(red: 238.0 / 255.0, green: 244.0 / 255.0, blue: 244.0 / 255.0, alpha: 1)
         webView.scrollView.backgroundColor = webView.backgroundColor
 
-        loadBundledApp(in: webView)
+        context.coordinator.loadBundledApp(in: webView)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
-    private func loadBundledApp(in webView: WKWebView) {
-        guard
-            let webRoot = Bundle.main.resourceURL?.appendingPathComponent("WebApp", isDirectory: true),
-            let indexURL = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "WebApp")
-        else {
-            webView.loadHTMLString(Self.missingBundleHTML, baseURL: nil)
-            return
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        private var server: LocalWebServer?
+
+        deinit {
+            server?.stop()
         }
 
-        webView.loadFileURL(indexURL, allowingReadAccessTo: webRoot)
-    }
+        func loadBundledApp(in webView: WKWebView) {
+            guard let webRoot = Bundle.main.resourceURL?.appendingPathComponent("WebApp", isDirectory: true) else {
+                showError("Die WebApp-Ressourcen wurden nicht im App-Bundle gefunden.", in: webView)
+                return
+            }
 
-    private static let missingBundleHTML = """
-    <!doctype html>
-    <html lang="de">
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <style>
-        body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#eef4f4;color:#17353c;padding:32px;line-height:1.5}
-        .card{max-width:640px;margin:80px auto;background:#fff;border-radius:20px;padding:24px;border:1px solid #d5e1e2}
-      </style>
-    </head>
-    <body><div class="card"><h1>Web-App nicht gefunden</h1><p>Die WebApp-Ressourcen wurden beim Xcode-Build nicht in das App-Bundle kopiert. Bitte den Build-Log der Phase „Bundle Web App“ prüfen.</p></div></body>
-    </html>
-    """
+            let server = LocalWebServer(rootURL: webRoot)
+            self.server = server
+            server.start { [weak webView] result in
+                DispatchQueue.main.async {
+                    guard let webView else { return }
+                    switch result {
+                    case .success(let baseURL):
+                        webView.load(URLRequest(url: baseURL.appendingPathComponent("index.html")))
+                    case .failure(let error):
+                        self.showError(error.localizedDescription, in: webView)
+                    }
+                }
+            }
+        }
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
@@ -65,7 +66,7 @@ struct WebAppView: UIViewRepresentable {
                 return
             }
 
-            if Self.shouldOpenExternally(url) {
+            if Self.isSystemURL(url) {
                 UIApplication.shared.open(url)
                 decisionHandler(.cancel)
                 return
@@ -85,7 +86,7 @@ struct WebAppView: UIViewRepresentable {
                 return nil
             }
 
-            if Self.shouldOpenExternally(url) {
+            if Self.isSystemURL(url) || Self.isExternalWebURL(url) {
                 UIApplication.shared.open(url)
             } else {
                 webView.load(navigationAction.request)
@@ -93,9 +94,35 @@ struct WebAppView: UIViewRepresentable {
             return nil
         }
 
-        private static func shouldOpenExternally(_ url: URL) -> Bool {
+        private func showError(_ message: String, in webView: WKWebView) {
+            let safeMessage = message
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+            let html = """
+            <!doctype html>
+            <html lang="de">
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#eef4f4;color:#17353c;padding:32px;line-height:1.5}
+                .card{max-width:640px;margin:80px auto;background:#fff;border-radius:20px;padding:24px;border:1px solid #d5e1e2}
+              </style>
+            </head>
+            <body><div class="card"><h1>Abwasser Rechner konnte nicht gestartet werden</h1><p>\(safeMessage)</p><p>Bitte in Xcode den Build-Log der Phase „Bundle Web App“ prüfen.</p></div></body>
+            </html>
+            """
+            webView.loadHTMLString(html, baseURL: nil)
+        }
+
+        private static func isSystemURL(_ url: URL) -> Bool {
             guard let scheme = url.scheme?.lowercased() else { return false }
             return ["mailto", "tel", "sms", "maps"].contains(scheme)
+        }
+
+        private static func isExternalWebURL(_ url: URL) -> Bool {
+            guard let scheme = url.scheme?.lowercased() else { return false }
+            return scheme == "http" || scheme == "https"
         }
     }
 }
