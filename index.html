@@ -9,6 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css?v=0.11.0-alpha.9">
+  <link rel="stylesheet" href="navigation-v2.css?v=0.11.0-alpha.10">
   <title>Abwasser Rechner v0.11.0-alpha.9</title>
 </head>
 <body>
@@ -109,9 +110,33 @@
     <footer>
       Orientierende Berechnungshilfe. Anlagen-, genehmigungs- und produktspezifische Randbedingungen sowie aktuelle Produktdatenblätter sind separat zu prüfen.
     </footer>
+
+    <nav id="bottomNavigation" class="bottom-navigation" aria-label="Mobile Hauptnavigation">
+      <button class="bottom-nav-item" type="button" data-bottom-nav="start" aria-label="Start">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg>
+        <span>Start</span>
+      </button>
+      <button class="bottom-nav-item" type="button" data-bottom-nav="plants" aria-label="Anlagen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V5h9v16"/><path d="M14 10h5v11"/><path d="M8 8h3M8 12h3M8 16h3M17 13h1M17 17h1"/></svg>
+        <span>Anlagen</span>
+      </button>
+      <button class="bottom-nav-item bottom-nav-visit" type="button" data-bottom-nav="visit" aria-label="Besuch starten">
+        <span class="bottom-nav-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span>Besuch</span>
+      </button>
+      <button class="bottom-nav-item" type="button" data-bottom-nav="workflows" aria-label="Vorgänge">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v3H7z"/><path d="M6 6H4v15h16V6h-2"/><path d="M8 11h8M8 15h8M8 19h5"/></svg>
+        <span>Vorgänge</span>
+      </button>
+      <button class="bottom-nav-item" type="button" data-bottom-nav="more" aria-label="Mehr">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+        <span>Mehr</span>
+      </button>
+    </nav>
   </div>
 </div>
 <script src="js/qrcode-offline.js"></script>
 <script type="module" src="js/app.js?v=0.11.0-alpha.9"></script>
+<script type="module" src="js/navigation-v2.js?v=0.11.0-alpha.10"></script>
 </body>
 </html>
