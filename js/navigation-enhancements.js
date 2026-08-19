@@ -119,8 +119,6 @@
       return;
     }
 
-    // app.js initialisiert seine History erst beim ersten setView(). Erst danach
-    // wird der gespeicherte Zustand über den vorhandenen popstate-Handler geladen.
     if(!history.state?.appNav)return;
 
     if(sameNavigation(history.state,bootTarget)){
@@ -334,7 +332,8 @@
 
     const visitId=activeVisitId();
     const visitLabel=document.querySelector('[data-vta-bottom="visit"] strong');
-    if(visitLabel)visitLabel.textContent=visitId?'Fortsetzen':'Besuch';
+    const nextVisitLabel=visitId?'Fortsetzen':'Besuch';
+    if(visitLabel&&visitLabel.textContent!==nextVisitLabel)visitLabel.textContent=nextVisitLabel;
   }
 
   function polishCurrentView(){
@@ -368,9 +367,6 @@
     polishCurrentView();
     if(organizationActive())return;
 
-    // Für bestehende Installationen ohne gespeicherten Detailzustand bleibt die
-    // bisherige globale Seite erhalten. Ab diesem Release wird jeder weitere
-    // Navigationszustand vollständig gespeichert.
     if(!bootTarget){
       const globalPage=localStorage.getItem(GLOBAL_PAGE_KEY)||'today';
       window.__vtaNavigationInitialGlobalPage=globalPage;
