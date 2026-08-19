@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Abwasser Rechner</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.business</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Fotos können während eines Anlagenbesuchs direkt in der lokalen Besuchsdokumentation erfasst werden.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Der Standort wird verwendet, um Anlagenkoordinaten und die Anfahrt zur Kläranlage zu erfassen.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Fotos können für die lokale Anlagen- und Besuchsdokumentation ausgewählt werden.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+</dict>
+</plist>
