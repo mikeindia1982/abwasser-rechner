@@ -57,7 +57,7 @@
 @media(max-width:820px) and (display-mode:standalone){
   :root{--vta-bottom-nav-height:74px}
   .topbar{padding-top:max(8px,env(safe-area-inset-top));min-height:calc(56px + env(safe-area-inset-top,0px))}
-  .vta-bottom-navigation{padding-bottom:max(7px,env(safe-area-inset-bottom));}
+  .vta-bottom-navigation{padding-bottom:max(7px,env(safe-area-inset-bottom))}
 }
 
 @media(max-width:380px){
