@@ -43,8 +43,11 @@ for (const dir of runtimeDirs) {
 
 const indexPath = join(dist, 'index.html');
 const navigationRuntimePath = join(dist, 'js/navigation-enhancements.js');
+const navigationRecoveryPath = join(dist, 'js/native-navigation-recovery.js');
 if (!(await exists(indexPath))) throw new Error('Native build failed: dist/index.html is missing.');
 if (!(await exists(navigationRuntimePath))) throw new Error('Native build failed: navigation-enhancements.js is missing.');
+if (!(await exists(navigationRecoveryPath))) throw new Error('Native build failed: native-navigation-recovery.js is missing.');
+if (!(await exists(join(dist, 'native-navigation-recovery.css')))) throw new Error('Native build failed: native-navigation-recovery.css is missing.');
 if (!(await exists(join(dist, 'native-ios.css')))) throw new Error('Native build failed: native-ios.css is missing.');
 if (!(await exists(join(dist, 'native-ios-detail-fixes.css')))) throw new Error('Native build failed: native-ios-detail-fixes.css is missing.');
 if (!(await exists(join(dist, 'native-ios-integration.css')))) throw new Error('Native build failed: native-ios-integration.css is missing.');
@@ -114,7 +117,7 @@ if (!appScriptPattern.test(index)) {
 }
 index = index.replace(
   appScriptPattern,
-  '<script src="js/native-runtime.js?v=0.11.0-alpha.58"></script>\n<script src="js/native-ui-hardening.js?v=0.11.0-alpha.58-native-ui4"></script>\n<script src="js/native-ios-integration.js?v=0.11.0-alpha.58-native-integration1"></script>\n<script src="js/native-ios-deeplink.js?v=0.11.0-alpha.58-native-integration1"></script>\n$1'
+  '<script src="js/native-runtime.js?v=0.11.0-alpha.58"></script>\n<script src="js/native-ui-hardening.js?v=0.11.0-alpha.58-native-ui4"></script>\n<script src="js/native-ios-integration.js?v=0.11.0-alpha.58-native-integration1"></script>\n<script src="js/native-ios-deeplink.js?v=0.11.0-alpha.58-native-integration1"></script>\n$1\n<script src="js/native-navigation-recovery.js?v=0.11.0-alpha.64-native-navigation-recovery1"></script>'
 );
 
 const firebaseAuthPattern = /<script\s+type=["']module["']\s+src=["']js\/firebase-auth\.js[^"']*["']><\/script>/i;
@@ -128,7 +131,7 @@ index = index.replace(
 
 index = index.replace(
   '</head>',
-  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
+  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <link rel="stylesheet" href="native-navigation-recovery.css?v=0.11.0-alpha.64-native-navigation-recovery1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
 );
 
 if (!/id=["']firebaseAuthGate["'][^>]*\shidden(?:\s|>)/i.test(index)) {
@@ -139,6 +142,9 @@ if (/<div\s+class=["']app-layout["'][^>]*\sinert(?:\s|>)/i.test(index)) {
 }
 if (!index.includes('native-firebase-visibility-guard')) {
   throw new Error('Native build failed: Firebase visibility guard is missing.');
+}
+if (!index.includes('native-navigation-recovery.js') || !index.includes('native-navigation-recovery.css')) {
+  throw new Error('Native build failed: native navigation recovery assets were not injected.');
 }
 
 await writeFile(indexPath, index, 'utf8');
