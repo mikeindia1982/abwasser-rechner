@@ -113,7 +113,7 @@ if (!appScriptPattern.test(index)) {
 }
 index = index.replace(
   appScriptPattern,
-  '<script src="js/native-runtime.js?v=0.11.0-alpha.58"></script>\n<script src="js/native-ui-hardening.js?v=0.11.0-alpha.58-native-ui4"></script>\n<script src="js/native-ios-integration.js?v=0.11.0-alpha.58-native-integration1"></script>\n<script src="js/native-ios-deeplink.js?v=0.11.0-alpha.58-native-integration1"></script>\n$1\n<script src="js/native-navigation-recovery.js?v=0.11.0-alpha.64-native-navigation-recovery1"></script>'
+  '<script src="js/native-runtime.js?v=0.11.0-alpha.58"></script>\n<script src="js/native-ui-hardening.js?v=0.11.0-alpha.58-native-ui4"></script>\n<script src="js/native-ios-integration.js?v=0.11.0-alpha.58-native-integration1"></script>\n<script src="js/native-ios-deeplink.js?v=0.11.0-alpha.58-native-integration1"></script>\n$1\n<script src="js/native-navigation-recovery.js?v=0.11.0-alpha.67-native-navigation-recovery2"></script>'
 );
 
 const firebaseAuthPattern = /<script\s+type=["']module["']\s+src=["']js\/firebase-auth\.js[^"']*["']><\/script>/i;
@@ -127,7 +127,7 @@ index = index.replace(
 
 index = index.replace(
   '</head>',
-  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <link rel="stylesheet" href="native-navigation-recovery.css?v=0.11.0-alpha.64-native-navigation-recovery1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
+  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <link rel="stylesheet" href="native-navigation-recovery.css?v=0.11.0-alpha.67-native-navigation-recovery2">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
 );
 
 if (!/id=["']firebaseAuthGate["'][^>]*\shidden(?:\s|>)/i.test(index)) {
