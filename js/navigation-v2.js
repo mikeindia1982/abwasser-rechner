@@ -209,7 +209,7 @@ function normalizePlantNavigation() {
 function normalizeWorkflowLabels() {
   const taskNav = $('[data-global-view="tasks-global"]');
   const taskLabel = taskNav?.querySelector("strong");
-  if (taskLabel) taskLabel.textContent = "Vorgänge";
+  if (taskLabel && taskLabel.textContent !== "Vorgänge") taskLabel.textContent = "Vorgänge";
 
   if (!taskNav?.classList.contains("active")) return;
   const applicationView = $("#applicationView");
@@ -219,9 +219,10 @@ function normalizeWorkflowLabels() {
   const eyebrow = $(".eyebrow", header);
   const title = $("h1", header);
   const subtitle = $(".subtitle", header);
-  if (eyebrow) eyebrow.textContent = "Arbeitsliste";
-  if (title) title.textContent = "Vorgänge";
-  if (subtitle) subtitle.textContent = "Offene Vorgänge und Aufgaben aus allen Anlagen.";
+  if (eyebrow && eyebrow.textContent !== "Arbeitsliste") eyebrow.textContent = "Arbeitsliste";
+  if (title && title.textContent !== "Vorgänge") title.textContent = "Vorgänge";
+  if (subtitle && subtitle.textContent !== "Offene Vorgänge und Aufgaben aus allen Anlagen.")
+    subtitle.textContent = "Offene Vorgänge und Aufgaben aus allen Anlagen.";
 }
 
 function syncNavigationState() {
