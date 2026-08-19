@@ -106,7 +106,7 @@ test('native notification navigation restores the requested plant and page after
   assert.match(deepLink, /abwasser-plant-page-v091a/);
 });
 
-test('native EventKit bridge is registered without a third-party calendar dependency', async () => {
+test('native EventKit bridge and foreground device permissions are declared', async () => {
   const scene = await read('ios/App/App/SceneDelegate.swift');
   const plist = await read('ios/App/App/Info.plist');
   assert.match(scene, /import EventKit/);
@@ -119,6 +119,7 @@ test('native EventKit bridge is registered without a third-party calendar depend
   assert.match(plist, /NSCalendarsUsageDescription/);
   assert.match(plist, /NSCameraUsageDescription/);
   assert.match(plist, /NSPhotoLibraryUsageDescription/);
+  assert.match(plist, /NSLocationWhenInUseUsageDescription/);
 });
 
 test('native runtime does not alter the normal web app', async () => {
