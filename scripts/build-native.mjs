@@ -65,6 +65,31 @@ index = index.replace(
   'js/navigation-enhancements.js?v=0.11.0-alpha.60-nav2'
 );
 
+// Native Firebase is offline-first. The generated iOS bundle must never boot
+// behind the auth overlay, even before JavaScript has had a chance to execute.
+const firebaseGatePattern = /<div\s+id=["']firebaseAuthGate["']\s+class=["']firebase-auth-gate["']\s+aria-live=["']polite["']>/i;
+if (!firebaseGatePattern.test(index)) {
+  throw new Error('Native build failed: Firebase auth gate markup was not found.');
+}
+index = index.replace(
+  firebaseGatePattern,
+  '<div id="firebaseAuthGate" class="firebase-auth-gate" aria-live="polite" hidden>'
+);
+
+const appLayoutInertPattern = /<div\s+class=["']app-layout["']\s+inert>/i;
+if (!appLayoutInertPattern.test(index)) {
+  throw new Error('Native build failed: app-layout inert startup marker was not found.');
+}
+index = index.replace(appLayoutInertPattern, '<div class="app-layout">');
+
+const nativeFirebaseVisibilityGuard = `
+  <style id="native-firebase-visibility-guard">
+    #firebaseAuthGate[hidden],
+    #firebaseAuthLoading[hidden],
+    #firebaseLoginForm[hidden],
+    #firebaseAuthIssue[hidden]{display:none!important}
+  </style>`;
+
 const appScriptPattern = /(<script\s+type=["']module["']\s+src=["']js\/app\.js[^"']*["']><\/script>)/i;
 if (!appScriptPattern.test(index)) {
   throw new Error('Native build failed: app.js script tag was not found in index.html.');
@@ -80,13 +105,24 @@ if (!firebaseAuthPattern.test(index)) {
 }
 index = index.replace(
   firebaseAuthPattern,
-  '<script type="module" src="js/native-firebase-auth.js?v=0.11.0-alpha.61-native-auth3"></script>'
+  '<script type="module" src="js/native-firebase-auth.js?v=0.11.0-alpha.62-native-auth4"></script>'
 );
 
 index = index.replace(
   '</head>',
-  '  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>'
+  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
 );
+
+if (!/id=["']firebaseAuthGate["'][^>]*\shidden(?:\s|>)/i.test(index)) {
+  throw new Error('Native build failed: Firebase auth gate is not hidden at startup.');
+}
+if (/<div\s+class=["']app-layout["'][^>]*\sinert(?:\s|>)/i.test(index)) {
+  throw new Error('Native build failed: app-layout is still inert at startup.');
+}
+if (!index.includes('native-firebase-visibility-guard')) {
+  throw new Error('Native build failed: Firebase visibility guard is missing.');
+}
+
 await writeFile(indexPath, index, 'utf8');
 
 const metadata = {
