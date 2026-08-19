@@ -11,6 +11,7 @@ FILES=(
   "index.html"
   "styles.css"
   "navigation-v2.css"
+  "service-worker.js"
   "manifest.webmanifest"
   "icon-192.png"
   "icon-512.png"
