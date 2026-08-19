@@ -75,7 +75,7 @@ index = index.replace(/\s*<link[^>]+rel=["']manifest["'][^>]*>\s*/i, '\n');
 // Native Navigation V2: force a fresh WebKit request after each synced build.
 index = index.replace(
   /navigation-enhancements\.css\?v=[^"']+/i,
-  'navigation-enhancements.css?v=0.11.0-alpha.65-nav4'
+  'navigation-enhancements.css?v=0.11.0-alpha.66-nav5'
 );
 index = index.replace(
   /js\/navigation-enhancements\.js\?v=[^"']+/i,
