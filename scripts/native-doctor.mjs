@@ -62,6 +62,7 @@ try {
   report(plist.includes('NSCalendarsUsageDescription'), 'Legacy iOS calendar usage description present');
   report(plist.includes('NSCameraUsageDescription'), 'iOS camera usage description present');
   report(plist.includes('NSPhotoLibraryUsageDescription'), 'iOS photo-library usage description present');
+  report(plist.includes('NSLocationWhenInUseUsageDescription'), 'iOS foreground location usage description present');
 } catch (error) {
   report(false, 'Native iOS integration metadata readable', error.message);
 }
