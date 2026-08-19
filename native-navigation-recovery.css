@@ -33,3 +33,37 @@ html.native-ios.native-plant-scroll-ready .plant-page{
 html.native-ios.native-plant-scroll-ready .content-shell{
   min-height:100dvh;
 }
+
+/*
+ * WebKit can keep an outdated scroll extent when the commercial CRM card is
+ * prepended asynchronously to the overview grid. Use normal block flow for the
+ * overview so every dynamically inserted section contributes to document height.
+ */
+html.native-ios.native-plant-scroll-ready .plant-page[data-current-page="overview"]{
+  display:block!important;
+  width:100%;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  contain:none!important;
+  content-visibility:visible!important;
+}
+
+html.native-ios.native-plant-scroll-ready .plant-page[data-current-page="overview"] > *{
+  width:100%;
+  max-width:100%;
+  margin-top:0;
+  margin-bottom:1rem;
+}
+
+html.native-ios.native-plant-scroll-ready .plant-page[data-current-page="overview"] > *:last-child{
+  margin-bottom:0;
+}
+
+html.native-ios.native-plant-scroll-ready #commercialCustomerCard{
+  position:relative!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
