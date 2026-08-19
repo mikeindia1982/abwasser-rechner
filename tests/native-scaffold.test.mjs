@@ -42,13 +42,19 @@ test('native build injects runtime and iPhone integration before the application
   assert.match(build, /runtimeDirs = \['js', 'images', 'products'\]/);
 });
 
-test('native bundle replaces browser Firebase auth with explicit native-webview auth', async () => {
+test('native bundle replaces browser Firebase auth with explicit offline-first native-webview auth', async () => {
   const build = await read('scripts/build-native.mjs');
   const auth = await read('js/native-firebase-auth.js');
   assert.match(build, /native-firebase-auth\.js/);
   assert.match(build, /firebase-auth\\\.js|firebase-auth\.js/);
   assert.match(auth, /initializeAuth\(/);
   assert.match(auth, /browserLocalPersistence/);
+  assert.match(auth, /SDK_TIMEOUT_MS/);
+  assert.match(auth, /withTimeout\(loadFirebaseSdk\(\),SDK_TIMEOUT_MS,'native\/sdk-timeout'\)/);
+  assert.match(auth, /startupBlocking:false/);
+  assert.match(auth, /stage:'local-ready'/);
+  assert.match(auth, /unlockApp\(\)/);
+  assert.doesNotMatch(auth, /setAttribute\(['"]inert['"]/);
 });
 
 test('native bundle owns iOS-only presentation and device-review fixes', async () => {
