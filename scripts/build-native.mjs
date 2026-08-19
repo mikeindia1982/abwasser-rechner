@@ -53,6 +53,18 @@ if (!(await exists(join(dist, 'js/native-ios-deeplink.js')))) throw new Error('N
 let index = await readFile(indexPath, 'utf8');
 index = index.replace(/\s*<link[^>]+rel=["']manifest["'][^>]*>\s*/i, '\n');
 
+// Native Navigation V2: force a fresh WebKit request after each synced build
+// without changing the PWA source index. The files themselves remain part of
+// the shared web core and are copied into dist above.
+index = index.replace(
+  /navigation-enhancements\.css\?v=[^"']+/i,
+  'navigation-enhancements.css?v=0.11.0-alpha.60-nav2'
+);
+index = index.replace(
+  /js\/navigation-enhancements\.js\?v=[^"']+/i,
+  'js/navigation-enhancements.js?v=0.11.0-alpha.60-nav2'
+);
+
 const appScriptPattern = /(<script\s+type=["']module["']\s+src=["']js\/app\.js[^"']*["']><\/script>)/i;
 if (!appScriptPattern.test(index)) {
   throw new Error('Native build failed: app.js script tag was not found in index.html.');
