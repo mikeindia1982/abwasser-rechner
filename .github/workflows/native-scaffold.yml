@@ -93,5 +93,6 @@ jobs:
           grep -q 'native-firebase-auth.js' dist/index.html
           grep -q 'VTANativeIntegrationPlugin' ios/App/App/SceneDelegate.swift
           grep -q 'NSCalendarsFullAccessUsageDescription' ios/App/App/Info.plist
+          grep -q 'NSLocationWhenInUseUsageDescription' ios/App/App/Info.plist
           test ! -d dist/preview-alpha47
           test ! -f dist/service-worker.js
