@@ -57,6 +57,10 @@ body{color:var(--text)}
     linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 58%,#168daf 100%);
   box-shadow:0 22px 58px rgba(10,53,80,.2);
 }
+.hero-panel .primary{background:#fff;color:var(--primary-dark)}
+.hero-panel .primary:hover{background:#f1f9fc;color:var(--primary-dark)}
+.hero-panel .secondary{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.22)}
+.hero-panel .secondary:hover{background:rgba(255,255,255,.2);color:#fff}
 .dashboard-card,.favorite-dashboard-item,.panel,.plant-card{
   border-color:rgba(0,111,159,.12);
   box-shadow:var(--shadow-card);
