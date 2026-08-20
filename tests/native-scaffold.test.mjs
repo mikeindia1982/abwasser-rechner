@@ -78,6 +78,20 @@ test('native bundle owns iOS-only presentation and device-review fixes', async (
   assert.match(integrationCss, /native-calendar-linked/);
 });
 
+test('PWA and native bundle share the same VTA water theme', async () => {
+  const index = await read('index.html');
+  const build = await read('scripts/build-native.mjs');
+  const theme = await read('vta-theme.css');
+  assert.match(index, /vta-theme\.css\?v=0\.11\.0-alpha\.68-vta-theme1/);
+  assert.match(build, /vta-theme\.css\?v=0\.11\.0-alpha\.68-vta-theme1/);
+  assert.match(build, /shared VTA theme was not injected last/);
+  assert.match(theme, /--primary:#006f9f/);
+  assert.match(theme, /--primary-dark:#0a3550/);
+  assert.match(theme, /--brand-cyan:#2cb7d5/);
+  assert.match(theme, /\.vta-bottom-navigation \.vta-bottom-visit/);
+  assert.match(theme, /html\.native-ios \.topbar/);
+});
+
 test('native UI runtime tracks keyboard, schema and active horizontal tabs', async () => {
   const ui = await read('js/native-ui-hardening.js');
   assert.match(ui, /visualViewport/);
