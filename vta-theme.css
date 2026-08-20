@@ -1,0 +1,179 @@
+/* VTA Copilot – gemeinsames Wasser-/Technologie-Theme für Web, PWA und iOS.
+   Die Palette ist an den visuellen Auftritt von vta.cc angelehnt, nicht als
+   offizielle Corporate-Design-Farbdefinition zu verstehen. */
+
+:root{
+  color-scheme:light;
+  --bg:#f2f7f9;
+  --surface:#ffffff;
+  --surface-soft:#f5f9fb;
+  --text:#172a34;
+  --muted:#617784;
+  --primary:#006f9f;
+  --primary-dark:#0a3550;
+  --accent:#007a9e;
+  --line:#d4e4ea;
+  --brand-water:#008fcb;
+  --brand-cyan:#2cb7d5;
+  --brand-cyan-soft:#dff4fa;
+  --brand-blue-soft:#e8f3f8;
+  --brand-blue-faint:#f4f9fb;
+  --focus-ring:rgba(0,111,159,.2);
+  --shadow:0 18px 50px rgba(10,53,80,.12);
+  --shadow-card:0 5px 20px rgba(10,53,80,.07);
+  --shadow-elevated:0 12px 34px rgba(10,53,80,.11);
+  --danger:#b42318;
+  --ok:#16794a;
+  --warning:#946200;
+}
+
+html,body{background:var(--bg)}
+body{color:var(--text)}
+::selection{background:rgba(44,183,213,.25);color:var(--text)}
+
+/* App shell and global navigation */
+.sidebar{
+  background:linear-gradient(180deg,var(--primary-dark) 0%,#075879 48%,var(--primary) 100%);
+  box-shadow:12px 0 38px rgba(10,53,80,.2);
+}
+.brand-mark{color:var(--primary)}
+.topbar{
+  background:rgba(242,247,249,.94);
+  border-bottom-color:rgba(0,111,159,.1);
+}
+.active-plant-badge{background:var(--brand-blue-soft);color:var(--primary-dark)}
+.breadcrumb-home,.text-button,.dashboard-link,.eyebrow,.section-title,.category{color:var(--accent)}
+
+.button.primary,.primary{background:var(--primary);color:#fff}
+.button.primary:hover,.primary:hover{background:#005f89}
+.button.secondary,.secondary{background:var(--brand-blue-soft);color:var(--primary-dark)}
+.button.secondary:hover,.secondary:hover{background:#dcecf3}
+
+/* Hero and primary content */
+.hero-panel{
+  background:
+    radial-gradient(circle at 88% 14%,rgba(116,222,239,.24),transparent 18rem),
+    radial-gradient(circle at 76% 84%,rgba(255,255,255,.12),transparent 13rem),
+    linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 58%,#168daf 100%);
+  box-shadow:0 22px 58px rgba(10,53,80,.2);
+}
+.dashboard-card,.favorite-dashboard-item,.panel,.plant-card{
+  border-color:rgba(0,111,159,.12);
+  box-shadow:var(--shadow-card);
+}
+.dashboard-icon,.formula,.tech-badge{
+  background:var(--brand-cyan-soft);
+  color:var(--primary-dark);
+}
+.calculator-card.active,.plant-card.active{
+  border-color:var(--brand-water);
+  box-shadow:0 0 0 3px rgba(0,143,203,.13);
+}
+.calculator-card:focus-visible,.input-row:focus-within{
+  outline-color:var(--brand-water);
+  box-shadow:0 0 0 3px var(--focus-ring);
+}
+.input-row{border-color:#b9ccd5}
+.info-box{background:#f8fcfd}
+.result-hero{background:linear-gradient(145deg,var(--primary-dark),var(--primary))}
+.hint{border-left-color:var(--brand-water);background:#f0f8fb}
+
+/* Plant record */
+.plant-subnav{
+  background:rgba(242,247,249,.97);
+  border-color:rgba(0,111,159,.13);
+}
+.plant-subnav button{color:#355565;box-shadow:0 1px 4px rgba(10,53,80,.08)}
+.plant-subnav button.active{background:var(--primary);color:#fff}
+.plant-pass,.today-cockpit{
+  border-color:rgba(0,111,159,.13);
+  background:linear-gradient(145deg,#fff,var(--brand-blue-faint));
+  box-shadow:var(--shadow-card);
+}
+.pass-overall{background:var(--brand-blue-soft);border-color:#d4e8f0}
+.plant-master-card{border-color:var(--line);background:var(--brand-blue-faint)}
+
+/* CRM and field sales: brand colors only; semantic warning/ok colors stay intact. */
+body .commercial-customer-card,
+body .commercial-supply-section,
+body .commercial-dashboard-panel{
+  border-color:rgba(0,111,159,.15);
+  background:linear-gradient(180deg,rgba(223,244,250,.42),rgba(255,255,255,.92));
+}
+body .customer-chip.blue{background:var(--brand-blue-soft);color:#14577a}
+body .field-sales-scope{background:var(--brand-blue-soft);color:#165a79}
+body .field-sales-panel,
+body .field-sales-kpis>article,
+body .field-sales-kpis>button{border-color:#d8e7ed;box-shadow:var(--shadow-card)}
+body .field-sales-kpis strong,
+body .field-sales-panel-head h3,
+body .field-sales-activity-list strong,
+body .field-sales-volume-groups strong{color:var(--primary-dark)}
+body .field-sales-activity-type{background:var(--brand-cyan-soft);color:var(--primary)}
+body .field-sales-volume-total{background:var(--brand-blue-soft)}
+body .sales-simple-task-hint{border-color:#d8e7ed;background:var(--brand-blue-faint)}
+body .sales-simple-history-list>div{background:var(--brand-blue-faint)}
+
+/* Firebase / cloud access */
+.firebase-auth-gate{
+  background:
+    radial-gradient(circle at 78% 18%,rgba(44,183,213,.2),transparent 27rem),
+    linear-gradient(145deg,#eaf6fa,#fbfdfe 58%,#e3f2f7);
+}
+.firebase-auth-card{border-color:rgba(0,111,159,.14);box-shadow:0 28px 80px rgba(10,53,80,.18)}
+.firebase-auth-brand-mark,.firebase-account-avatar{background:var(--primary);color:#fff}
+.firebase-auth-loading,.firebase-account-note{background:var(--brand-blue-soft);color:#315c70}
+.firebase-auth-spinner{border-color:rgba(0,111,159,.18);border-top-color:var(--primary)}
+.firebase-login-field{color:var(--text)}
+.firebase-login-field input:focus{border-color:var(--brand-water);box-shadow:0 0 0 3px var(--focus-ring)}
+.firebase-demo-button{border-color:#c9dfe7;background:var(--brand-blue-faint);color:var(--primary-dark)}
+.firebase-session-button{border-color:#c9dfe7;color:var(--text)}
+.firebase-session-button:hover,.firebase-session-button:focus-visible{border-color:var(--brand-water)}
+.firebase-session-avatar{background:var(--brand-cyan-soft);color:var(--primary-dark)}
+.firebase-account-head>button{background:var(--brand-blue-soft);color:var(--primary-dark)}
+
+/* Mobile Navigation V2 */
+@media(max-width:820px){
+  .vta-bottom-navigation{
+    border-top-color:rgba(0,111,159,.12);
+    background:rgba(255,255,255,.97);
+    box-shadow:0 -12px 32px rgba(10,53,80,.09);
+  }
+  .vta-bottom-navigation button{color:#667b85}
+  .vta-bottom-navigation .vta-bottom-icon{color:#4d6875}
+  .vta-bottom-navigation button.active:not(.vta-bottom-visit){
+    color:var(--primary);
+    background:var(--brand-blue-soft);
+  }
+  .vta-bottom-navigation button.active:not(.vta-bottom-visit) .vta-bottom-icon{color:var(--primary)}
+  .vta-bottom-navigation .vta-bottom-visit{
+    background:var(--primary);
+    box-shadow:0 10px 26px rgba(0,111,159,.3),0 0 0 1px rgba(44,183,213,.18);
+  }
+  .vta-bottom-navigation .vta-bottom-visit.active{
+    background:var(--primary-dark);
+    box-shadow:0 11px 30px rgba(10,53,80,.35),0 0 0 1px rgba(44,183,213,.2);
+  }
+  .vta-bottom-navigation button:focus-visible{outline-color:var(--brand-water)}
+  .vta-more-backdrop{background:rgba(10,38,53,.4)}
+  .vta-more-sheet{border-color:rgba(0,111,159,.12);box-shadow:0 24px 70px rgba(10,53,80,.24)}
+  .vta-more-handle{background:#d3e2e8}
+  .vta-more-close{background:var(--brand-blue-soft);color:var(--primary-dark)}
+  .vta-more-grid button{border-color:#d8e7ed;background:#f9fcfd}
+  .vta-more-grid button span{background:var(--brand-cyan-soft);color:var(--primary-dark)}
+}
+
+/* Native iOS is loaded with this theme last, so hardcoded legacy petrol values
+   in the native presentation layer cannot reintroduce a second color system. */
+html.native-ios{background:var(--bg)}
+html.native-ios .topbar,
+html.native-ios .sticky-form-actions,
+html.native-ios .plant-subnav{background:rgba(242,247,249,.97)}
+html.native-ios .navigation-history-button{color:var(--primary);border-color:rgba(0,111,159,.12)}
+html.native-ios .commercial-notification-panel{border-color:rgba(0,111,159,.16)}
+html.native-ios .native-calendar-linked{border-color:#8bc2d8!important;background:#edf8fc!important;color:#145a79!important}
+html.native-ios .vta-native-toast.success{background:rgba(22,121,74,.96)}
+
+@media(prefers-reduced-transparency:reduce){
+  .topbar,.plant-subnav,.vta-bottom-navigation{background:var(--bg)}
+}
