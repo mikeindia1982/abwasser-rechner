@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.68-vta-theme1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.69-plant-imagery1`;
 const FILES=[
   "./",
   "./index.html",
@@ -17,6 +17,7 @@ const FILES=[
   "./sales-simplified-ui.css?v=0.11.0-alpha.52",
   "./sales-offers-ui.css?v=0.11.0-alpha.52",
   "./field-sales-dashboard.css?v=0.11.0-alpha.53",
+  "./plant-location-imagery.css?v=0.11.0-alpha.69",
   "./vta-theme.css?v=0.11.0-alpha.68-vta-theme1",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
@@ -28,6 +29,7 @@ const FILES=[
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/app.js?v=0.11.0-alpha.19",
   "./js/open-map-provider.js?v=0.11.0-alpha.55",
+  "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
   "./js/firebase-config.js?v=0.11.0-alpha.42",
   "./js/firebase-auth.js?v=0.11.0-alpha.42",
   "./js/firebase-plant-migration.js?v=0.11.0-alpha.43",
