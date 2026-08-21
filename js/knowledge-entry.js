@@ -42,6 +42,18 @@ async function showKnowledge() {
 }
 
 document.addEventListener('click', (event) => {
+  const cancelForm = event.target.closest?.('[data-kb-action="cancel-form"]');
+  if (cancelForm) {
+    const modal = document.getElementById('knowledgeModal');
+    if (modal) {
+      event.preventDefault();
+      event.stopPropagation();
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      return;
+    }
+  }
+
   const knowledge = event.target.closest?.('[data-knowledge-view="knowledge"]');
   if (knowledge) {
     event.preventDefault();
