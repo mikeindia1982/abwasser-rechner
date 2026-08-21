@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
 
-  const BUILD='0.11.0-alpha.75-page-transitions1';
+  const BUILD='0.11.0-alpha.75-page-transitions2';
   const MAIN_SELECTOR='#mainContent';
   const NAV_SELECTOR=[
     '[data-vta-bottom]',
