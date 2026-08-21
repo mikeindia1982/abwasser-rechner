@@ -91,6 +91,12 @@
     setTimeout(cleanup,320);
   }
 
+  function runFallback(kind,execute){
+    const result=Promise.resolve().then(execute);
+    result.then(()=>fallbackEnter(kind)).catch(()=>{});
+    return result;
+  }
+
   function run(kind,update,{settleMs=0}={}){
     const execute=async()=>{
       const result=update?.();
@@ -99,14 +105,18 @@
       else await nextFrame();
     };
 
-    if(activeTransition||!supported()||reducedMotion()){
-      const result=Promise.resolve().then(execute);
-      result.then(()=>fallbackEnter(kind)).catch(()=>{});
-      return result;
-    }
+    if(activeTransition||!supported()||reducedMotion())return runFallback(kind,execute);
 
     setKind(kind);
-    const transition=document.startViewTransition(execute);
+    let transition;
+    try{
+      transition=document.startViewTransition(execute);
+    }catch(error){
+      console.warn('View Transition nicht verfügbar, normale Navigation wird verwendet.',error);
+      clearKind();
+      return runFallback(kind,execute);
+    }
+
     activeTransition=transition;
     transition.finished.catch(()=>{}).finally(()=>{
       if(activeTransition===transition)activeTransition=null;
