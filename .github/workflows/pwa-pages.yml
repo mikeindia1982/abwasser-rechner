@@ -1,5 +1,6 @@
 name: PWA Deploy
 
+# GitHub Pages source is configured to GitHub Actions.
 on:
   push:
     branches:
