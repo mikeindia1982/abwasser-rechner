@@ -1,0 +1,85 @@
+name: PWA Deploy
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and package PWA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v6
+
+      - name: Validate PWA source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f manifest.webmanifest
+          test -f service-worker.js
+          test -f vta-theme.css
+          test -d js
+          grep -q 'vta-theme.css?v=0.11.0-alpha.68-vta-theme1' index.html
+          grep -q "v0.11.0-alpha.68-vta-theme1" service-worker.js
+          grep -q '"theme_color": "#0a3550"' manifest.webmanifest
+
+      - name: Prepare static PWA artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+
+          find . -maxdepth 1 -type f \
+            \( -name '*.html' \
+            -o -name '*.css' \
+            -o -name '*.webmanifest' \
+            -o -name '*.png' \
+            -o -name '*.webp' \
+            -o -name '*.svg' \
+            -o -name '*.ico' \) \
+            -exec cp '{}' _site/ \;
+
+          cp service-worker.js _site/service-worker.js
+          cp -R js _site/js
+          if [ -d images ]; then cp -R images _site/images; fi
+          if [ -d products ]; then cp -R products _site/products; fi
+          touch _site/.nojekyll
+
+          test -f _site/index.html
+          test -f _site/vta-theme.css
+          test -f _site/service-worker.js
+          test -f _site/js/app.js
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload PWA artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy PWA
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
