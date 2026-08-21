@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.76-influent-dosing1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.77-knowledge1`;
 const FILES=[
   "./",
   "./index.html",
@@ -23,6 +23,7 @@ const FILES=[
   "./page-transitions.css?v=0.11.0-alpha.75-page-transitions2",
   "./influent-dosing-calculator.css?v=0.11.0-alpha.76-influent-dosing1",
   "./vta-theme.css?v=0.11.0-alpha.71-nano1",
+  "./knowledge.css?v=0.11.0-alpha.77-knowledge1",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
   "./icon-192.png",
@@ -33,6 +34,9 @@ const FILES=[
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/page-transitions.js?v=0.11.0-alpha.75-page-transitions2",
   "./js/app.js?v=0.11.0-alpha.19",
+  "./js/knowledge-entry.js?v=0.11.0-alpha.77-knowledge1",
+  "./js/components/knowledge-base.js",
+  "./js/repositories/knowledge-repository.js",
   "./js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1",
   "./js/open-map-provider.js?v=0.11.0-alpha.55",
   "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
