@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.70-schema-toolbar1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.71-nano1`;
 const FILES=[
   "./",
   "./index.html",
@@ -18,7 +18,7 @@ const FILES=[
   "./sales-offers-ui.css?v=0.11.0-alpha.52",
   "./field-sales-dashboard.css?v=0.11.0-alpha.53",
   "./plant-location-imagery.css?v=0.11.0-alpha.69",
-  "./vta-theme.css?v=0.11.0-alpha.68-vta-theme1",
+  "./vta-theme.css?v=0.11.0-alpha.71-nano1",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
   "./icon-192.png",
