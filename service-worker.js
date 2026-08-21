@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.74-newsletter-consent1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.75-page-transitions1`;
 const FILES=[
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const FILES=[
   "./plant-location-imagery.css?v=0.11.0-alpha.69",
   "./plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1",
   "./newsletter-consent.css?v=0.11.0-alpha.74-newsletter-consent1",
+  "./page-transitions.css?v=0.11.0-alpha.75-page-transitions1",
   "./vta-theme.css?v=0.11.0-alpha.71-nano1",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
@@ -29,6 +30,7 @@ const FILES=[
   "./js/demo-organization.js?v=0.11.0-alpha.33",
   "./js/demo-workspace.js?v=0.11.0-alpha.29",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
+  "./js/page-transitions.js?v=0.11.0-alpha.75-page-transitions1",
   "./js/app.js?v=0.11.0-alpha.19",
   "./js/open-map-provider.js?v=0.11.0-alpha.55",
   "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
