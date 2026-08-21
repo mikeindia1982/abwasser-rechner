@@ -1,6 +1,11 @@
 import { mountKnowledgeBase } from './components/knowledge-base.js';
+import { ensureKnowledgeSeed } from './services/knowledge-seed-service.js';
 
 let active = false;
+const seedReady = ensureKnowledgeSeed().catch((error) => {
+  console.error('Basiswissen konnte nicht initialisiert werden', error);
+  return { imported: 0, skipped: false, error };
+});
 
 function navButton() {
   return document.querySelector('[data-knowledge-view="knowledge"]');
@@ -33,6 +38,7 @@ async function showKnowledge() {
 
   applicationView.innerHTML = '<div class="knowledge-loading">Wissensdatenbank wird geladen …</div>';
   try {
+    await seedReady;
     await mountKnowledgeBase(applicationView);
   } catch (error) {
     console.error('Wissensdatenbank', error);
