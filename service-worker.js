@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.75-page-transitions2`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.76-influent-dosing1`;
 const FILES=[
   "./",
   "./index.html",
@@ -21,6 +21,7 @@ const FILES=[
   "./plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1",
   "./newsletter-consent.css?v=0.11.0-alpha.74-newsletter-consent1",
   "./page-transitions.css?v=0.11.0-alpha.75-page-transitions2",
+  "./influent-dosing-calculator.css?v=0.11.0-alpha.76-influent-dosing1",
   "./vta-theme.css?v=0.11.0-alpha.71-nano1",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
@@ -32,6 +33,7 @@ const FILES=[
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/page-transitions.js?v=0.11.0-alpha.75-page-transitions2",
   "./js/app.js?v=0.11.0-alpha.19",
+  "./js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1",
   "./js/open-map-provider.js?v=0.11.0-alpha.55",
   "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
   "./js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1",
@@ -63,6 +65,8 @@ const FILES=[
   "./js/qrcode-offline.js",
   "./js/utils.js",
   "./js/calculators.js",
+  "./js/influent-dosing-calculator.js",
+  "./js/product-dosing-profiles.js",
   "./js/chemistry.js",
   "./js/dewatering.js",
   "./js/product-requests.js",
