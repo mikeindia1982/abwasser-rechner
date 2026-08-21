@@ -32,9 +32,16 @@ jobs:
           test -f manifest.webmanifest
           test -f service-worker.js
           test -f vta-theme.css
+          test -f plant-location-imagery.css
+          test -f js/plant-location-imagery.js
           test -d js
+          node --check js/plant-location-imagery.js
           grep -q 'vta-theme.css?v=0.11.0-alpha.68-vta-theme1' index.html
-          grep -q "v0.11.0-alpha.68-vta-theme1" service-worker.js
+          grep -q 'plant-location-imagery.css?v=0.11.0-alpha.69' index.html
+          grep -q 'js/plant-location-imagery.js?v=0.11.0-alpha.69' index.html
+          grep -q "v0.11.0-alpha.69-plant-imagery1" service-worker.js
+          grep -q 'plant-location-imagery.css?v=0.11.0-alpha.69' service-worker.js
+          grep -q 'js/plant-location-imagery.js?v=0.11.0-alpha.69' service-worker.js
           grep -q '"theme_color": "#0a3550"' manifest.webmanifest
 
       - name: Prepare static PWA artifact
@@ -62,8 +69,10 @@ jobs:
 
           test -f _site/index.html
           test -f _site/vta-theme.css
+          test -f _site/plant-location-imagery.css
           test -f _site/service-worker.js
           test -f _site/js/app.js
+          test -f _site/js/plant-location-imagery.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
