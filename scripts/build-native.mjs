@@ -132,7 +132,7 @@ index = index.replace(
 
 index = index.replace(
   '</head>',
-  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <link rel="stylesheet" href="native-navigation-recovery.css?v=0.11.0-alpha.67-native-navigation-recovery2">\n  <link rel="stylesheet" href="vta-theme.css?v=0.11.0-alpha.68-vta-theme1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
+  `${nativeFirebaseVisibilityGuard}\n  <link rel="stylesheet" href="native-ios.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-detail-fixes.css?v=0.11.0-alpha.58-native-ui4">\n  <link rel="stylesheet" href="native-ios-integration.css?v=0.11.0-alpha.58-native-integration1">\n  <link rel="stylesheet" href="native-navigation-recovery.css?v=0.11.0-alpha.67-native-navigation-recovery2">\n  <link rel="stylesheet" href="vta-theme.css?v=0.11.0-alpha.71-nano1">\n  <meta name="format-detection" content="telephone=yes">\n  <meta name="vta-runtime" content="capacitor-ios">\n</head>`
 );
 
 if (!/id=["']firebaseAuthGate["'][^>]*\shidden(?:\s|>)/i.test(index)) {
@@ -147,8 +147,8 @@ if (!index.includes('native-firebase-visibility-guard')) {
 if (!index.includes('native-navigation-recovery.js') || !index.includes('native-navigation-recovery.css')) {
   throw new Error('Native build failed: native navigation recovery assets were not injected.');
 }
-if (!index.includes('vta-theme.css?v=0.11.0-alpha.68-vta-theme1')) {
-  throw new Error('Native build failed: shared VTA theme was not injected last.');
+if (!index.includes('vta-theme.css?v=0.11.0-alpha.71-nano1')) {
+  throw new Error('Native build failed: shared Nano Water Technology theme was not injected last.');
 }
 
 await writeFile(indexPath, index, 'utf8');
