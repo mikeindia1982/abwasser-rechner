@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.73-gps-summary1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.74-newsletter-consent1`;
 const FILES=[
   "./",
   "./index.html",
@@ -19,6 +19,7 @@ const FILES=[
   "./field-sales-dashboard.css?v=0.11.0-alpha.53",
   "./plant-location-imagery.css?v=0.11.0-alpha.69",
   "./plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1",
+  "./newsletter-consent.css?v=0.11.0-alpha.74-newsletter-consent1",
   "./vta-theme.css?v=0.11.0-alpha.71-nano1",
   "./demo-organization.css?v=0.11.0-alpha.33",
   "./manifest.webmanifest",
@@ -47,6 +48,7 @@ const FILES=[
   "./js/sidebar-tasks.js?v=0.11.0-alpha.39",
   "./js/document-review-enhancements.js?v=0.11.0-alpha.23",
   "./js/visit-guide-enhancements.js?v=0.11.0-alpha.24",
+  "./js/newsletter-consent.js?v=0.11.0-alpha.74-newsletter-consent1",
   "./js/visit-report-enhancements.js?v=0.11.0-alpha.25",
   "./js/visits-ui-enhancements.js?v=0.11.0-alpha.28",
   "./js/components/product-image.js",
