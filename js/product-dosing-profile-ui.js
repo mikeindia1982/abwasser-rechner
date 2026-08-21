@@ -1,4 +1,4 @@
-import {dosingDataForProduct,formatGerman,readProducts,saveDosingProfile,sourceLabel} from './product-dosing-profiles.js';
+import {dosingDataForProduct,formatGerman,isChemicalDosingProduct,readProducts,saveDosingProfile,sourceLabel} from './product-dosing-profiles.js';
 
 const BUILD='0.11.0-alpha.76-influent-dosing1';
 let queued=false;
@@ -24,7 +24,7 @@ function saveFormProfile(snapshot){
     return String(product.name||'').trim()===snapshot.name;
   }).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   const product=snapshot.productId?products.find(item=>String(item.id)===String(snapshot.productId)):candidates[0];
-  if(!product)return;
+  if(!product||!isChemicalDosingProduct(product))return;
   saveDosingProfile(product.id,{
     densityKgL:snapshot.density,
     activeContentPercent:snapshot.activeContent,
@@ -38,8 +38,9 @@ function saveFormProfile(snapshot){
 
 function enhanceEditor(form){
   if(form.dataset.dosingProfileBound===BUILD)return;
-  form.dataset.dosingProfileBound=BUILD;
   const product=findProductByForm(form);
+  if(product&&!isChemicalDosingProduct(product))return;
+  form.dataset.dosingProfileBound=BUILD;
   const data=dosingDataForProduct(product)||{};
   const actions=form.querySelector('.sticky-form-actions');
   if(!actions)return;
@@ -53,7 +54,7 @@ function enhanceEditor(form){
       <label class="field-label">Wirkstoff / Bezugsgröße<input name="dosing.activeComponent" value="${esc(data.activeComponent||'')}" placeholder="z. B. Fe, Al oder Polymer-Wirkstoff"></label>
       <label class="field-label">Standardbezug<select name="dosing.defaultBasis"><option value="product" ${data.defaultBasis!=='active'?'selected':''}>Handelsprodukt</option><option value="active" ${data.defaultBasis==='active'?'selected':''}>Wirkstoff</option></select></label>
       <label class="field-label span-2">Geeignete Prozesse / Einsatzbereiche<textarea name="dosing.applicableProcesses" placeholder="z. B. Fällung; Flockung">${esc((data.applicableProcesses||[]).join('\n'))}</textarea></label>
-      <label class="field-label">Datenquelle<select name="dosing.source"><option value="technical-datasheet" ${data.source==='technical-datasheet'?'selected':''}>Technisches Datenblatt</option><option value="safety-data-sheet" ${data.source==='safety-data-sheet'?'selected':''}>Sicherheitsdatenblatt</option><option value="manufacturer" ${data.source==='manufacturer'?'selected':''}>Herstellerangabe</option><option value="manual" ${!data.source||data.source==='manual'?'selected':''}>Manuell gepflegt</option></select></label>
+      <label class="field-label">Datenquelle<select name="dosing.source"><option value="product-record" ${data.source==='product-record'?'selected':''}>Produktakte</option><option value="technical-datasheet" ${data.source==='technical-datasheet'?'selected':''}>Technisches Datenblatt</option><option value="safety-data-sheet" ${data.source==='safety-data-sheet'?'selected':''}>Sicherheitsdatenblatt</option><option value="manufacturer" ${data.source==='manufacturer'?'selected':''}>Herstellerangabe</option><option value="manual" ${!data.source||data.source==='manual'?'selected':''}>Manuell gepflegt</option></select></label>
       <label class="field-label">Geprüft am<input name="dosing.verifiedAt" type="date" value="${esc(data.verifiedAt||'')}"></label>
     </div>
     <div class="product-dosing-profile-note"><strong>Keine Pflichtfelder.</strong><span>Fehlende Werte können im Rechner weiterhin manuell eingegeben werden. Eine vorhandene technische Dichte aus der Produktakte wird bereits als Startwert erkannt.</span></div>`;
@@ -100,7 +101,7 @@ function enhanceDetail(){
   const grid=document.querySelector('#applicationView .product-detail-grid');
   if(!grid||grid.querySelector('[data-product-dosing-profile-detail]'))return;
   const product=productFromDetail();
-  if(!product)return;
+  if(!product||!isChemicalDosingProduct(product))return;
   const data=dosingDataForProduct(product);
   const card=document.createElement('article');
   card.className='record-card product-dosing-profile-card';
