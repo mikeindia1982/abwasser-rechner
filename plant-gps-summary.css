@@ -1,0 +1,87 @@
+/* Live-Zusammenfassung nach GPS-Erfassung einer Anlage */
+.plant-gps-summary{
+  margin:12px 0 16px;
+  padding:14px;
+  border:1px solid rgba(37,198,227,.24);
+  border-radius:12px;
+  background:
+    radial-gradient(circle at 92% 10%,rgba(37,198,227,.09),transparent 11rem),
+    linear-gradient(145deg,#082534,#0b3142);
+  color:#fff;
+  box-shadow:0 10px 28px rgba(7,29,42,.12);
+}
+.plant-gps-summary[hidden]{display:none!important}
+.plant-gps-summary-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.plant-gps-summary-head>div{display:grid;gap:2px;min-width:0}
+.plant-gps-summary-kicker{
+  color:var(--brand-cyan-hot,#6ee9f7);
+  font-size:.66rem;
+  font-weight:900;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.plant-gps-summary-head strong{font-size:1.02rem;color:#fff;overflow-wrap:anywhere}
+.plant-gps-summary-head small{color:rgba(230,246,251,.68);line-height:1.35;overflow-wrap:anywhere}
+.plant-gps-summary-state{
+  flex:0 0 auto;
+  min-height:28px;
+  display:inline-flex;
+  align-items:center;
+  padding:.34rem .55rem;
+  border:1px solid rgba(110,233,247,.18);
+  border-radius:999px;
+  background:rgba(255,255,255,.06);
+  color:#c8edf4;
+  font-size:.7rem;
+  font-weight:850;
+}
+.plant-gps-summary.is-complete .plant-gps-summary-state{
+  border-color:rgba(70,205,143,.35);
+  background:rgba(70,205,143,.1);
+  color:#d5fae7;
+}
+.plant-gps-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.plant-gps-summary-grid>div{
+  min-width:0;
+  padding:10px 11px;
+  border:1px solid rgba(110,233,247,.11);
+  border-radius:9px;
+  background:rgba(255,255,255,.045);
+}
+.plant-gps-summary-grid span{
+  display:block;
+  margin-bottom:3px;
+  color:rgba(191,228,237,.68);
+  font-size:.65rem;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.plant-gps-summary-grid strong{
+  display:block;
+  color:#f4fcfe;
+  font-size:.83rem;
+  line-height:1.35;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+.plant-gps-summary-wide{grid-column:1/-1}
+
+@media(max-width:700px){
+  .plant-gps-summary{margin-top:10px;padding:12px}
+  .plant-gps-summary-head{display:block}
+  .plant-gps-summary-state{margin-top:8px}
+  .plant-gps-summary-grid{grid-template-columns:1fr 1fr}
+  .plant-gps-summary-grid>div{padding:9px}
+  .plant-gps-summary-grid strong{font-size:.78rem}
+}
