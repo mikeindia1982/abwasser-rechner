@@ -1,29 +1,24 @@
 import { knowledgeRepository } from '../repositories/knowledge-repository.js';
 
 const TYPE_LABELS = {
-  technical_knowledge: 'Fachwissen',
-  problem_solution: 'Problem & Lösung',
-  experience: 'Praxiserfahrung',
-  test_result: 'Versuchsergebnis',
-  product_knowledge: 'Produktwissen',
-  work_instruction: 'Arbeitsanweisung',
-  faq: 'FAQ',
-  best_practice: 'Best Practice',
-  issue_pattern: 'Fehlerbild',
-  internal_knowledge: 'Unternehmenswissen',
+  technical_knowledge: 'Fachwissen', problem_solution: 'Problem & Lösung', experience: 'Praxiserfahrung',
+  test_result: 'Versuchsergebnis', product_knowledge: 'Produktwissen', work_instruction: 'Arbeitsanweisung',
+  faq: 'FAQ', best_practice: 'Best Practice', issue_pattern: 'Fehlerbild', internal_knowledge: 'Unternehmenswissen',
 };
 const STATUS_LABELS = { draft: 'Entwurf', review: 'Zur Prüfung', approved: 'Freigegeben', archived: 'Archiviert' };
 const LEVEL_LABELS = { unverified: 'Ungeprüfte Erfahrung', practical: 'Praxiserprobt', verified: 'Geprüft', official: 'Offizielle Information' };
 const VISIBILITY_LABELS = { private: 'Privat', team: 'Team', company: 'Unternehmen' };
-
 const state = { query: '', type: 'all', status: 'active', level: 'all', plant: 'all', selectedId: null, editingId: null, searchTimer: null };
 
 function esc(value = '') {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-function readJson(key, fallback = []) {
-  try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; }
+function safeUrl(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; }
 }
+function readJson(key, fallback = []) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } }
 function plants() { const rows = readJson('abwasser-plants-v07', []); return Array.isArray(rows) ? rows : []; }
 function products() { const rows = readJson('abwasser-products-v092', []); return Array.isArray(rows) ? rows : []; }
 function activePlantId() { return localStorage.getItem('abwasser-active-plant-v07') || ''; }
@@ -42,9 +37,7 @@ function matches(entry) {
   const haystack = [entry.title, entry.summary, entry.content, entry.knowledgeType, entry.status, entry.knowledgeLevel, ...(entry.tags || []), ...(entry.links || []).flatMap((link) => [link.entityLabel, link.entityType, link.relationType]), ...Object.values(entry.fields || {})].join(' ').toLocaleLowerCase('de-DE');
   return haystack.includes(state.query.toLocaleLowerCase('de-DE'));
 }
-function options(labels, selected = '') {
-  return Object.entries(labels).map(([value, label]) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${esc(label)}</option>`).join('');
-}
+function options(labels, selected = '') { return Object.entries(labels).map(([value, label]) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${esc(label)}</option>`).join(''); }
 function dynamicFields(type, values = {}) {
   if (type === 'problem_solution') return `
     <label>Problem<textarea name="field.problem" rows="3">${esc(values.problem || '')}</textarea></label>
@@ -63,12 +56,8 @@ function dynamicFields(type, values = {}) {
 }
 
 function formMarkup(entry = {}) {
-  const plantRows = plants();
-  const productRows = products();
-  const plantLink = linkedPlant(entry) || {};
-  const productLink = linkedProduct(entry) || {};
-  const selectedType = entry.knowledgeType || 'problem_solution';
-  const sourceType = entry.sources?.[0]?.sourceType || 'manual';
+  const plantRows = plants(), productRows = products(), plantLink = linkedPlant(entry) || {}, productLink = linkedProduct(entry) || {};
+  const selectedType = entry.knowledgeType || 'problem_solution', source = entry.sources?.[0] || {}, sourceType = source.sourceType || 'manual';
   const sourceTypes = [['manual','Manuell'],['pdf','PDF'],['visit_report','Besuchsbericht'],['test','Versuch'],['ticket','Ticket'],['complaint','Reklamation'],['product_document','Produktdokument'],['external_reference','Externe Quelle']];
   return `<form id="knowledgeForm" class="knowledge-form">
     <div class="knowledge-form-head"><div><p class="eyebrow">${entry.id ? 'Wissenseintrag bearbeiten' : 'Neues Wissen'}</p><h2>${entry.id ? esc(entry.title || 'Wissenseintrag') : 'Wissenseintrag anlegen'}</h2></div><button class="button secondary" type="button" data-kb-action="cancel-form">Schließen</button></div>
@@ -85,7 +74,8 @@ function formMarkup(entry = {}) {
       <label>Produkt<select name="productId"><option value="">Kein Produkt</option>${productRows.map((product) => `<option value="${esc(product.id)}" ${String(product.id) === String(productLink.entityId || '') ? 'selected' : ''}>${esc(productLabel(product))}</option>`).join('')}</select></label>
       <label class="knowledge-span-2">Tags<input name="tags" value="${esc((entry.tags || []).join(', '))}" placeholder="Polymer, Dekanter, Entwässerung"></label>
       <label>Quellentyp<select name="sourceType">${sourceTypes.map(([value, label]) => `<option value="${value}" ${value === sourceType ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-      <label>Quellentitel<input name="sourceTitle" value="${esc(entry.sources?.[0]?.sourceTitle || '')}" placeholder="z. B. Besuchsbericht 12.08.2026"></label>
+      <label>Quellentitel<input name="sourceTitle" value="${esc(source.sourceTitle || '')}" placeholder="z. B. Besuchsbericht 12.08.2026"></label>
+      <label class="knowledge-span-2">Quellen-URL<input name="sourceUrl" type="url" value="${esc(source.sourceUrl || '')}" placeholder="https://..."></label>
     </div>
     <div class="knowledge-form-actions"><button class="button secondary" type="button" data-kb-action="cancel-form">Abbrechen</button><button class="button primary" type="submit">Wissenseintrag speichern</button></div>
   </form>`;
@@ -104,17 +94,16 @@ function cardMarkup(entry) {
 function detailMarkup(entry) {
   if (!entry) return '<div class="knowledge-empty"><h3>Wissenseintrag auswählen</h3><p>Links einen Eintrag öffnen oder neues Wissen anlegen.</p></div>';
   const fieldRows = Object.entries(entry.fields || {}).filter(([, value]) => String(value || '').trim());
-  const fieldLabels = { problem: 'Problem', cause: 'Mögliche Ursache', action: 'Maßnahme', result: 'Ergebnis', recommendation: 'Empfehlung', initialSituation: 'Ausgangssituation', testSetup: 'Versuchsaufbau', dosage: 'Dosierung / Parameter', measurements: 'Messwerte', observation: 'Beobachtung', conclusion: 'Fazit', note: 'Zusätzliche Fachnotiz' };
+  const fieldLabels = { problem: 'Problem', cause: 'Mögliche Ursache', action: 'Maßnahme', result: 'Ergebnis', recommendation: 'Empfehlung', initialSituation: 'Ausgangssituation', testSetup: 'Versuchsaufbau', dosage: 'Dosierung / Parameter', measurements: 'Messwerte', observation: 'Beobachtung', conclusion: 'Fazit', note: 'Zusätzliche Fachnotiz', origin: 'Herkunft', seedVersion: 'Basiswissen-Version' };
   return `<div class="knowledge-detail-head"><div><p class="eyebrow">${esc(TYPE_LABELS[entry.knowledgeType] || entry.knowledgeType)}</p><h2>${esc(entry.title)}</h2><div class="knowledge-detail-badges"><span>${esc(STATUS_LABELS[entry.status] || entry.status)}</span><span>${esc(LEVEL_LABELS[entry.knowledgeLevel] || entry.knowledgeLevel)}</span><span>${esc(VISIBILITY_LABELS[entry.visibility] || entry.visibility)}</span></div></div><div class="knowledge-detail-actions"><button class="button secondary" type="button" data-kb-action="edit" data-kb-id="${esc(entry.id)}">Bearbeiten</button>${entry.status !== 'archived' ? `<button class="button secondary" type="button" data-kb-action="archive" data-kb-id="${esc(entry.id)}">Archivieren</button>` : ''}</div></div>
     ${entry.summary ? `<section><h3>Zusammenfassung</h3><p>${esc(entry.summary)}</p></section>` : ''}${entry.content ? `<section><h3>Beschreibung</h3><p class="knowledge-prewrap">${esc(entry.content)}</p></section>` : ''}${fieldRows.map(([key, value]) => `<section><h3>${esc(fieldLabels[key] || key)}</h3><p class="knowledge-prewrap">${esc(value)}</p></section>`).join('')}
     ${(entry.links || []).length ? `<section><h3>Verknüpfungen</h3><div class="knowledge-link-list">${entry.links.map((link) => `<span>${esc(link.entityType === 'plant' ? 'Anlage' : link.entityType === 'product' ? 'Produkt' : link.entityType)}: ${esc(link.entityLabel || link.entityId)}</span>`).join('')}</div></section>` : ''}
-    ${(entry.sources || []).length ? `<section><h3>Quellen</h3>${entry.sources.map((source) => `<p>${esc(source.sourceTitle || source.sourceType)}${source.pageNumber ? ` · Seite ${esc(source.pageNumber)}` : ''}</p>`).join('')}</section>` : ''}
+    ${(entry.sources || []).length ? `<section><h3>Quellen</h3>${entry.sources.map((source) => { const url = safeUrl(source.sourceUrl); const label = esc(source.sourceTitle || source.sourceType); return `<p>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}${source.pageNumber ? ` · Seite ${esc(source.pageNumber)}` : ''}${source.accessedAt ? ` · abgerufen ${esc(source.accessedAt)}` : ''}</p>`; }).join('')}</section>` : ''}
     ${(entry.tags || []).length ? `<section><h3>Tags</h3><div class="knowledge-tags">${entry.tags.map((tag) => `<span>${esc(tag)}</span>`).join('')}</div></section>` : ''}`;
 }
 
 async function render(root) {
-  const entries = await knowledgeRepository.detailsFor();
-  const filtered = entries.filter(matches);
+  const entries = await knowledgeRepository.detailsFor(), filtered = entries.filter(matches);
   if (state.selectedId && !entries.some((entry) => entry.id === state.selectedId)) state.selectedId = null;
   const selected = entries.find((entry) => entry.id === state.selectedId) || filtered[0] || null;
   if (!state.selectedId && selected) state.selectedId = selected.id;
@@ -132,20 +121,23 @@ async function render(root) {
 function openForm(root, entry = {}) {
   const modal = root.querySelector('#knowledgeModal'), card = modal.querySelector('.knowledge-modal-card');
   state.editingId = entry.id || null;
-  card.innerHTML = formMarkup(entry);
-  modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false');
+  card.innerHTML = formMarkup(entry); modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false');
   card.querySelector('#knowledgeTypeSelect')?.addEventListener('change', (event) => { card.querySelector('#knowledgeDynamicFields').innerHTML = dynamicFields(event.target.value, {}); });
   card.querySelector('#knowledgeForm')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const rawCurrent = state.editingId ? await knowledgeRepository.get(state.editingId) : null;
     const current = rawCurrent ? (await knowledgeRepository.detailsFor([rawCurrent]))[0] : {};
-    const fields = {}; for (const [key, value] of formData.entries()) if (key.startsWith('field.')) fields[key.slice(6)] = String(value).trim();
+    const fields = { ...(current.fields || {}) };
+    for (const [key, value] of formData.entries()) if (key.startsWith('field.')) fields[key.slice(6)] = String(value).trim();
     const plantRows = plants(), productRows = products(), plantId = formData.get('plantId'), productId = formData.get('productId'), links = [];
     if (plantId) { const plant = plantRows.find((row) => String(row.id) === String(plantId)); links.push({ entityType: 'plant', entityId: String(plantId), entityLabel: plantLabel(plant), relationType: 'observed_at' }); }
     if (productId) { const product = productRows.find((row) => String(row.id) === String(productId)); links.push({ entityType: 'product', entityId: String(productId), entityLabel: productLabel(product), relationType: 'related_to' }); }
-    const sourceTitle = String(formData.get('sourceTitle') || '').trim();
-    const saved = await knowledgeRepository.save({ ...current, id: state.editingId || undefined, title: formData.get('title'), summary: formData.get('summary'), content: formData.get('content'), knowledgeType: formData.get('knowledgeType'), status: formData.get('status'), knowledgeLevel: formData.get('knowledgeLevel'), visibility: formData.get('visibility'), fields }, { tags: String(formData.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean), links, sources: sourceTitle ? [{ sourceType: formData.get('sourceType') || 'manual', sourceTitle }] : (current?.sources || []) });
+    const sourceTitle = String(formData.get('sourceTitle') || '').trim(), sourceUrl = safeUrl(formData.get('sourceUrl') || '');
+    const previousSources = Array.isArray(current?.sources) ? current.sources : [];
+    const primarySource = sourceTitle || sourceUrl ? { ...previousSources[0], sourceType: formData.get('sourceType') || 'manual', sourceTitle, sourceUrl, accessedAt: previousSources[0]?.accessedAt || null } : null;
+    const sources = primarySource ? [primarySource, ...previousSources.slice(1)] : previousSources;
+    const saved = await knowledgeRepository.save({ ...current, id: state.editingId || undefined, title: formData.get('title'), summary: formData.get('summary'), content: formData.get('content'), knowledgeType: formData.get('knowledgeType'), status: formData.get('status'), knowledgeLevel: formData.get('knowledgeLevel'), visibility: formData.get('visibility'), fields }, { tags: String(formData.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean), links, sources });
     state.selectedId = saved.id; state.editingId = null; await render(root);
   });
 }

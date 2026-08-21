@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.77-knowledge1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.78-knowledge-content1`;
 const FILES=[
   "./",
   "./index.html",
@@ -37,6 +37,8 @@ const FILES=[
   "./js/knowledge-entry.js?v=0.11.0-alpha.77-knowledge1",
   "./js/components/knowledge-base.js",
   "./js/repositories/knowledge-repository.js",
+  "./js/services/knowledge-seed-service.js",
+  "./js/knowledge/knowledge-seed-data.js",
   "./js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1",
   "./js/open-map-provider.js?v=0.11.0-alpha.55",
   "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
