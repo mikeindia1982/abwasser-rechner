@@ -98,6 +98,8 @@ export const knowledgeRepository = {
             sourceEntityType: source.sourceEntityType || null,
             sourceEntityId: source.sourceEntityId || null,
             sourceTitle: source.sourceTitle || '',
+            sourceUrl: source.sourceUrl || '',
+            accessedAt: source.accessedAt || null,
             pageNumber: source.pageNumber || null,
             createdAt: source.createdAt || nowIso(),
           });
