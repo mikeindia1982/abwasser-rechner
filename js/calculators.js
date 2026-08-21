@@ -1,6 +1,7 @@
 import {$,number,money,metric,numberField,selectField,readFields,formShell} from "./utils.js";
 import {precipitationCalculator} from "./chemistry.js";
 import {dewateringCalculators} from "./dewatering.js";
+import {influentDosingCalculator} from "./influent-dosing-calculator.js";
 
 const simple=(config)=>({...config,render(workspace){workspace.innerHTML=formShell({category:config.category,title:config.name,formula:config.formula,description:config.short,fields:config.fields});$("#resetForm").onclick=()=>config.render?config.render(workspace):this.render(workspace);$("#calculatorForm").onsubmit=e=>{e.preventDefault();const v=readFields(config.fields);if(!v)return;const value=config.calculate(v);$("#result").innerHTML=`<section class="result-hero"><small>Ergebnis</small><strong>${config.unit==="€"?money(value):number(value,config.digits??3)+" "+config.unit}</strong></section>${config.extra?config.extra(v,value):""}`;};}});
 
@@ -15,4 +16,4 @@ const basics=[
  simple({id:"tank",category:"Chemikalien",name:"Tankreichweite",short:"Reichweite eines Chemikalienbestandes.",formula:"t = Bestand ÷ Tagesverbrauch",fields:[numberField("stock","Tankinhalt","l"),numberField("use","Verbrauch","l/d",.000001)],calculate:v=>v.stock/v.use,unit:"d",digits:1}),
  simple({id:"cost",category:"Wirtschaftlichkeit",name:"Chemikalienkosten",short:"Verbrauch und Preis auf einen Zeitraum hochrechnen.",formula:"K = Verbrauch × Preis × Zeitraum",fields:[numberField("use","Verbrauch","kg/d"),numberField("price","Preis","€/kg"),selectField("period","Zeitraum",["Tag","30 Tage","365 Tage"])],calculate:v=>v.use*v.price*(v.period==="Tag"?1:v.period==="30 Tage"?30:365),unit:"€",digits:2})
 ];
-export const calculators=[precipitationCalculator,...dewateringCalculators,...basics];
+export const calculators=[precipitationCalculator,influentDosingCalculator,...dewateringCalculators,...basics];
