@@ -45,9 +45,12 @@ export function readProducts(){
 
 export function isChemicalDosingProduct(product){
   if(!product||product?.isActive===false||product?.status==='inactive')return false;
-  if(product?.productType==='chemical')return true;
-  const category=String(product?.category||'').toLowerCase();
-  return /chem|fäll|faell|flock|polymer|biolog|prozessunterstützung/.test(category);
+  const type=String(product?.productType||'').trim().toLowerCase();
+  if(type==='chemical')return true;
+  if(type==='technical')return false;
+  const category=String(product?.category||'').trim().toLowerCase();
+  if(!category||/(techn|pump|ersatz|zubeh|maschine|equipment)/.test(category))return false;
+  return /(chem|f[aä]ll|flock|bio|polymer|coagul|precip|reaktiv)/.test(category);
 }
 
 export function chemicalProducts(){
