@@ -1,0 +1,111 @@
+/* VTA Copilot · Dynamic Page Transitions · 0.11.0-alpha.75-page-transitions1 */
+
+#mainContent{
+  view-transition-name:vta-main;
+}
+
+::view-transition-old(root),
+::view-transition-new(root){
+  animation:none;
+  mix-blend-mode:normal;
+}
+
+::view-transition-old(root){opacity:0}
+::view-transition-new(root){opacity:1}
+
+::view-transition-group(vta-main){
+  animation-duration:240ms;
+  animation-timing-function:cubic-bezier(.2,.72,.2,1);
+}
+
+::view-transition-image-pair(vta-main){
+  isolation:auto;
+}
+
+::view-transition-old(vta-main),
+::view-transition-new(vta-main){
+  mix-blend-mode:normal;
+  transform-origin:50% 38%;
+  backface-visibility:hidden;
+}
+
+html[data-vta-transition="forward"]::view-transition-old(vta-main){animation:vta-page-old-forward 220ms cubic-bezier(.4,0,.2,1) both}
+html[data-vta-transition="forward"]::view-transition-new(vta-main){animation:vta-page-new-forward 250ms cubic-bezier(.2,.72,.2,1) both}
+html[data-vta-transition="back"]::view-transition-old(vta-main){animation:vta-page-old-back 220ms cubic-bezier(.4,0,.2,1) both}
+html[data-vta-transition="back"]::view-transition-new(vta-main){animation:vta-page-new-back 250ms cubic-bezier(.2,.72,.2,1) both}
+
+html[data-vta-transition="tab-forward"]::view-transition-old(vta-main){animation:vta-tab-old-forward 190ms ease both}
+html[data-vta-transition="tab-forward"]::view-transition-new(vta-main){animation:vta-tab-new-forward 210ms cubic-bezier(.2,.72,.2,1) both}
+html[data-vta-transition="tab-back"]::view-transition-old(vta-main){animation:vta-tab-old-back 190ms ease both}
+html[data-vta-transition="tab-back"]::view-transition-new(vta-main){animation:vta-tab-new-back 210ms cubic-bezier(.2,.72,.2,1) both}
+
+html[data-vta-transition="focus"]::view-transition-old(vta-main){animation:vta-focus-old 220ms ease both}
+html[data-vta-transition="focus"]::view-transition-new(vta-main){animation:vta-focus-new 280ms cubic-bezier(.18,.76,.2,1) both}
+
+@keyframes vta-page-old-forward{
+  to{opacity:.12;transform:translate3d(-22px,0,0) scale(.994)}
+}
+@keyframes vta-page-new-forward{
+  from{opacity:.16;transform:translate3d(28px,0,0) scale(.997)}
+  to{opacity:1;transform:none}
+}
+@keyframes vta-page-old-back{
+  to{opacity:.12;transform:translate3d(22px,0,0) scale(.994)}
+}
+@keyframes vta-page-new-back{
+  from{opacity:.16;transform:translate3d(-28px,0,0) scale(.997)}
+  to{opacity:1;transform:none}
+}
+@keyframes vta-tab-old-forward{
+  to{opacity:0;transform:translate3d(-10px,0,0)}
+}
+@keyframes vta-tab-new-forward{
+  from{opacity:0;transform:translate3d(12px,0,0)}
+  to{opacity:1;transform:none}
+}
+@keyframes vta-tab-old-back{
+  to{opacity:0;transform:translate3d(10px,0,0)}
+}
+@keyframes vta-tab-new-back{
+  from{opacity:0;transform:translate3d(-12px,0,0)}
+  to{opacity:1;transform:none}
+}
+@keyframes vta-focus-old{
+  to{opacity:.08;transform:scale(.975)}
+}
+@keyframes vta-focus-new{
+  from{opacity:.06;transform:scale(1.018)}
+  to{opacity:1;transform:none}
+}
+
+#mainContent.vta-transition-fallback-enter[data-vta-fallback-transition="back"]{animation:vta-fallback-back 190ms cubic-bezier(.2,.72,.2,1) both}
+#mainContent.vta-transition-fallback-enter[data-vta-fallback-transition="tab-back"]{animation:vta-fallback-back 170ms cubic-bezier(.2,.72,.2,1) both}
+#mainContent.vta-transition-fallback-enter[data-vta-fallback-transition="focus"]{animation:vta-fallback-focus 210ms cubic-bezier(.2,.72,.2,1) both}
+#mainContent.vta-transition-fallback-enter:not([data-vta-fallback-transition="back"]):not([data-vta-fallback-transition="tab-back"]):not([data-vta-fallback-transition="focus"]){animation:vta-fallback-forward 190ms cubic-bezier(.2,.72,.2,1) both}
+
+@keyframes vta-fallback-forward{
+  from{opacity:.18;transform:translate3d(18px,0,0)}
+  to{opacity:1;transform:none}
+}
+@keyframes vta-fallback-back{
+  from{opacity:.18;transform:translate3d(-18px,0,0)}
+  to{opacity:1;transform:none}
+}
+@keyframes vta-fallback-focus{
+  from{opacity:.12;transform:scale(1.012)}
+  to{opacity:1;transform:none}
+}
+
+@media(max-width:760px){
+  ::view-transition-group(vta-main){animation-duration:220ms}
+  html[data-vta-transition="forward"]::view-transition-new(vta-main){animation-duration:230ms}
+  html[data-vta-transition="back"]::view-transition-new(vta-main){animation-duration:230ms}
+}
+
+@media(prefers-reduced-motion:reduce){
+  #mainContent{scroll-behavior:auto}
+  ::view-transition-group(vta-main),
+  ::view-transition-old(vta-main),
+  ::view-transition-new(vta-main){animation:none!important}
+  #mainContent.vta-transition-fallback-enter{animation:none!important}
+}
