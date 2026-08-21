@@ -1,10 +1,10 @@
 {
-  "name": "Abwasser Rechner",
-  "short_name": "Abwasser",
+  "name": "VTA Copilot",
+  "short_name": "VTA Copilot",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f2f7f9",
-  "theme_color": "#0a3550",
+  "background_color": "#edf4f7",
+  "theme_color": "#071d2a",
   "lang": "de-DE",
   "icons": [
     {
