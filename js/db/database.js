@@ -1,8 +1,10 @@
 export const DB_NAME = 'abwasser-rechner-v011';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const STORES = Object.freeze({
   documents:'documents', files:'files', products:'products', plants:'plants', customers:'customers',
-  projects:'projects', relations:'relations', auditLog:'auditLog', settings:'settings'
+  projects:'projects', relations:'relations', auditLog:'auditLog', settings:'settings',
+  knowledgeEntries:'knowledgeEntries', knowledgeTags:'knowledgeTags', knowledgeEntryTags:'knowledgeEntryTags',
+  knowledgeLinks:'knowledgeLinks', knowledgeSources:'knowledgeSources', knowledgeSuggestions:'knowledgeSuggestions'
 });
 let dbPromise;
 export function openDatabase(){
