@@ -56,6 +56,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Syntax-check native and demo integration runtimes
         run: |
+          node --check js/native-firebase-auth.js
           node --check js/native-ios-integration.js
           node --check js/native-ios-deeplink.js
           node --check js/demo-management-dashboard.js

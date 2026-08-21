@@ -1,0 +1,69 @@
+/* Native iOS recovery for route and plant-page scrolling. */
+html.native-ios,
+html.native-ios body{
+  min-height:100%;
+  height:auto;
+  overflow-x:hidden;
+}
+
+html.native-ios body:not(.menu-open):not(.sheet-open):not(.vta-more-open){
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  overscroll-behavior-y:auto;
+}
+
+html.native-ios.native-plant-scroll-ready .app-layout,
+html.native-ios.native-plant-scroll-ready .content-shell,
+html.native-ios.native-plant-scroll-ready .main-content,
+html.native-ios.native-plant-scroll-ready #applicationView,
+html.native-ios.native-plant-scroll-ready .plant-page{
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:visible!important;
+  touch-action:pan-y;
+}
+
+html.native-ios.native-plant-scroll-ready .main-content,
+html.native-ios.native-plant-scroll-ready #applicationView,
+html.native-ios.native-plant-scroll-ready .plant-page{
+  overflow-x:hidden!important;
+}
+
+html.native-ios.native-plant-scroll-ready .content-shell{
+  min-height:100dvh;
+}
+
+/*
+ * WebKit can keep an outdated scroll extent when the commercial CRM card is
+ * prepended asynchronously to the overview grid. Use normal block flow for the
+ * overview so every dynamically inserted section contributes to document height.
+ */
+html.native-ios.native-plant-scroll-ready .plant-page[data-current-page="overview"]{
+  display:block!important;
+  width:100%;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  contain:none!important;
+  content-visibility:visible!important;
+}
+
+html.native-ios.native-plant-scroll-ready .plant-page[data-current-page="overview"] > *{
+  width:100%;
+  max-width:100%;
+  margin-top:0;
+  margin-bottom:1rem;
+}
+
+html.native-ios.native-plant-scroll-ready .plant-page[data-current-page="overview"] > *:last-child{
+  margin-bottom:0;
+}
+
+html.native-ios.native-plant-scroll-ready #commercialCustomerCard{
+  position:relative!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+}

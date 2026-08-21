@@ -1,29 +1,34 @@
-# Abwasser-Rechner 0.8.6.2
+# VTA Copilot – Abwasser-Rechner
 
-Offline-fähige PWA für Abwassertechnik und anlagenbezogene Außendienstdaten.
+Offline-first Vertriebs- und Anlagenanwendung für Kläranlagen mit PWA- und Capacitor-iOS-Ausgabe.
 
-## Architektur
+Die Web-Oberfläche bleibt der gemeinsame fachliche Kern. Mobile Navigation und Anlagenansicht werden responsiv geteilt; native iOS-spezifische Integrationen liegen zusätzlich in der Capacitor-Schicht.
 
-Für VTA Copilot gilt verbindlich: **Produktivsystem und Demo-Organisation sind strikt getrennte Datenräume.** Beide verwenden denselben Anwendungscode und dieselben Funktionen, dürfen aber niemals Benutzer-, Anlagen-, Besuchs-, Berichts-, Dokument- oder sonstige Geschäftsdaten miteinander vermischen.
+## Entwicklung
 
-Die vollständigen Architektur- und Abnahmeregeln stehen in [ARCHITECTURE.md](ARCHITECTURE.md).
+Arbeitsbranch: `develop`
 
-## Neu in 0.8.6.2
+Native iOS-Synchronisation:
 
-- Schlammentwässerung als eigener Bereich der Anlagenakte
-- Verfahren, Hersteller, Typ, Baujahr, Leistung, Betriebsdaten und Peripherie
-- beliebig viele Dosieranlagen pro Kläranlage
-- Tankanlage mit Volumen, Material, Baujahr, Überwachung und Prüfterminen
-- Dosierstation mit Pumpentechnik, Leistung, Betriebsweise und Armaturen
-- Medium, Verbrauch, Gefahrstoffangaben sowie Mess-, Steuer- und Regeltechnik
-- kompakte Technikübersicht auf der Anlagenstartseite
-- automatische Einbindung der Entwässerung und Fällmitteldosierung in das Verfahrensschema
-- bestehende Anlagen werden ohne Datenverlust um die neuen Bereiche ergänzt
+```bash
+npm ci
+npm run ios:sync
+npm run native:doctor
+npm run ios:open
+```
 
-## Installation
+## Mobile Navigation
 
-Alle Dateien gemeinsam auf einen HTTPS-Webspace oder GitHub Pages hochladen. Nach einem Update die installierte PWA einmal vollständig schließen und neu öffnen.
+Auf Smartphones verwendet die PWA und die iOS-App dieselbe Navigation V2:
 
-## Version 0.9.0
+- Start
+- Anlagen
+- Besuch / Fortsetzen
+- Vorgänge
+- Mehr
 
-Der digitale Anlagenpass zeigt den Bearbeitungs- und Vollständigkeitsgrad jeder Anlagenakte. Die Bewertung dient der Arbeitsvorbereitung und Dokumentationsqualität, nicht der technischen Leistungsbewertung.
+Desktop und größere Browseransichten behalten die Sidebar-Navigation.
+
+## Daten
+
+Lokale Anlagen-, Besuchs- und Arbeitsdaten bleiben offline-first verfügbar. Firebase ergänzt Synchronisation und Mitarbeiterfunktionen, darf den nativen App-Start aber nicht blockieren.
