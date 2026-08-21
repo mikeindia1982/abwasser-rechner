@@ -118,6 +118,45 @@ html.plant-imagery-expanded body{overflow:hidden!important}
   box-shadow:0 22px 70px rgba(0,0,0,.36);
 }
 .plant-location-imagery.is-expanded .plant-location-imagery-map{height:auto;min-height:0;flex:1}
+
+/* GPS is the first step when capturing plant master data. The existing GPS,
+   reverse-geocoding and operator lookup logic remains unchanged. */
+#plantForm>.page-header{order:0}
+#plantForm>.form-section:has(.location-capture-card){
+  order:1;
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(37,198,227,.3);
+  background:
+    radial-gradient(circle at 94% 8%,rgba(37,198,227,.1),transparent 15rem),
+    linear-gradient(180deg,#ffffff,#f5fafc);
+  box-shadow:0 10px 28px rgba(7,29,42,.08);
+}
+#plantForm>.form-section:has(.location-capture-card):before{
+  content:"SCHRITT 1 · STANDORT";
+  display:block;
+  margin:0 0 .45rem;
+  color:var(--brand-cyan,#25c6e3);
+  font-size:.7rem;
+  font-weight:900;
+  letter-spacing:.11em;
+}
+#plantForm>.form-section:has(.location-capture-card) .section-heading{margin-bottom:.8rem}
+#plantForm>.form-section:has(.location-capture-card) .section-heading h2{margin:0;color:var(--primary-dark,#071d2a)}
+#plantForm>.form-section:has(.location-capture-card) .location-capture-card{
+  border-color:rgba(0,127,174,.18);
+  background:linear-gradient(145deg,#f8fcfd,#eef8fb);
+}
+#plantForm>.form-section:has(.location-capture-card) #capturePlantLocation{
+  background:var(--primary,#007fae);
+  color:#fff;
+  box-shadow:0 8px 22px rgba(0,127,174,.22);
+}
+#plantForm>.form-section:has(.location-capture-card) #capturePlantLocation:hover{background:#006f99}
+#plantForm>.form-section:not(:has(.location-capture-card)),
+#plantForm>.procedure-card{order:2}
+#plantForm>.sticky-form-actions{order:3}
+
 @media (max-width:820px){
   .plant-location-imagery{border-radius:16px}
   .plant-location-imagery-head{display:block;padding:1rem}
@@ -134,4 +173,6 @@ html.plant-imagery-expanded body{overflow:hidden!important}
   .plant-location-imagery.is-expanded .plant-location-imagery-modes{margin-top:.55rem}
   .plant-location-imagery.is-expanded .plant-location-imagery-footer{padding:.6rem .75rem}
   .plant-location-imagery.is-expanded .plant-location-imagery-source{display:none}
+  #plantForm>.form-section:has(.location-capture-card){padding:1rem}
+  #plantForm>.form-section:has(.location-capture-card) .location-capture-button{width:100%;min-height:50px}
 }
