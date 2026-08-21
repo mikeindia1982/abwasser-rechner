@@ -1,0 +1,137 @@
+/* VTA Copilot – Standort-/Satellitenansicht in der Anlagenakte */
+.plant-location-imagery{
+  margin:1rem 0;
+  overflow:hidden;
+  border:1px solid var(--line,#d4e4ea);
+  border-radius:18px;
+  background:var(--surface,#fff);
+  box-shadow:var(--shadow-card,0 5px 20px rgba(10,53,80,.07));
+}
+.plant-location-imagery-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:1rem;
+  padding:1.1rem 1.15rem .9rem;
+}
+.plant-location-imagery-title{min-width:0}
+.plant-location-imagery-title .eyebrow{margin:0 0 .25rem;color:var(--primary,#006f9f)}
+.plant-location-imagery-title h2{margin:0;color:var(--text,#172a34);font-size:1.25rem}
+.plant-location-imagery-title p:last-child{margin:.35rem 0 0;color:var(--muted,#617784);font-size:.92rem}
+.plant-location-imagery-modes{
+  display:inline-flex;
+  flex:0 0 auto;
+  gap:.25rem;
+  padding:.25rem;
+  border:1px solid var(--line,#d4e4ea);
+  border-radius:999px;
+  background:var(--surface-soft,#f5f9fb);
+}
+.plant-location-imagery-modes button{
+  min-height:36px;
+  padding:.42rem .72rem;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted,#617784);
+  font:700 .82rem/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  cursor:pointer;
+}
+.plant-location-imagery-modes button.active{
+  background:var(--primary,#006f9f);
+  color:#fff;
+  box-shadow:0 4px 14px rgba(0,111,159,.18);
+}
+.plant-location-imagery-modes button:focus-visible{outline:3px solid var(--focus-ring,rgba(0,111,159,.2));outline-offset:2px}
+.plant-location-imagery-map{
+  position:relative;
+  width:100%;
+  height:360px;
+  min-height:280px;
+  overflow:hidden;
+  background:linear-gradient(135deg,var(--brand-blue-soft,#e8f3f8),var(--brand-cyan-soft,#dff4fa));
+}
+.plant-location-imagery-map .maplibregl-map{font:inherit}
+.plant-location-imagery-loading,
+.plant-location-imagery-error{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:2rem;
+  text-align:center;
+  color:var(--muted,#617784);
+  background:linear-gradient(135deg,var(--brand-blue-faint,#f4f9fb),var(--brand-cyan-soft,#dff4fa));
+}
+.plant-location-imagery-error strong{display:block;margin-bottom:.35rem;color:var(--text,#172a34)}
+.plant-location-imagery-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.85rem;
+  padding:.8rem 1.15rem;
+  border-top:1px solid var(--line,#d4e4ea);
+}
+.plant-location-imagery-status{min-width:0;color:var(--muted,#617784);font-size:.86rem}
+.plant-location-imagery-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.45rem}
+.plant-location-imagery-actions .button{white-space:nowrap;text-decoration:none}
+.plant-location-imagery-source{
+  margin:0;
+  padding:0 1.15rem .9rem;
+  color:var(--muted,#617784);
+  font-size:.76rem;
+  line-height:1.4;
+}
+.plant-location-imagery-source strong{color:var(--text,#172a34)}
+.plant-location-imagery-marker{
+  width:38px;
+  height:38px;
+  border:3px solid #fff;
+  border-radius:50% 50% 50% 10%;
+  transform:rotate(-45deg);
+  display:grid;
+  place-items:center;
+  background:var(--brand-water,#008fcb);
+  color:#fff;
+  box-shadow:0 4px 15px rgba(10,53,80,.35);
+  font:800 9px/1 system-ui,sans-serif;
+}
+.plant-location-imagery-marker span{transform:rotate(45deg)}
+.plant-location-imagery-empty{
+  padding:1.15rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+}
+.plant-location-imagery-empty h2{margin:0 0 .35rem;font-size:1.15rem}
+.plant-location-imagery-empty p{margin:0;color:var(--muted,#617784)}
+html.plant-imagery-expanded body{overflow:hidden!important}
+.plant-location-imagery.is-expanded{
+  position:fixed;
+  z-index:10000;
+  inset:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  border-radius:16px;
+  box-shadow:0 22px 70px rgba(0,0,0,.36);
+}
+.plant-location-imagery.is-expanded .plant-location-imagery-map{height:auto;min-height:0;flex:1}
+@media (max-width:820px){
+  .plant-location-imagery{border-radius:16px}
+  .plant-location-imagery-head{display:block;padding:1rem}
+  .plant-location-imagery-modes{width:100%;margin-top:.85rem;display:grid;grid-template-columns:repeat(3,1fr);border-radius:13px}
+  .plant-location-imagery-modes button{padding:.5rem .35rem;border-radius:10px}
+  .plant-location-imagery-map{height:300px;min-height:260px}
+  .plant-location-imagery-footer{align-items:flex-start;flex-direction:column;padding:.8rem 1rem}
+  .plant-location-imagery-actions{width:100%;justify-content:flex-start}
+  .plant-location-imagery-actions .button{flex:1 1 auto;text-align:center}
+  .plant-location-imagery-source{padding:0 1rem .9rem}
+  .plant-location-imagery-empty{align-items:flex-start;flex-direction:column;padding:1rem}
+  .plant-location-imagery-empty .button{width:100%}
+  .plant-location-imagery.is-expanded .plant-location-imagery-head{padding:.75rem}
+  .plant-location-imagery.is-expanded .plant-location-imagery-modes{margin-top:.55rem}
+  .plant-location-imagery.is-expanded .plant-location-imagery-footer{padding:.6rem .75rem}
+  .plant-location-imagery.is-expanded .plant-location-imagery-source{display:none}
+}
