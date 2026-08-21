@@ -35,25 +35,32 @@ jobs:
           test -f plant-location-imagery.css
           test -f plant-gps-summary.css
           test -f newsletter-consent.css
+          test -f page-transitions.css
           test -f js/plant-location-imagery.js
           test -f js/plant-gps-summary.js
           test -f js/newsletter-consent.js
+          test -f js/page-transitions.js
           test -d js
           node --check js/plant-location-imagery.js
           node --check js/plant-gps-summary.js
           node --check js/newsletter-consent.js
+          node --check js/page-transitions.js
           grep -q 'vta-theme.css?v=0.11.0-alpha.71-nano1' index.html
           grep -q 'plant-location-imagery.css?v=0.11.0-alpha.69' index.html
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' index.html
           grep -q 'newsletter-consent.css?v=0.11.0-alpha.74-newsletter-consent1' index.html
+          grep -q 'page-transitions.css?v=0.11.0-alpha.75-page-transitions1' index.html
           grep -q 'js/plant-location-imagery.js?v=0.11.0-alpha.69' index.html
           grep -q 'js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1' index.html
           grep -q 'js/newsletter-consent.js?v=0.11.0-alpha.74-newsletter-consent1' index.html
-          grep -q "v0.11.0-alpha.74-newsletter-consent1" service-worker.js
+          grep -q 'js/page-transitions.js?v=0.11.0-alpha.75-page-transitions1' index.html
+          grep -q "v0.11.0-alpha.75-page-transitions1" service-worker.js
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' service-worker.js
           grep -q 'js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1' service-worker.js
           grep -q 'newsletter-consent.css?v=0.11.0-alpha.74-newsletter-consent1' service-worker.js
           grep -q 'js/newsletter-consent.js?v=0.11.0-alpha.74-newsletter-consent1' service-worker.js
+          grep -q 'page-transitions.css?v=0.11.0-alpha.75-page-transitions1' service-worker.js
+          grep -q 'js/page-transitions.js?v=0.11.0-alpha.75-page-transitions1' service-worker.js
           grep -q 'vta-theme.css?v=0.11.0-alpha.71-nano1' service-worker.js
           grep -q 'Nano Water Technology Theme' vta-theme.css
           grep -q -- '--nano-grid:' vta-theme.css
@@ -68,6 +75,9 @@ jobs:
           grep -q 'in-person-device-confirmation' js/newsletter-consent.js
           grep -q 'Double-Opt-In' js/newsletter-consent.js
           grep -q 'newsletter-consent-panel' newsletter-consent.css
+          grep -q 'startViewTransition' js/page-transitions.js
+          grep -q 'prefers-reduced-motion' js/page-transitions.js
+          grep -q 'view-transition-name:vta-main' page-transitions.css
           grep -q '"theme_color": "#071d2a"' manifest.webmanifest
           grep -q '"name": "VTA Copilot"' manifest.webmanifest
 
@@ -99,11 +109,13 @@ jobs:
           test -f _site/plant-location-imagery.css
           test -f _site/plant-gps-summary.css
           test -f _site/newsletter-consent.css
+          test -f _site/page-transitions.css
           test -f _site/service-worker.js
           test -f _site/js/app.js
           test -f _site/js/plant-location-imagery.js
           test -f _site/js/plant-gps-summary.js
           test -f _site/js/newsletter-consent.js
+          test -f _site/js/page-transitions.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
