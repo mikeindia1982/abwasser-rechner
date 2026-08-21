@@ -78,16 +78,20 @@ test('native bundle owns iOS-only presentation and device-review fixes', async (
   assert.match(integrationCss, /native-calendar-linked/);
 });
 
-test('PWA and native bundle share the same VTA water theme', async () => {
+test('PWA and native bundle share the same Nano Water Technology theme', async () => {
   const index = await read('index.html');
   const build = await read('scripts/build-native.mjs');
   const theme = await read('vta-theme.css');
-  assert.match(index, /vta-theme\.css\?v=0\.11\.0-alpha\.68-vta-theme1/);
-  assert.match(build, /vta-theme\.css\?v=0\.11\.0-alpha\.68-vta-theme1/);
-  assert.match(build, /shared VTA theme was not injected last/);
-  assert.match(theme, /--primary:#006f9f/);
-  assert.match(theme, /--primary-dark:#0a3550/);
-  assert.match(theme, /--brand-cyan:#2cb7d5/);
+  assert.match(index, /vta-theme\.css\?v=0\.11\.0-alpha\.71-nano1/);
+  assert.match(build, /vta-theme\.css\?v=0\.11\.0-alpha\.71-nano1/);
+  assert.match(build, /shared Nano Water Technology theme was not injected last/);
+  assert.match(theme, /Nano Water Technology Theme/);
+  assert.match(theme, /--primary:#007fae/);
+  assert.match(theme, /--primary-dark:#071d2a/);
+  assert.match(theme, /--brand-cyan:#25c6e3/);
+  assert.match(theme, /--nano-grid:rgba\(110,233,247,\.08\)/);
+  assert.match(theme, /\.schema3d-section::before/);
+  assert.match(theme, /\.plant-location-imagery-head/);
   assert.match(theme, /\.vta-bottom-navigation \.vta-bottom-visit/);
   assert.match(theme, /html\.native-ios \.topbar/);
 });
