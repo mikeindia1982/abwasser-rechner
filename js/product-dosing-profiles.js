@@ -43,13 +43,15 @@ export function readProducts(){
   return Array.isArray(products)?products:[];
 }
 
+export function isChemicalDosingProduct(product){
+  if(!product||product?.isActive===false||product?.status==='inactive')return false;
+  if(product?.productType==='chemical')return true;
+  const category=String(product?.category||'').toLowerCase();
+  return /chem|fäll|faell|flock|polymer|biolog|prozessunterstützung/.test(category);
+}
+
 export function chemicalProducts(){
-  return readProducts().filter(product=>{
-    if(product?.isActive===false||product?.status==='inactive')return false;
-    if(product?.productType==='chemical')return true;
-    const category=String(product?.category||'').toLowerCase();
-    return /chem|fäll|faell|flock|polymer|biolog|prozessunterstützung/.test(category);
-  });
+  return readProducts().filter(isChemicalDosingProduct);
 }
 
 function normalizeProfile(profile={}){
@@ -63,7 +65,7 @@ function normalizeProfile(profile={}){
     activeComponent:String(profile.activeComponent||'').trim(),
     defaultBasis:profile.defaultBasis==='active'?'active':'product',
     applicableProcesses:Array.isArray(profile.applicableProcesses)?profile.applicableProcesses.map(value=>String(value).trim()).filter(Boolean):[],
-    source:['technical-datasheet','safety-data-sheet','manufacturer','manual'].includes(profile.source)?profile.source:'manual',
+    source:['product-record','technical-datasheet','safety-data-sheet','manufacturer','manual'].includes(profile.source)?profile.source:'manual',
     verifiedAt:String(profile.verifiedAt||''),
     updatedAt:String(profile.updatedAt||'')
   };
@@ -89,7 +91,7 @@ export function dosingDataForProduct(product){
     ...(stored||{}),
     productId:product.id,
     densityKgL:stored?.densityKgL??inferredDensity,
-    source:stored?.source||(inferredDensity?'technical-datasheet':'manual')
+    source:stored?.source||(inferredDensity?'product-record':'manual')
   });
 }
 
@@ -118,6 +120,7 @@ export function activePlantContext(){
 
 export function sourceLabel(source){
   return ({
+    'product-record':'Produktakte',
     'technical-datasheet':'Technisches Datenblatt',
     'safety-data-sheet':'Sicherheitsdatenblatt',
     manufacturer:'Herstellerangabe',
