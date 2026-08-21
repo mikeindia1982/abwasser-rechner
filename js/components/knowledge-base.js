@@ -14,7 +14,9 @@ function esc(value = '') {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 function safeUrl(value = '') {
-  try { const url = new URL(String(value), location.href); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; }
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; }
 }
 function readJson(key, fallback = []) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } }
 function plants() { const rows = readJson('abwasser-plants-v07', []); return Array.isArray(rows) ? rows : []; }
@@ -132,7 +134,9 @@ function openForm(root, entry = {}) {
     if (plantId) { const plant = plantRows.find((row) => String(row.id) === String(plantId)); links.push({ entityType: 'plant', entityId: String(plantId), entityLabel: plantLabel(plant), relationType: 'observed_at' }); }
     if (productId) { const product = productRows.find((row) => String(row.id) === String(productId)); links.push({ entityType: 'product', entityId: String(productId), entityLabel: productLabel(product), relationType: 'related_to' }); }
     const sourceTitle = String(formData.get('sourceTitle') || '').trim(), sourceUrl = safeUrl(formData.get('sourceUrl') || '');
-    const sources = sourceTitle || sourceUrl ? [{ sourceType: formData.get('sourceType') || 'manual', sourceTitle, sourceUrl, accessedAt: current?.sources?.[0]?.accessedAt || null }] : (current?.sources || []);
+    const previousSources = Array.isArray(current?.sources) ? current.sources : [];
+    const primarySource = sourceTitle || sourceUrl ? { ...previousSources[0], sourceType: formData.get('sourceType') || 'manual', sourceTitle, sourceUrl, accessedAt: previousSources[0]?.accessedAt || null } : null;
+    const sources = primarySource ? [primarySource, ...previousSources.slice(1)] : previousSources;
     const saved = await knowledgeRepository.save({ ...current, id: state.editingId || undefined, title: formData.get('title'), summary: formData.get('summary'), content: formData.get('content'), knowledgeType: formData.get('knowledgeType'), status: formData.get('status'), knowledgeLevel: formData.get('knowledgeLevel'), visibility: formData.get('visibility'), fields }, { tags: String(formData.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean), links, sources });
     state.selectedId = saved.id; state.editingId = null; await render(root);
   });
