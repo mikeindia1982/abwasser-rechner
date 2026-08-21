@@ -1,0 +1,79 @@
+/* GPS-first flow for creating a new plant */
+.plant-gps-first-section{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(37,198,227,.28);
+  background:
+    radial-gradient(circle at 92% 12%,rgba(110,233,247,.12),transparent 15rem),
+    linear-gradient(rgba(110,233,247,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(110,233,247,.045) 1px,transparent 1px),
+    linear-gradient(145deg,#0a2a3a,#0d3547);
+  background-size:auto,24px 24px,24px 24px,auto;
+  color:#fff;
+  box-shadow:0 14px 36px rgba(7,29,42,.16);
+}
+.plant-gps-first-section:before,
+.plant-gps-first-section:after{
+  content:"";
+  position:absolute;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#6ee9f7;
+  box-shadow:0 0 0 5px rgba(110,233,247,.08),0 0 18px rgba(110,233,247,.35);
+  pointer-events:none;
+}
+.plant-gps-first-section:before{right:26px;top:25px}
+.plant-gps-first-section:after{right:88px;bottom:28px;opacity:.55}
+.plant-gps-first-head{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:1rem;
+  margin-bottom:1rem;
+}
+.plant-gps-first-head .eyebrow{color:#6ee9f7}
+.plant-gps-first-head h2{margin:.2rem 0;color:#fff}
+.plant-gps-first-head .form-note{max-width:760px;color:rgba(235,249,253,.72)}
+.plant-gps-first-state{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+  min-height:32px;
+  padding:.4rem .62rem;
+  border:1px solid rgba(110,233,247,.22);
+  border-radius:999px;
+  background:rgba(4,22,31,.38);
+  color:#cdeff6;
+  font-size:.76rem;
+  font-weight:800;
+}
+.plant-gps-first-state:before{content:"";width:7px;height:7px;border-radius:50%;background:#7896a1}
+.plant-gps-first-section.is-captured .plant-gps-first-state{border-color:rgba(70,205,143,.35);color:#d6fae8}
+.plant-gps-first-section.is-captured .plant-gps-first-state:before{background:#46cd8f;box-shadow:0 0 0 4px rgba(70,205,143,.12)}
+.plant-gps-first-section .location-capture-card{
+  position:relative;
+  z-index:1;
+  margin:0;
+  border:1px solid rgba(110,233,247,.16);
+  background:rgba(255,255,255,.96);
+  color:var(--text,#142a36);
+  box-shadow:none;
+}
+.plant-gps-first-section .location-capture-button{
+  background:#007fae;
+  color:#fff;
+  box-shadow:0 8px 20px rgba(0,127,174,.24);
+}
+.plant-gps-first-section .location-capture-button:hover{background:#006e99}
+
+@media(max-width:700px){
+  .plant-gps-first-section{padding:1rem}
+  .plant-gps-first-head{display:block;margin-bottom:.85rem}
+  .plant-gps-first-state{margin-top:.7rem}
+  .plant-gps-first-section .location-capture-card{padding:.9rem}
+  .plant-gps-first-section .location-capture-button{width:100%;min-height:50px}
+}
