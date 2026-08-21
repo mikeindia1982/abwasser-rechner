@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.78-knowledge-content1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.78-knowledge-content2`;
 const FILES=[
   "./",
   "./index.html",
