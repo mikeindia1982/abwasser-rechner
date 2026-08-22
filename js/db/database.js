@@ -1,5 +1,5 @@
 export const DB_NAME = 'abwasser-rechner-v011';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 export const STORES = Object.freeze({
   documents:'documents', files:'files', products:'products', plants:'plants', customers:'customers',
   projects:'projects', relations:'relations', auditLog:'auditLog', settings:'settings',
