@@ -1,4 +1,6 @@
-export const KNOWLEDGE_SEED_VERSION = 1;
+import { VTA_GRUNDWISSEN_V1_ENTRIES } from './knowledge-seed-vta-v1.js';
+
+export const KNOWLEDGE_SEED_VERSION = 2;
 
 const UBA_WASTEWATER = {
   sourceType: 'external_reference',
@@ -38,7 +40,7 @@ function entry(id, title, summary, content, knowledgeType, tags, sources, fields
   };
 }
 
-export const KNOWLEDGE_SEED_ENTRIES = [
+const BASISWISSEN_V1_ENTRIES = [
   entry(
     'belebtschlammverfahren',
     'Belebtschlammverfahren – Grundprinzip',
@@ -315,4 +317,9 @@ export const KNOWLEDGE_SEED_ENTRIES = [
     ['Qualitätssicherung', 'Basiswissen', 'Freigabe', 'Quellen'],
     [UBA_WASTEWATER, DWA_M350],
   ),
+];
+
+export const KNOWLEDGE_SEED_ENTRIES = [
+  ...BASISWISSEN_V1_ENTRIES,
+  ...VTA_GRUNDWISSEN_V1_ENTRIES,
 ];
