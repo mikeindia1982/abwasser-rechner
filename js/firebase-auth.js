@@ -7,7 +7,7 @@ const TEST_PROFILE=Object.freeze({
   email:TEST_USER.email,
   firstName:'Test',
   lastName:'Zugang',
-  role:'admin',
+  role:'employee',
   active:true
 });
 
