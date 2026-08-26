@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.82-demo-international1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.83-carbon-nano1`;
 const FILES=[
   "./",
   "./index.html",
@@ -9,6 +9,8 @@ const FILES=[
   "./visit-report.css?v=0.11.0-alpha.25",
   "./visits-ui.css?v=0.11.0-alpha.28",
   "./demo-workspace.css?v=0.11.0-alpha.29",
+  "./demo-management-dashboard.css?v=0.11.0-alpha.83-carbon-nano1",
+  "./demo-carbon-nano.css?v=0.11.0-alpha.83-carbon-nano1",
   "./navigation-enhancements.css?v=0.11.0-alpha.37",
   "./firebase-auth.css?v=0.11.0-alpha.40",
   "./firebase-plant-migration.css?v=0.11.0-alpha.43",
@@ -28,10 +30,12 @@ const FILES=[
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
-  "./js/demo-organization-loader.js?v=0.11.0-alpha.33",
-  "./js/demo-organization.js?v=0.11.0-alpha.33",
-  "./js/demo-workspace.js?v=0.11.0-alpha.82-demo-international1",
+  "./js/demo-organization-loader.js?v=0.11.0-alpha.83-carbon-nano1",
+  "./js/demo-organization.js?v=0.11.0-alpha.83-carbon-nano1",
+  "./js/demo-workspace.js?v=0.11.0-alpha.83-carbon-nano1",
   "./js/demo-i18n.js?v=0.11.0-alpha.82-demo-i18n1",
+  "./js/demo-management-dashboard.js?v=0.11.0-alpha.83-carbon-nano1",
+  "./js/demo-management-map.js?v=0.11.0-alpha.83-carbon-nano1",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/page-transitions.js?v=0.11.0-alpha.75-page-transitions2",
   "./js/app.js?v=0.11.0-alpha.19",

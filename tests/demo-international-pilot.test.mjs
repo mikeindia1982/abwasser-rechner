@@ -31,7 +31,13 @@ test('language switcher is restricted to demo and provides German, English and F
 });
 
 test('demo seed is versioned and includes plants in all pilot countries',()=>{
-  assert.match(demoWorkspace,/const DEMO_VERSION='2'/);
+  assert.match(demoWorkspace,/const DEMO_VERSION='3'/);
   for(const country of ['Deutschland','Schweiz','Österreich','Frankreich','Tschechien','Polen'])assert.ok(demoWorkspace.includes(`country:'${country}'`));
   for(let index=1;index<=9;index++)assert.ok(demoWorkspace.includes(`vta-present-plant-00${index}`));
+  assert.match(demoWorkspace,/target:78,existing:4/);
+  assert.match(demoWorkspace,/target:24,existing:1/);
+  assert.match(demoWorkspace,/target:20,existing:1/);
+  assert.match(demoWorkspace,/target:30,existing:1/);
+  assert.match(demoWorkspace,/target:16,existing:1/);
+  assert.match(demoWorkspace,/target:18,existing:1/);
 });

@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const BUILD='0.11.0-alpha.59-demo-management1';
+const BUILD='0.11.0-alpha.83-carbon-nano1';
 const MODE_KEY='vta-workspace-mode-v01';
 const FILTER_KEY='vta-demo-management-filters-v01';
 const PLANTS_KEY='abwasser-plants-v07';
@@ -330,8 +330,12 @@ function renderSummary(scope){
   return `<section class="demo-mgmt-summary"><div class="demo-mgmt-section-head"><div><span>Executive Summary</span><h2>Was die Geschäftsführung jetzt wissen sollte</h2></div><small>automatisch aus KPI-Sicht verdichtet</small></div><div class="demo-mgmt-summary-grid">${executiveSummary(scope).map(item=>`<article class="${item.tone}"><span></span><div><strong>${esc(item.title)}</strong><p>${esc(item.text)}</p></div></article>`).join('')}</div></section>`;
 }
 
+function renderManagementMap(){
+  return `<section class="demo-mgmt-panel demo-mgmt-map-panel"><div class="demo-mgmt-section-head"><div><span>Executive Intelligence</span><h2>Vertriebsgebiete & Marktabdeckung</h2></div><small>94 Regionen · 6 Länder · Demo-Daten</small></div><div class="demo-mgmt-map-layout"><div><div class="demo-mgmt-map-country-filters" role="group" aria-label="Land auswählen"><button type="button" class="active" data-demo-map-country="ALL">Alle</button><button type="button" data-demo-map-country="DE">DE</button><button type="button" data-demo-map-country="AT">AT</button><button type="button" data-demo-map-country="CH">CH</button><button type="button" data-demo-map-country="FR">FR</button><button type="button" data-demo-map-country="CZ">CZ</button><button type="button" data-demo-map-country="PL">PL</button></div><div id="demoManagementTerritoryMap" class="demo-mgmt-territory-map" role="region" aria-label="Internationale Vertriebsgebiete und Demo-Anlagen"></div></div><aside class="demo-mgmt-map-detail" aria-live="polite"><span>Gebietsanalyse</span><h3 data-demo-map-region-name>Europa Pilot</h3><p data-demo-map-region-detail>6 Länder · 94 Verwaltungsregionen</p><div class="demo-mgmt-map-stats"><article><span>Anlagen</span><strong data-demo-map-plant-count>${plants().length}</strong></article><article><span>Mitarbeiter</span><strong data-demo-map-people-count>36</strong></article><article><span>Pipeline</span><strong data-demo-map-pipeline>4,82 M€</strong></article><article><span>Risiken</span><strong data-demo-map-risks>11</strong></article></div><div class="demo-mgmt-map-coverage"><span>Vertriebsabdeckung</span><strong data-demo-map-coverage-label>82 %</strong><div><i data-demo-map-coverage style="width:82%"></i></div></div><p class="demo-mgmt-map-owner" data-demo-map-owner>Zuständigkeiten nach Land und Region auswählen.</p></aside></div></section>`;
+}
+
 function renderDashboard(scope,ops){
-  return `${renderHero(scope,ops)}${renderFilters(scope.current)}${renderKpis(scope)}${renderSummary(scope)}
+  return `${renderHero(scope,ops)}${renderFilters(scope.current)}${renderKpis(scope)}${renderSummary(scope)}${renderManagementMap()}
   <section class="demo-mgmt-grid two-up">
     <article class="demo-mgmt-panel demo-mgmt-revenue"><div class="demo-mgmt-section-head"><div><span>Finanzperformance</span><h2>Umsatz · Plan · Vorjahr · Forecast</h2></div><small>Monatswerte in T€</small></div>${revenueChart(scope)}</article>
     <article class="demo-mgmt-panel"><div class="demo-mgmt-section-head"><div><span>Vertrieb</span><h2>Pipeline nach Phase</h2></div><strong>${moneyCompact(scope.weightedPipeline)} gewichtet</strong></div>${renderPipeline(scope)}</article>

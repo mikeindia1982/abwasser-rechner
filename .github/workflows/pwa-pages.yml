@@ -38,6 +38,8 @@ jobs:
           test -f page-transitions.css
           test -f influent-dosing-calculator.css
           test -f knowledge.css
+          test -f demo-management-dashboard.css
+          test -f demo-carbon-nano.css
           test -f js/plant-location-imagery.js
           test -f js/plant-gps-summary.js
           test -f js/newsletter-consent.js
@@ -54,12 +56,15 @@ jobs:
           test -f js/open-map-provider.js
           test -f js/sales-territory-config.js
           test -f js/demo-i18n.js
+          test -f js/demo-management-dashboard.js
+          test -f js/demo-management-map.js
           test -f assets/data/bundeslaender-vg250.geojson
           test -f assets/data/demo-sales-regions.geojson
           test -f tests/influent-dosing.test.mjs
           test -f tests/knowledge-seed-vta-v1.test.mjs
           test -f tests/sales-territory-map.test.mjs
           test -f tests/demo-international-pilot.test.mjs
+          test -f tests/demo-carbon-nano.test.mjs
           test -d js
           node --check js/plant-location-imagery.js
           node --check js/plant-gps-summary.js
@@ -77,10 +82,13 @@ jobs:
           node --input-type=module --check < js/open-map-provider.js
           node --input-type=module --check < js/sales-territory-config.js
           node --check js/demo-i18n.js
+          node --check js/demo-management-dashboard.js
+          node --input-type=module --check < js/demo-management-map.js
           node tests/influent-dosing.test.mjs
           node --test tests/knowledge-seed-vta-v1.test.mjs
           node --test tests/sales-territory-map.test.mjs
           node --test tests/demo-international-pilot.test.mjs
+          node --test tests/demo-carbon-nano.test.mjs
           grep -q 'vta-theme.css?v=0.11.0-alpha.71-nano1' index.html
           grep -q 'plant-location-imagery.css?v=0.11.0-alpha.69' index.html
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' index.html
@@ -96,7 +104,12 @@ jobs:
           grep -q 'js/knowledge-entry.js' index.html
           grep -q 'js/open-map-provider.js?v=0.11.0-alpha.82-demo-international1' index.html
           grep -q 'js/demo-i18n.js?v=0.11.0-alpha.82-demo-i18n1' index.html
-          grep -q 'js/demo-workspace.js?v=0.11.0-alpha.82-demo-international1' index.html
+          grep -q 'js/demo-organization-loader.js?v=0.11.0-alpha.83-carbon-nano1' index.html
+          grep -q 'js/demo-workspace.js?v=0.11.0-alpha.83-carbon-nano1' index.html
+          grep -q 'demo-carbon-nano.css?v=0.11.0-alpha.83-carbon-nano1' index.html
+          grep -q 'demo-management-dashboard.css?v=0.11.0-alpha.83-carbon-nano1' index.html
+          grep -q 'js/demo-management-dashboard.js?v=0.11.0-alpha.83-carbon-nano1' index.html
+          grep -q 'js/demo-management-map.js?v=0.11.0-alpha.83-carbon-nano1' index.html
           node -e 'const fs=require("fs"); const sw=fs.readFileSync("service-worker.js","utf8"); if(!/const CACHE=`\$\{CACHE_PREFIX\}v[^`]+`;/.test(sw)){throw new Error("Service-worker cache version missing or invalid")}'
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' service-worker.js
           grep -q 'js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1' service-worker.js
@@ -118,7 +131,13 @@ jobs:
           grep -q 'js/services/knowledge-seed-service.js' service-worker.js
           grep -q 'js/open-map-provider.js?v=0.11.0-alpha.82-demo-international1' service-worker.js
           grep -q 'js/demo-i18n.js?v=0.11.0-alpha.82-demo-i18n1' service-worker.js
-          grep -q 'js/demo-workspace.js?v=0.11.0-alpha.82-demo-international1' service-worker.js
+          grep -q 'js/demo-organization-loader.js?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
+          grep -q 'js/demo-organization.js?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
+          grep -q 'js/demo-workspace.js?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
+          grep -q 'demo-carbon-nano.css?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
+          grep -q 'demo-management-dashboard.css?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
+          grep -q 'js/demo-management-dashboard.js?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
+          grep -q 'js/demo-management-map.js?v=0.11.0-alpha.83-carbon-nano1' service-worker.js
           grep -q 'js/sales-territory-config.js' service-worker.js
           grep -q 'assets/data/bundeslaender-vg250.geojson' service-worker.js
           grep -q 'assets/data/demo-sales-regions.geojson' service-worker.js
@@ -180,6 +199,8 @@ jobs:
           test -f _site/page-transitions.css
           test -f _site/influent-dosing-calculator.css
           test -f _site/knowledge.css
+          test -f _site/demo-management-dashboard.css
+          test -f _site/demo-carbon-nano.css
           test -f _site/service-worker.js
           test -f _site/js/app.js
           test -f _site/js/plant-location-imagery.js
@@ -198,6 +219,8 @@ jobs:
           test -f _site/js/open-map-provider.js
           test -f _site/js/sales-territory-config.js
           test -f _site/js/demo-i18n.js
+          test -f _site/js/demo-management-dashboard.js
+          test -f _site/js/demo-management-map.js
           test -f _site/assets/data/bundeslaender-vg250.geojson
           test -f _site/assets/data/demo-sales-regions.geojson
 

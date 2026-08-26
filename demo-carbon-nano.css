@@ -1,0 +1,238 @@
+/* VTA Copilot · Carbon Nano Demo Theme
+   Strictly scoped to the demo workspace; production appearance is unchanged. */
+html.demo-workspace-active{
+  color-scheme:dark;
+  --bg:#050b10;
+  --surface:#0a1720;
+  --surface-soft:#0d202a;
+  --surface-tech:#07151d;
+  --surface-tech-2:#0b2631;
+  --text:#e8f8fb;
+  --muted:#86a4ad;
+  --primary:#35d7e3;
+  --primary-dark:#041015;
+  --accent:#53e6d0;
+  --line:rgba(100,221,234,.16);
+  --line-strong:rgba(100,221,234,.28);
+  --brand-water:#35d7e3;
+  --brand-cyan:#45e5ed;
+  --brand-cyan-hot:#a7f9ff;
+  --brand-cyan-soft:#102f39;
+  --brand-blue-soft:#102833;
+  --brand-blue-faint:#0a1b24;
+  --nano-deep:#030a0f;
+  --nano-panel:#071720;
+  --nano-panel-2:#0a2630;
+  --nano-grid:rgba(85,231,240,.075);
+  --nano-node:rgba(100,240,247,.31);
+  --nano-line:rgba(88,225,235,.13);
+  --focus-ring:rgba(53,215,227,.24);
+  --shadow:0 22px 58px rgba(0,0,0,.34);
+  --shadow-card:0 10px 28px rgba(0,0,0,.22);
+  --shadow-elevated:0 24px 64px rgba(0,0,0,.42);
+  --danger:#ff7168;
+  --ok:#4bdfb5;
+  --warning:#ffc35c;
+}
+
+html.demo-workspace-active body{
+  color:var(--text);
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(circle at 67% 18%,rgba(31,185,207,.10),transparent 28rem),
+    radial-gradient(circle at 86% 74%,rgba(47,221,187,.06),transparent 24rem),
+    linear-gradient(30deg,transparent 24%,var(--nano-line) 25%,var(--nano-line) 26%,transparent 27%,transparent 74%,var(--nano-line) 75%,var(--nano-line) 76%,transparent 77%),
+    linear-gradient(150deg,transparent 24%,var(--nano-line) 25%,var(--nano-line) 26%,transparent 27%,transparent 74%,var(--nano-line) 75%,var(--nano-line) 76%,transparent 77%),
+    linear-gradient(180deg,#050b10,#061219 60%,#040a0f);
+  background-size:auto,auto,64px 112px,64px 112px,auto;
+  background-attachment:fixed;
+}
+html.demo-workspace-active body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.42;
+  background-image:radial-gradient(circle,var(--nano-node) 1px,transparent 1.5px);
+  background-size:32px 32px;
+  mask-image:linear-gradient(90deg,transparent,black 30%,black 86%,transparent);
+}
+html.demo-workspace-active ::selection{background:rgba(53,215,227,.34);color:#fff}
+html.demo-workspace-active *{scrollbar-color:#1c5964 transparent}
+
+html.demo-workspace-active .content-shell,
+html.demo-workspace-active .main-content,
+html.demo-workspace-active .application-view,
+html.demo-workspace-active .dashboard-view,
+html.demo-workspace-active .calculator-view{background:transparent;color:var(--text)}
+html.demo-workspace-active footer{color:#66858e;border-top-color:var(--line);background:rgba(3,10,15,.72)}
+
+html.demo-workspace-active .sidebar{
+  background-color:#030a0f;
+  background-image:
+    radial-gradient(circle at 16% 8%,rgba(53,215,227,.16),transparent 18rem),
+    linear-gradient(30deg,transparent 24%,rgba(89,230,239,.07) 25%,rgba(89,230,239,.07) 26%,transparent 27%,transparent 74%,rgba(89,230,239,.07) 75%,rgba(89,230,239,.07) 76%,transparent 77%),
+    linear-gradient(150deg,transparent 24%,rgba(89,230,239,.07) 25%,rgba(89,230,239,.07) 26%,transparent 27%,transparent 74%,rgba(89,230,239,.07) 75%,rgba(89,230,239,.07) 76%,transparent 77%),
+    linear-gradient(180deg,#02080c,#071720 58%,#041016);
+  background-size:auto,48px 84px,48px 84px,auto;
+  border-right:1px solid rgba(84,225,235,.16);
+  box-shadow:16px 0 50px rgba(0,0,0,.35);
+}
+html.demo-workspace-active .brand-row{border-bottom-color:rgba(91,226,236,.15)}
+html.demo-workspace-active .brand-mark{background:#41e1eb;color:#041015;box-shadow:0 0 26px rgba(65,225,235,.23)}
+html.demo-workspace-active .brand-copy small,
+html.demo-workspace-active .sidebar-section-heading{color:#6f929c}
+html.demo-workspace-active .global-nav-item,
+html.demo-workspace-active .side-action,
+html.demo-workspace-active .sidebar-more summary{color:#9ab3ba}
+html.demo-workspace-active .global-nav-item:hover,
+html.demo-workspace-active .global-nav-item.active,
+html.demo-workspace-active .side-action:hover,
+html.demo-workspace-active .sidebar-more summary:hover{
+  color:#e8feff;background:linear-gradient(90deg,rgba(53,215,227,.18),rgba(53,215,227,.035));
+  box-shadow:inset 2px 0 #42e2ec;
+}
+html.demo-workspace-active .sidebar-search,
+html.demo-workspace-active .plant-context select{border-color:rgba(91,226,236,.19);background:rgba(5,22,29,.74);color:#e7fbfd}
+
+html.demo-workspace-active .topbar{
+  color:var(--text);background:rgba(4,13,18,.89);border-bottom:1px solid rgba(92,226,237,.14);
+  box-shadow:0 10px 35px rgba(0,0,0,.16);backdrop-filter:blur(20px) saturate(1.1);
+}
+html.demo-workspace-active .breadcrumb-home,
+html.demo-workspace-active .breadcrumb-current{color:#bfeaf0}
+html.demo-workspace-active .active-plant-badge,
+html.demo-workspace-active .profile-button{background:#0b2029;color:#c6f6f8;border:1px solid rgba(91,226,236,.18)}
+html.demo-workspace-active .demo-language-switcher{background:#071820;border-color:rgba(91,226,236,.18)}
+
+html.demo-workspace-active .demo-workspace-banner{
+  color:#a8f9ff;background:linear-gradient(90deg,rgba(8,49,59,.96),rgba(5,28,37,.96));border-bottom:1px solid rgba(79,230,239,.2);
+}
+html.demo-workspace-active .demo-workspace-banner strong{color:#4de8ef}
+html.demo-workspace-active .demo-workspace-banner button{color:#bdf7fa;background:rgba(7,24,31,.72);border-color:rgba(93,229,238,.2)}
+html.demo-workspace-active .demo-workspace-banner button:hover{background:rgba(53,215,227,.12)}
+
+html.demo-workspace-active :where(.panel,.dashboard-card,.favorite-dashboard-item,.plant-card,.record-card,.form-section,.metric,.commercial-action-card,.field-sales-panel,.today-focus-panel,.today-cockpit,.plant-pass,.workspace-switcher-card,.demo-org-panel,.knowledge-panel,.knowledge-entry-card,.document-library-list article,.document-status-cards button){
+  color:var(--text);background:linear-gradient(145deg,rgba(12,31,40,.96),rgba(6,20,27,.96));border-color:rgba(93,224,235,.14);box-shadow:var(--shadow-card);
+}
+html.demo-workspace-active :where(.dashboard-card,.favorite-dashboard-item,.plant-card,.record-card,.form-section,.panel):hover{border-color:rgba(80,231,238,.29)}
+html.demo-workspace-active :where(.plant-card.active,.calculator-card.active,.workspace-option.active){border-color:#3bdbe5;box-shadow:0 0 0 2px rgba(59,219,229,.14),0 15px 34px rgba(0,0,0,.22)}
+html.demo-workspace-active :where(.page-header,.section-heading,.panel-title) h1,
+html.demo-workspace-active :where(.page-header,.section-heading,.panel-title) h2,
+html.demo-workspace-active h1,
+html.demo-workspace-active h2,
+html.demo-workspace-active h3,
+html.demo-workspace-active strong{color:#eafcff}
+html.demo-workspace-active :where(.subtitle,.form-note,.muted-small,.record-card p,.plant-card p,.dashboard-card p,dt,.text-muted){color:var(--muted)}
+html.demo-workspace-active .eyebrow{color:#49dce7}
+html.demo-workspace-active dl div,
+html.demo-workspace-active .detail-table tr,
+html.demo-workspace-active table tr{border-color:var(--line)}
+
+html.demo-workspace-active input:not([type="checkbox"]):not([type="radio"]),
+html.demo-workspace-active select,
+html.demo-workspace-active textarea,
+html.demo-workspace-active .input-row{
+  color:#e9fbfd;background:#06161e;border-color:rgba(95,221,232,.23);box-shadow:none;
+}
+html.demo-workspace-active input::placeholder,
+html.demo-workspace-active textarea::placeholder{color:#557984}
+html.demo-workspace-active input:focus,
+html.demo-workspace-active select:focus,
+html.demo-workspace-active textarea:focus{border-color:#40dce5;box-shadow:0 0 0 3px rgba(64,220,229,.15)}
+html.demo-workspace-active option{color:#e9fbfd;background:#071820}
+html.demo-workspace-active .button.primary,
+html.demo-workspace-active button.primary{color:#031116;background:linear-gradient(135deg,#36dbe5,#5ee8cf);box-shadow:0 8px 20px rgba(42,216,226,.14)}
+html.demo-workspace-active .button.primary:hover,
+html.demo-workspace-active button.primary:hover{background:linear-gradient(135deg,#5beaf1,#76f0dc)}
+html.demo-workspace-active .button.secondary,
+html.demo-workspace-active button.secondary{color:#c9f7fa;background:#0a222c;border-color:rgba(95,221,232,.2);box-shadow:none}
+html.demo-workspace-active .button.secondary:hover,
+html.demo-workspace-active button.secondary:hover{background:#10313b;border-color:rgba(95,221,232,.34)}
+
+html.demo-workspace-active :where(.info-box,.hint,.empty-state,.empty-panel,.plant-master-card,.pass-overall,.workspace-option,.workspace-switcher-note,.demo-org-employee-card,.demo-user-switch-card){
+  color:var(--text);background:#091c25;border-color:var(--line);
+}
+html.demo-workspace-active :where(.status-chip.gray,.planned-badge){background:#14272e;color:#94abb2}
+html.demo-workspace-active :where(.status-chip.green,.positive,.ok){color:#5be1b9}
+html.demo-workspace-active :where(.status-chip.amber,.warning){color:#ffc663}
+html.demo-workspace-active :where(.danger,.critical,.text-destructive){color:#ff7b72}
+html.demo-workspace-active dialog::backdrop{background:rgba(0,4,7,.72);backdrop-filter:blur(5px)}
+html.demo-workspace-active :where(dialog,.modal,.dialog-card,[class$="-dialog-card"]){color:var(--text)}
+
+html.demo-workspace-active .plant-subnav{background:rgba(6,20,27,.9);border-color:var(--line)}
+html.demo-workspace-active .plant-subnav button{color:#8eb1ba;background:transparent}
+html.demo-workspace-active .plant-subnav button.active{color:#031116;background:linear-gradient(135deg,#36dbe5,#5ee8cf)}
+html.demo-workspace-active .result-hero,
+html.demo-workspace-active .hero-panel,
+html.demo-workspace-active .schema3d-section{border-color:rgba(91,226,236,.18);box-shadow:0 22px 56px rgba(0,0,0,.3)}
+
+/* Executive map */
+html.demo-workspace-active .demo-mgmt-map-panel{padding:18px;overflow:hidden}
+html.demo-workspace-active .demo-mgmt-map-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;min-height:480px}
+html.demo-workspace-active .demo-mgmt-map-layout>div{position:relative;min-width:0}
+html.demo-workspace-active .demo-mgmt-territory-map{width:100%;min-height:480px;border-radius:14px;overflow:hidden;background:#041016}
+html.demo-workspace-active .demo-mgmt-map-country-filters{position:absolute;z-index:3;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap;padding:4px;border:1px solid rgba(95,221,232,.16);border-radius:999px;background:rgba(3,13,18,.86);backdrop-filter:blur(8px)}
+html.demo-workspace-active .demo-mgmt-map-country-filters button{min-width:34px;min-height:30px;padding:5px 8px;border:0;border-radius:999px;background:transparent;color:#7fa1aa;font-size:.67rem;font-weight:850}
+html.demo-workspace-active .demo-mgmt-map-country-filters button.active{background:#3edce5;color:#031116}
+html.demo-workspace-active .demo-mgmt-map-detail{display:grid;align-content:start;gap:10px;padding:16px;border:1px solid rgba(95,221,232,.14);border-radius:14px;background:linear-gradient(145deg,#0b2029,#07161e)}
+html.demo-workspace-active .demo-mgmt-map-detail>span{color:#46dce6;font-size:.66rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+html.demo-workspace-active .demo-mgmt-map-detail h3{margin:0;font-size:1.35rem}
+html.demo-workspace-active .demo-mgmt-map-detail>p{margin:0;color:var(--muted);font-size:.76rem;line-height:1.45}
+html.demo-workspace-active .demo-mgmt-map-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:4px}
+html.demo-workspace-active .demo-mgmt-map-stats article{padding:10px;border-radius:10px;background:#0b2731}
+html.demo-workspace-active .demo-mgmt-map-stats span{display:block;color:#7798a1;font-size:.64rem}
+html.demo-workspace-active .demo-mgmt-map-stats strong{display:block;margin-top:3px;font-size:1.08rem}
+html.demo-workspace-active .demo-mgmt-map-coverage{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:5px;color:#9bb9c0;font-size:.72rem}
+html.demo-workspace-active .demo-mgmt-map-coverage>div{grid-column:1/-1;height:5px;border-radius:999px;background:#12313a;overflow:hidden}
+html.demo-workspace-active .demo-mgmt-map-coverage i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#32d9e3,#58e6c7)}
+html.demo-workspace-active .demo-mgmt-map-owner{margin-top:5px!important;padding:10px;border-radius:10px;background:#091a22;color:#9ac3ca!important}
+html.demo-workspace-active .demo-mgmt-map-marker{width:30px;height:30px;border:2px solid #cffcff;border-radius:50% 50% 50% 8px;transform:rotate(-45deg);display:grid;place-items:center;background:#35dbe4;color:#031116;box-shadow:0 0 17px rgba(53,219,228,.45);font:900 8px/1 system-ui;cursor:pointer}
+html.demo-workspace-active .demo-mgmt-map-marker[hidden]{display:none}
+html.demo-workspace-active .demo-mgmt-map-marker span{transform:rotate(45deg)}
+html.demo-workspace-active .demo-mgmt-map-popup{display:grid;gap:3px;color:#07161b}html.demo-workspace-active .demo-mgmt-map-popup span{color:#47616a;font-size:.75rem}
+html.demo-workspace-active .demo-mgmt-map-error{display:grid;place-items:center;min-height:480px;color:#ffbf66;text-align:center;padding:30px}
+html.demo-workspace-active .maplibregl-ctrl-group{background:#071a22;border:1px solid rgba(95,221,232,.18)}
+html.demo-workspace-active .maplibregl-ctrl-group button{filter:invert(1) hue-rotate(150deg)}
+html.demo-workspace-active .maplibregl-ctrl-attrib{color:#9ab5bc;background:rgba(3,12,17,.82)}
+html.demo-workspace-active .maplibregl-ctrl-attrib a{color:#61dce4}
+
+/* Management cockpit overrides */
+html.demo-workspace-active .demo-mgmt-hero{border:1px solid rgba(95,221,232,.17);background:radial-gradient(circle at 82% 12%,rgba(53,215,227,.14),transparent 24rem),linear-gradient(135deg,#06131a,#0a2731 55%,#0a3440);box-shadow:0 24px 65px rgba(0,0,0,.32)}
+html.demo-workspace-active .demo-mgmt-filterbar{background:rgba(5,17,23,.92);border-color:var(--line);box-shadow:0 12px 30px rgba(0,0,0,.2)}
+html.demo-workspace-active .demo-mgmt-filterbar select{background:#071820;color:var(--text);border-color:var(--line)}
+html.demo-workspace-active .demo-mgmt-filterbar button{background:#0b2731;color:#62e3e8}
+html.demo-workspace-active :where(.demo-mgmt-kpi,.demo-mgmt-panel,.demo-mgmt-summary){color:var(--text);background:linear-gradient(145deg,rgba(11,29,38,.97),rgba(6,19,26,.97));border-color:var(--line);box-shadow:var(--shadow-card)}
+html.demo-workspace-active :where(.demo-mgmt-summary-grid article,.demo-mgmt-attention-list article,.demo-mgmt-order-grid article,.demo-mgmt-top-products article,.demo-mgmt-field-grid article,.demo-mgmt-crosssell article,.demo-mgmt-detail-kpis article){background:#0a2029;border-color:var(--line)}
+html.demo-workspace-active .demo-mgmt-attention-list article.severity-critical{background:#281719}
+html.demo-workspace-active .demo-mgmt-attention-list article.severity-warning{background:#282216}
+html.demo-workspace-active :where(.demo-mgmt-pipeline-bar,.demo-mgmt-secure,.demo-mgmt-customer-stack,.demo-mgmt-product-bar){background:#102b34}
+html.demo-workspace-active .demo-mgmt-revenue-chart .grid{stroke:#173640}
+html.demo-workspace-active .demo-mgmt-revenue-chart .x-label,
+html.demo-workspace-active .demo-mgmt-revenue-chart .y-label{fill:#77949d}
+html.demo-workspace-active .demo-mgmt-revenue-chart .actual{stroke:#45e4ed}
+html.demo-workspace-active .demo-mgmt-revenue-chart .forecast{stroke:#55e1c7}
+html.demo-workspace-active .demo-mgmt-revenue-chart .plan{stroke:#ffc35c}
+html.demo-workspace-active .demo-mgmt-revenue-chart .previous{stroke:#54717a}
+html.demo-workspace-active .demo-mgmt-region-table button{color:var(--text);border-color:var(--line)}
+html.demo-workspace-active .demo-mgmt-region-table button:hover,
+html.demo-workspace-active .demo-mgmt-region-table button.active{background:#0c2832}
+
+@media(max-width:900px){
+  html.demo-workspace-active .demo-mgmt-map-layout{grid-template-columns:1fr}
+  html.demo-workspace-active .demo-mgmt-map-detail{grid-template-columns:1fr 1fr}
+  html.demo-workspace-active .demo-mgmt-map-detail>span,
+  html.demo-workspace-active .demo-mgmt-map-detail>h3,
+  html.demo-workspace-active .demo-mgmt-map-detail>p,
+  html.demo-workspace-active .demo-mgmt-map-owner{grid-column:1/-1}
+}
+@media(max-width:620px){
+  html.demo-workspace-active .demo-mgmt-map-panel{padding:12px}
+  html.demo-workspace-active .demo-mgmt-territory-map{min-height:390px}
+  html.demo-workspace-active .demo-mgmt-map-country-filters{right:10px;border-radius:12px}
+  html.demo-workspace-active .demo-mgmt-map-country-filters button{flex:1}
+  html.demo-workspace-active .demo-mgmt-map-detail{grid-template-columns:1fr}
+  html.demo-workspace-active .demo-mgmt-map-detail>*{grid-column:1!important}
+}
+@media print{
+  html.demo-workspace-active{color-scheme:light;--bg:#fff;--surface:#fff;--text:#111;--muted:#555;--line:#ddd}
+  html.demo-workspace-active body{color:#111;background:#fff!important}
+  html.demo-workspace-active .demo-mgmt-map-panel{display:none!important}
+  html.demo-workspace-active :where(.panel,.record-card,.form-section,.demo-mgmt-panel,.demo-mgmt-kpi){color:#111;background:#fff!important;border-color:#ddd;box-shadow:none}
+}

@@ -8,7 +8,7 @@
   const ORG_ACTIVE_USER_KEY='vta-demo-active-user-v01';
   const ORG_CONTEXT_KEY='vta-demo-organization-previous-context-v01';
   const ORG_OPEN_KEY='vta-demo-open-cockpit-v01';
-  const RUNTIME_JS='js/demo-organization.js?v=0.11.0-alpha.33';
+  const RUNTIME_JS='js/demo-organization.js?v=0.11.0-alpha.83-carbon-nano1';
   const RUNTIME_CSS='demo-organization.css?v=0.11.0-alpha.33';
 
   const ADMIN_PROFILE={
