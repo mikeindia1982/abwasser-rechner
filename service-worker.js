@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.79-vta-grundwissen1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.80-firebase-test-access1`;
 const FILES=[
   "./",
   "./index.html",
@@ -46,6 +46,7 @@ const FILES=[
   "./js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1",
   "./js/firebase-config.js?v=0.11.0-alpha.42",
   "./js/firebase-auth.js?v=0.11.0-alpha.42",
+  "./js/firebase-auth-live.js?v=0.11.0-alpha.80-firebase-test-access1",
   "./js/firebase-plant-migration.js?v=0.11.0-alpha.43",
   "./js/firebase-task-sync.js?v=0.11.0-alpha.45",
   "./js/firebase-task-global-view.js?v=0.11.0-alpha.54",
