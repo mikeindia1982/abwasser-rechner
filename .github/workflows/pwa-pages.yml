@@ -51,8 +51,12 @@ jobs:
           test -f js/knowledge/knowledge-seed-data.js
           test -f js/knowledge/knowledge-seed-vta-v1.js
           test -f js/services/knowledge-seed-service.js
+          test -f js/open-map-provider.js
+          test -f js/sales-territory-config.js
+          test -f assets/data/bundeslaender-vg250.geojson
           test -f tests/influent-dosing.test.mjs
           test -f tests/knowledge-seed-vta-v1.test.mjs
+          test -f tests/sales-territory-map.test.mjs
           test -d js
           node --check js/plant-location-imagery.js
           node --check js/plant-gps-summary.js
@@ -67,8 +71,11 @@ jobs:
           node --input-type=module --check < js/knowledge/knowledge-seed-data.js
           node --input-type=module --check < js/knowledge/knowledge-seed-vta-v1.js
           node --input-type=module --check < js/services/knowledge-seed-service.js
+          node --input-type=module --check < js/open-map-provider.js
+          node --input-type=module --check < js/sales-territory-config.js
           node tests/influent-dosing.test.mjs
           node --test tests/knowledge-seed-vta-v1.test.mjs
+          node --test tests/sales-territory-map.test.mjs
           grep -q 'vta-theme.css?v=0.11.0-alpha.71-nano1' index.html
           grep -q 'plant-location-imagery.css?v=0.11.0-alpha.69' index.html
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' index.html
@@ -82,6 +89,7 @@ jobs:
           grep -q 'js/page-transitions.js?v=0.11.0-alpha.75-page-transitions2' index.html
           grep -q 'js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1' index.html
           grep -q 'js/knowledge-entry.js' index.html
+          grep -q 'js/open-map-provider.js?v=0.11.0-alpha.81-sales-territories1' index.html
           node -e 'const fs=require("fs"); const sw=fs.readFileSync("service-worker.js","utf8"); if(!/const CACHE=`\$\{CACHE_PREFIX\}v[^`]+`;/.test(sw)){throw new Error("Service-worker cache version missing or invalid")}'
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' service-worker.js
           grep -q 'js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1' service-worker.js
@@ -101,6 +109,9 @@ jobs:
           grep -q 'js/knowledge/knowledge-seed-data.js' service-worker.js
           grep -q 'js/knowledge/knowledge-seed-vta-v1.js' service-worker.js
           grep -q 'js/services/knowledge-seed-service.js' service-worker.js
+          grep -q 'js/open-map-provider.js?v=0.11.0-alpha.81-sales-territories1' service-worker.js
+          grep -q 'js/sales-territory-config.js' service-worker.js
+          grep -q 'assets/data/bundeslaender-vg250.geojson' service-worker.js
           grep -q 'Nano Water Technology Theme' vta-theme.css
           grep -q -- '--nano-grid:' vta-theme.css
           grep -q 'schema3d-section::before' vta-theme.css
@@ -146,6 +157,7 @@ jobs:
 
           cp service-worker.js _site/service-worker.js
           cp -R js _site/js
+          if [ -d assets ]; then cp -R assets _site/assets; fi
           if [ -d images ]; then cp -R images _site/images; fi
           if [ -d products ]; then cp -R products _site/products; fi
           touch _site/.nojekyll
@@ -173,6 +185,9 @@ jobs:
           test -f _site/js/knowledge/knowledge-seed-data.js
           test -f _site/js/knowledge/knowledge-seed-vta-v1.js
           test -f _site/js/services/knowledge-seed-service.js
+          test -f _site/js/open-map-provider.js
+          test -f _site/js/sales-territory-config.js
+          test -f _site/assets/data/bundeslaender-vg250.geojson
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
