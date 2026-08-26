@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.80-firebase-test-access1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.81-sales-territories1`;
 const FILES=[
   "./",
   "./index.html",
@@ -41,7 +41,9 @@ const FILES=[
   "./js/knowledge/knowledge-seed-data.js",
   "./js/knowledge/knowledge-seed-vta-v1.js",
   "./js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1",
-  "./js/open-map-provider.js?v=0.11.0-alpha.55",
+  "./js/open-map-provider.js?v=0.11.0-alpha.81-sales-territories1",
+  "./js/sales-territory-config.js",
+  "./assets/data/bundeslaender-vg250.geojson",
   "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
   "./js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1",
   "./js/firebase-config.js?v=0.11.0-alpha.42",
