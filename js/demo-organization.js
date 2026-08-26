@@ -10,7 +10,7 @@
   const ORG_VERSION_KEY='vta-demo-organization-version-v01';
   const ACTIVE_USER_KEY='vta-demo-active-user-v01';
   const OPEN_AFTER_RELOAD='vta-demo-open-cockpit-v01';
-  const ORG_VERSION='1';
+  const ORG_VERSION='2';
 
   const PERMISSION_LABELS={
     viewPlants:'Anlagen ansehen',
@@ -34,6 +34,21 @@
     reader:{id:'reader',label:'Lesender Benutzer',short:'Leser',description:'Reiner Lesezugriff für Controlling, Management oder Review.',permissions:['viewPlants','viewTeam']}
   };
 
+  const INTERNATIONAL_TEAM_CONFIG=[
+    {code:'de',country:'Deutschland',count:5,branch:'Berlin',names:[['Leonie','Muster'],['Felix','Beispiel'],['Mira','Demo'],['Jonas','Muster'],['Nina','Beispiel']]},
+    {code:'at',country:'Österreich',count:5,branch:'Linz',names:[['Sophie','Muster'],['Jakob','Beispiel'],['Emma','Demo'],['David','Muster'],['Laura','Beispiel']]},
+    {code:'ch',country:'Schweiz',count:4,branch:'Zürich',names:[['Lina','Muster'],['Noah','Beispiel'],['Elena','Demo'],['Marco','Muster']]},
+    {code:'fr',country:'Frankreich',count:6,branch:'Lyon',names:[['Camille','Exemple'],['Louis','Démo'],['Chloé','Modèle'],['Hugo','Exemple'],['Manon','Démo'],['Arthur','Modèle']]},
+    {code:'cz',country:'Tschechien',count:4,branch:'Praha',names:[['Eliška','Vzorová'],['Jan','Ukázka'],['Tereza','Demo'],['Petr','Vzor']]},
+    {code:'pl',country:'Polen',count:4,branch:'Warszawa',names:[['Zofia','Przykład'],['Jakub','Demo'],['Maja','Wzór'],['Kacper','Przykład']]}
+  ];
+  const buildInternationalUsers=()=>INTERNATIONAL_TEAM_CONFIG.flatMap(config=>config.names.slice(0,config.count).map(([firstName,lastName],index)=>{
+    const suffix=String(index+1).padStart(2,'0');
+    const roleId=['teamlead','sales','service','sales','backoffice','sales'][index];
+    const roleMeta={teamlead:['Teamleitung Außendienst','Außendienst'],sales:['Vertriebsingenieur/in','Außendienst'],service:['Servicetechniker/in','Technischer Service'],backoffice:['Vertriebsinnendienst','Innendienst']}[roleId];
+    return {id:`${config.code}-${suffix}`,firstName,lastName,roleId,jobTitle:roleMeta[0],department:roleMeta[1],employeeNumber:`DEMO-${config.code.toUpperCase()}-${suffix}`,region:config.country,branch:config.branch,country:config.country,email:`demo.${config.code}.${suffix}@example.com`,mobile:`+00 170 555${config.count}${suffix}`,phone:`+00 555 ${config.count}${suffix}`,status:'active',lastSeen:index%2?'Heute · 08:45':'Heute · 10:15'};
+  }));
+
   const USERS=[
     {id:'julia',firstName:'Julia',lastName:'Schneider',roleId:'admin',jobTitle:'Leitung Digitale Prozesse',department:'Administration',employeeNumber:'DEMO-1001',region:'Alle Regionen',branch:'Deutschland',email:'julia.schneider@example.com',mobile:'+49 170 5551001',phone:'+49 89 5551000',status:'active',lastSeen:'Heute · 10:48'},
     {id:'thomas',firstName:'Thomas',lastName:'Weber',roleId:'teamlead',jobTitle:'Teamleiter Außendienst',department:'Außendienst',employeeNumber:'DEMO-1101',region:'Region Süd',branch:'München',email:'thomas.weber@example.com',mobile:'+49 170 5551101',phone:'+49 89 5551100',status:'active',lastSeen:'Heute · 09:56'},
@@ -42,7 +57,8 @@
     {id:'max',firstName:'Max',lastName:'König',roleId:'service',jobTitle:'Servicetechniker',department:'Technischer Service',employeeNumber:'DEMO-1301',region:'Region Süd',branch:'München',email:'max.koenig@example.com',mobile:'+49 170 5551301',phone:'+49 89 5551300',status:'active',lastSeen:'Gestern · 16:18'},
     {id:'marie',firstName:'Marie',lastName:'Hoffmann',roleId:'backoffice',jobTitle:'Vertriebsinnendienst',department:'Innendienst',employeeNumber:'DEMO-1401',region:'Deutschland',branch:'Zentrale',email:'marie.hoffmann@example.com',mobile:'+49 170 5551401',phone:'+49 89 5551400',status:'active',lastSeen:'Heute · 09:14'},
     {id:'daniel',firstName:'Daniel',lastName:'Fischer',roleId:'reader',jobTitle:'Controller',department:'Controlling',employeeNumber:'DEMO-1501',region:'Deutschland',branch:'Zentrale',email:'daniel.fischer@example.com',mobile:'+49 170 5551501',phone:'+49 89 5551500',status:'active',lastSeen:'Freitag · 14:20'},
-    {id:'peter',firstName:'Peter',lastName:'Wagner',roleId:'sales',jobTitle:'Vertriebsingenieur',department:'Außendienst',employeeNumber:'DEMO-1601',region:'Region Nord',branch:'Hamburg',email:'peter.wagner@example.com',mobile:'+49 170 5551601',phone:'+49 40 5551600',status:'disabled',lastSeen:'Deaktiviert seit 31.07.2026'}
+    {id:'peter',firstName:'Peter',lastName:'Wagner',roleId:'sales',jobTitle:'Vertriebsingenieur',department:'Außendienst',employeeNumber:'DEMO-1601',region:'Region Nord',branch:'Hamburg',email:'peter.wagner@example.com',mobile:'+49 170 5551601',phone:'+49 40 5551600',status:'disabled',lastSeen:'Deaktiviert seit 31.07.2026'},
+    ...buildInternationalUsers()
   ];
 
   const DEFAULT_ASSIGNMENTS={
@@ -87,7 +103,7 @@
   function roleFor(user,state=orgState()){return ROLES[effectiveRoleId(user,state)]||ROLES.reader}
   function profileFor(user,state=orgState()){
     const role=roleFor(user,state);
-    return {schemaVersion:1,firstName:user.firstName,lastName:user.lastName,jobTitle:user.jobTitle,company:'VTA',department:user.department,employeeNumber:user.employeeNumber,region:user.region,branch:user.branch,email:user.email,mobile:user.mobile,phone:user.phone,website:'https://www.vta.cc',street:'Musterweg 10',postalCode:'80000',city:user.branch==='Zentrale'?'Musterstadt':user.branch,country:'Deutschland',notes:`Fiktiver Demo-Benutzer · Rolle: ${role.label}.`};
+    return {schemaVersion:1,firstName:user.firstName,lastName:user.lastName,jobTitle:user.jobTitle,company:'VTA',department:user.department,employeeNumber:user.employeeNumber,region:user.region,branch:user.branch,email:user.email,mobile:user.mobile,phone:user.phone,website:'https://www.vta.cc',street:'Musterweg 10',postalCode:'80000',city:user.branch==='Zentrale'?'Musterstadt':user.branch,country:user.country||'Deutschland',notes:`Fiktiver Demo-Benutzer · Rolle: ${role.label}.`};
   }
   function activeUser(state=orgState()){
     const requested=localStorage.getItem(ACTIVE_USER_KEY)||'julia';
@@ -113,7 +129,14 @@
   function reports(){const value=readJson(REPORTS_KEY,{});return value&&typeof value==='object'?value:{}}
   function visitTime(visit){const time=new Date(visit?.start||0).getTime();return Number.isFinite(time)?time:0}
   function plantName(id){return plants().find(plant=>plant.id===id)?.master?.name||'Anlage'}
-  function assignedUserId(plantId,state=orgState()){return state.assignments?.[plantId]||'lukas'}
+  function stableHash(value=''){return [...String(value)].reduce((hash,char)=>(hash*31+char.charCodeAt(0))>>>0,7)}
+  function assignedUserId(plantId,state=orgState()){
+    if(state.assignments?.[plantId])return state.assignments[plantId];
+    const plant=plants().find(item=>item.id===plantId);
+    const country=plant?.address?.country||'Deutschland';
+    const candidates=USERS.filter(user=>(user.country||'Deutschland')===country&&effectiveStatus(user,state)==='active'&&['teamlead','sales','service'].includes(effectiveRoleId(user,state)));
+    return candidates.length?candidates[stableHash(plantId)%candidates.length].id:'lukas';
+  }
   function assignedPlants(user,state=orgState()){
     const role=roleFor(user,state);
     const all=plants();

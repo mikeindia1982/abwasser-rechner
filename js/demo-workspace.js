@@ -5,7 +5,7 @@
   const PROD_SNAPSHOT_KEY='vta-production-workspace-snapshot-v01';
   const DEMO_SNAPSHOT_KEY='vta-demo-workspace-snapshot-v01';
   const DEMO_VERSION_KEY='vta-demo-workspace-version-v01';
-  const DEMO_VERSION='2';
+  const DEMO_VERSION='3';
   const PROFILE_KEY='abwasser-employee-profile-v087';
   const PLANTS_KEY='abwasser-plants-v07';
   const ACTIVE_PLANT_KEY='abwasser-active-plant-v07';
@@ -210,7 +210,28 @@
     const p8=internationalPlant({id:'vta-present-plant-008',name:'ČOV Vltava',number:'DEMO-CZ-01',city:'Praha',state:'Hlavní město Praha',country:'Tschechien',postalCode:'110 00',lat:'50.0755',lng:'14.4378',operatorName:'Demo Vodárny Praha',customerNumber:'DEMO-KD-108'});
     const p9=internationalPlant({id:'vta-present-plant-009',name:'Oczyszczalnia Wisła',number:'DEMO-PL-01',city:'Kraków',state:'Małopolskie',country:'Polen',postalCode:'30-001',lat:'50.0647',lng:'19.9450',operatorName:'Demo Wodociągi Kraków',customerNumber:'DEMO-KD-109'});
 
-    return [p1,p2,p3,p4,p5,p6,p7,p8,p9];
+    const portfolioConfig=[
+      {code:'DE',country:'Deutschland',target:78,existing:4,offset:0.2,anchors:[['Hamburg','Hamburg','20095',53.5511,9.9937],['Berlin','Berlin','10115',52.52,13.405],['Köln','Nordrhein-Westfalen','50667',50.9375,6.9603],['Frankfurt','Hessen','60311',50.1109,8.6821],['Nürnberg','Bayern','90402',49.4521,11.0767],['Leipzig','Sachsen','04109',51.3397,12.3731]]},
+      {code:'AT',country:'Österreich',target:24,existing:1,offset:0.16,anchors:[['Wien','Wien','1010',48.2082,16.3738],['Graz','Steiermark','8010',47.0707,15.4395],['Salzburg','Salzburg','5020',47.8095,13.055],['Innsbruck','Tirol','6020',47.2692,11.4041]]},
+      {code:'CH',country:'Schweiz',target:20,existing:1,offset:0.12,anchors:[['Bern','Bern','3000',46.948,7.4474],['Basel','Basel-Stadt','4001',47.5596,7.5886],['Lausanne','Waadt','1003',46.5197,6.6323],['Luzern','Luzern','6003',47.0502,8.3093]]},
+      {code:'FR',country:'Frankreich',target:30,existing:1,offset:0.3,anchors:[['Paris','Île-de-France','75001',48.8566,2.3522],['Lille','Hauts-de-France','59000',50.6292,3.0573],['Lyon','Auvergne-Rhône-Alpes','69001',45.764,4.8357],['Bordeaux','Nouvelle-Aquitaine','33000',44.8378,-0.5792],['Nantes','Pays de la Loire','44000',47.2184,-1.5536],['Toulouse','Occitanie','31000',43.6047,1.4442]]},
+      {code:'CZ',country:'Tschechien',target:16,existing:1,offset:0.16,anchors:[['Brno','Jihomoravský kraj','602 00',49.1951,16.6068],['Ostrava','Moravskoslezský kraj','702 00',49.8209,18.2625],['Plzeň','Plzeňský kraj','301 00',49.7384,13.3736]]},
+      {code:'PL',country:'Polen',target:18,existing:1,offset:0.22,anchors:[['Warszawa','Mazowieckie','00-001',52.2297,21.0122],['Wrocław','Dolnośląskie','50-001',51.1079,17.0385],['Poznań','Wielkopolskie','60-001',52.4064,16.9252],['Gdańsk','Pomorskie','80-001',54.352,18.6466]]}
+    ];
+    const portfolio=portfolioConfig.flatMap(config=>Array.from({length:config.target-config.existing},(_,index)=>{
+      const number=index+1;
+      const [city,state,postalCode,anchorLat,anchorLng]=config.anchors[index%config.anchors.length];
+      const latitude=(anchorLat+Math.sin(number*2.17)*config.offset).toFixed(5);
+      const longitude=(anchorLng+Math.cos(number*1.73)*config.offset*1.4).toFixed(5);
+      const suffix=String(number).padStart(3,'0');
+      const plant=plantBase(`vta-portfolio-${config.code}-${suffix}`,`Demo KA ${config.code}-${suffix}`,`DEMO-${config.code}-${suffix}`,'municipal','activated-sludge',8000+(number%12)*3500,7200+(number%12)*3100,city,latitude,longitude);
+      plant.address={...plant.address,postalCode,city,state,country:config.country,deliveryAddress:`Demostraße ${number}, ${postalCode} ${city}`};
+      plant.operator={...operator(`Demo Water Utility ${config.code}-${suffix}`,`DEMO-KD-${config.code}-${suffix}`,city),postalCode,city,state,country:config.country};
+      plant.master.notes='Fiktive Portfolioanlage für die globale Demo. Keine realen Betreiber-, Personen- oder Betriebsdaten.';
+      return plant;
+    }));
+
+    return [p1,p2,p3,p4,p5,p6,p7,p8,p9,...portfolio];
   }
   function reportFor(plant,visit,sections){
     const ts=visit.completedAt||visit.end||nowIso();
