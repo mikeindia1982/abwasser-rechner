@@ -1,5 +1,5 @@
 const CACHE_PREFIX='abwasser-rechner-';
-const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.81-sales-territories1`;
+const CACHE=`${CACHE_PREFIX}v0.11.0-alpha.82-demo-international1`;
 const FILES=[
   "./",
   "./index.html",
@@ -30,7 +30,8 @@ const FILES=[
   "./icon-512.png",
   "./js/demo-organization-loader.js?v=0.11.0-alpha.33",
   "./js/demo-organization.js?v=0.11.0-alpha.33",
-  "./js/demo-workspace.js?v=0.11.0-alpha.29",
+  "./js/demo-workspace.js?v=0.11.0-alpha.82-demo-international1",
+  "./js/demo-i18n.js?v=0.11.0-alpha.82-demo-i18n1",
   "./js/navigation-enhancements.js?v=0.11.0-alpha.38",
   "./js/page-transitions.js?v=0.11.0-alpha.75-page-transitions2",
   "./js/app.js?v=0.11.0-alpha.19",
@@ -41,9 +42,10 @@ const FILES=[
   "./js/knowledge/knowledge-seed-data.js",
   "./js/knowledge/knowledge-seed-vta-v1.js",
   "./js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1",
-  "./js/open-map-provider.js?v=0.11.0-alpha.81-sales-territories1",
+  "./js/open-map-provider.js?v=0.11.0-alpha.82-demo-international1",
   "./js/sales-territory-config.js",
   "./assets/data/bundeslaender-vg250.geojson",
+  "./assets/data/demo-sales-regions.geojson",
   "./js/plant-location-imagery.js?v=0.11.0-alpha.69",
   "./js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1",
   "./js/firebase-config.js?v=0.11.0-alpha.42",

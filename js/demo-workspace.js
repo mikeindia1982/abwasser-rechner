@@ -5,7 +5,7 @@
   const PROD_SNAPSHOT_KEY='vta-production-workspace-snapshot-v01';
   const DEMO_SNAPSHOT_KEY='vta-demo-workspace-snapshot-v01';
   const DEMO_VERSION_KEY='vta-demo-workspace-version-v01';
-  const DEMO_VERSION='1';
+  const DEMO_VERSION='2';
   const PROFILE_KEY='abwasser-employee-profile-v087';
   const PLANTS_KEY='abwasser-plants-v07';
   const ACTIVE_PLANT_KEY='abwasser-active-plant-v07';
@@ -143,6 +143,7 @@
     p1.communications=[{id:'vta-demo-com-101',type:'mail',title:'Besuchsbericht versendet',recipient:'anna.muster@example.com',subject:'Besuchsbericht Optimierung Schlammentwässerung',note:'Demo-Kommunikation',createdAt:dateAt(-17,15),employee:'Lukas Beispiel'}];
 
     const p2=plantBase('vta-present-plant-002','KA Seeblick','DEMO-SEE-02','municipal','sbr',18500,16200,'Seeblick','47.3769','8.5417');
+    p2.address={...p2.address,postalCode:'8000',city:'Zürich',state:'Zürich',country:'Schweiz',deliveryAddress:'Klärwerkstrasse 1, 8000 Zürich'};
     p2.master.processStages=['screening','grit-grease','intermittent-aeration','biological-p-removal','simultaneous-precipitation','sludge-dewatering'];
     p2.operator=operator('Kommunalbetriebe Seeblick','DEMO-KD-102','Seeblick');
     p2.contacts=[contact('Tobias Beispiel','Abwassermeister','tobias.beispiel@example.com','+49 170 5550301')];
@@ -194,7 +195,22 @@
     p5.visits=[p5v1,plannedVisit('vta-demo-visit-502','Begleitung mobile Entwässerung',21,8,'Polymeransatz und Austrags-TS optimieren','Daniel Demo','process-optimization','dewatering')];
     p5.actions=[action('vta-demo-action-501','Termin mobile Entwässerung bestätigen',8,'normal','scheduling',p5v1.id)];
 
-    return [p1,p2,p3,p4,p5];
+    const internationalPlant=({id,name,number,city,state,country,postalCode,lat,lng,operatorName,customerNumber})=>{
+      const plant=plantBase(id,name,number,'municipal','activated-sludge',24000,21800,city,lat,lng);
+      plant.address={...plant.address,postalCode,city,state,country,deliveryAddress:`Klärwerkstraße 1, ${postalCode} ${city}`};
+      plant.operator={...operator(operatorName,customerNumber,city),postalCode,city,state,country};
+      plant.master.processStages=['screening','grit-grease','nitrification','denitrification','simultaneous-precipitation','secondary-clarification','sludge-dewatering'];
+      plant.contacts=[contact('Demo Contact','Plant manager',`contact.${id.slice(-3).toLowerCase()}@example.com`,'+43 170 5550701')];
+      plant.parameters={...plant.parameters,flow:'3100',pIn:'6.8',pOut:'0.64',nh4Out:'1.1',basinVolume:'5600',mlss:'3.7',svi:'112',sludgeAge:'16'};
+      plant.actions=[action(`${id}-action-1`,'Demo-Vertriebszuordnung prüfen',14,'normal','review')];
+      return plant;
+    };
+    const p6=internationalPlant({id:'vta-present-plant-006',name:'KA Donaupark',number:'DEMO-AT-01',city:'Linz',state:'Oberösterreich',country:'Österreich',postalCode:'4020',lat:'48.3069',lng:'14.2858',operatorName:'Demo Stadtbetriebe Linz',customerNumber:'DEMO-KD-106'});
+    const p7=internationalPlant({id:'vta-present-plant-007',name:'Station Eau Claire',number:'DEMO-FR-01',city:'Strasbourg',state:'Grand Est',country:'Frankreich',postalCode:'67000',lat:'48.5734',lng:'7.7521',operatorName:'Service des eaux Démo',customerNumber:'DEMO-KD-107'});
+    const p8=internationalPlant({id:'vta-present-plant-008',name:'ČOV Vltava',number:'DEMO-CZ-01',city:'Praha',state:'Hlavní město Praha',country:'Tschechien',postalCode:'110 00',lat:'50.0755',lng:'14.4378',operatorName:'Demo Vodárny Praha',customerNumber:'DEMO-KD-108'});
+    const p9=internationalPlant({id:'vta-present-plant-009',name:'Oczyszczalnia Wisła',number:'DEMO-PL-01',city:'Kraków',state:'Małopolskie',country:'Polen',postalCode:'30-001',lat:'50.0647',lng:'19.9450',operatorName:'Demo Wodociągi Kraków',customerNumber:'DEMO-KD-109'});
+
+    return [p1,p2,p3,p4,p5,p6,p7,p8,p9];
   }
   function reportFor(plant,visit,sections){
     const ts=visit.completedAt||visit.end||nowIso();
@@ -355,6 +371,19 @@
     decorateProfileButton();
     ensureDemoBanner();
   }
+
+  function upgradeActiveDemo(){
+    if(!isDemo()||localStorage.getItem(DEMO_VERSION_KEY)===DEMO_VERSION)return false;
+    const upgraded=seedSnapshot();
+    saveSnapshot(DEMO_SNAPSHOT_KEY,upgraded);
+    localStorage.setItem(DEMO_VERSION_KEY,DEMO_VERSION);
+    restoreSnapshot(upgraded);
+    clearSessionState();
+    location.reload();
+    return true;
+  }
+
+  if(upgradeActiveDemo())return;
 
   document.addEventListener('click',event=>{
     const profileButton=event.target.closest?.('#profileButton');

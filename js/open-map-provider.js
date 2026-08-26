@@ -1,13 +1,22 @@
-import { SALES_TERRITORIES, territoryColorExpression, territoryForStateCode } from './sales-territory-config.js';
+import {
+  DEMO_INTERNATIONAL_TERRITORIES,
+  SALES_TERRITORIES,
+  internationalTerritoryColorExpression,
+  internationalTerritoryForFeature,
+  territoryColorExpression,
+  territoryForStateCode,
+} from './sales-territory-config.js';
 
 (() => {
-  const BUILD='0.11.0-alpha.81-sales-territories1';
+  const BUILD='0.11.0-alpha.82-demo-international1';
+  const MODE_KEY='vta-workspace-mode-v01';
   const PLANTS_KEY='abwasser-plants-v07';
   const ACTIVE_PLANT_KEY='abwasser-active-plant-v07';
   const OPENFREE_STYLE='https://tiles.openfreemap.org/styles/liberty';
   const SATELLITE_TILES='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
   const SATELLITE_ATTRIBUTION='Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community';
   const TERRITORY_DATA='./assets/data/bundeslaender-vg250.geojson';
+  const DEMO_TERRITORY_DATA='./assets/data/demo-sales-regions.geojson';
   const OVERVIEW_MODE_KEY='abwasser-overview-map-mode-v01';
   const TERRITORY_VISIBILITY_KEY='abwasser-sales-territories-visible-v01';
   const MAPLIBRE_JS='https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js';
@@ -67,6 +76,8 @@ import { SALES_TERRITORIES, territoryColorExpression, territoryForStateCode } fr
   const territoriesVisible=()=>localStorage.getItem(TERRITORY_VISIBILITY_KEY)!=='false';
   const styleForOverview=mode=>mode==='map'?OPENFREE_STYLE:mode==='hybrid'?hybridStyle():satelliteStyle();
   const modeLabel=mode=>mode==='map'?'Karte':mode==='hybrid'?'Hybrid':'Satellit';
+  const isDemoWorkspace=()=>localStorage.getItem(MODE_KEY)==='demo';
+  const activeTerritories=()=>isDemoWorkspace()?DEMO_INTERNATIONAL_TERRITORIES:SALES_TERRITORIES;
 
   function installStyles(){
     if(!document.querySelector('link[data-maplibre-css]')){
@@ -160,7 +171,7 @@ import { SALES_TERRITORIES, territoryColorExpression, territoryForStateCode } fr
   }
 
   function territoryLegendMarkup(){
-    return `<strong>Zuständigkeiten:</strong>${SALES_TERRITORIES.map(territory=>`<span class="sales-territory-legend-item"><span class="sales-territory-legend-swatch" style="--territory-color:${territory.color}"></span>${territory.label}</span>`).join('')}`;
+    return `<strong>Zuständigkeiten:</strong>${activeTerritories().map(territory=>`<span class="sales-territory-legend-item"><span class="sales-territory-legend-swatch" style="--territory-color:${territory.color}"></span>${territory.label}</span>`).join('')}`;
   }
 
   function ensureOverviewControls(){
@@ -187,9 +198,10 @@ import { SALES_TERRITORIES, territoryColorExpression, territoryForStateCode } fr
   }
 
   function territoryPopup(feature){
-    const territory=territoryForStateCode(feature?.properties?.ags);
+    const properties=feature?.properties||{};
+    const territory=isDemoWorkspace()?internationalTerritoryForFeature(properties):territoryForStateCode(properties.ags);
     const root=document.createElement('div');root.className='sales-territory-popup';
-    const heading=document.createElement('h3');heading.textContent=feature?.properties?.gen||'Bundesland';root.append(heading);
+    const heading=document.createElement('h3');heading.textContent=properties.name||properties.gen||'Region';root.append(heading);
     const text=document.createElement('p');text.append('Zuständigkeit: ');
     const owner=document.createElement('strong');owner.textContent=territory?.ownerLabel||'Nicht zugeordnet';text.append(owner);root.append(text);
     return root;
@@ -197,8 +209,9 @@ import { SALES_TERRITORIES, territoryColorExpression, territoryForStateCode } fr
 
   function addTerritoryLayers(map,maplibregl){
     if(!territoriesVisible())return;
-    map.addSource('sales-territories',{type:'geojson',data:TERRITORY_DATA,attribution:'© BKG (2025) dl-de/by-2-0'});
-    const color=territoryColorExpression();
+    const demo=isDemoWorkspace();
+    map.addSource('sales-territories',{type:'geojson',data:demo?DEMO_TERRITORY_DATA:TERRITORY_DATA,attribution:demo?'© BKG (2025); geoBoundaries CC BY 4.0':'© BKG (2025) dl-de/by-2-0'});
+    const color=demo?internationalTerritoryColorExpression():territoryColorExpression();
     map.addLayer({id:'sales-territories-fill',type:'fill',source:'sales-territories',paint:{'fill-color':color,'fill-opacity':0.16}});
     map.addLayer({id:'sales-territories-outline',type:'line',source:'sales-territories',paint:{'line-color':color,'line-width':['interpolate',['linear'],['zoom'],4,2,8,3.5],'line-opacity':0.95}});
     map.on('mouseenter','sales-territories-fill',()=>{map.getCanvas().style.cursor='pointer'});
@@ -241,9 +254,12 @@ import { SALES_TERRITORIES, territoryColorExpression, territoryForStateCode } fr
         addTerritoryLayers(map,maplibregl);
         if(validPlants.length===1)map.easeTo({center:[validPlants[0].position.lng,validPlants[0].position.lat],zoom:13});
         else if(validPlants.length>1)map.fitBounds(bounds,{padding:48,maxZoom:13});
+        else if(isDemoWorkspace())map.fitBounds([[-5.5,42.0],[24.5,55.2]],{padding:28});
         else map.fitBounds([[5.5,47.1],[15.7,55.2]],{padding:28});
         const withoutCoordinates=plants.length-validPlants.length;
-        status.innerHTML=`<span>${validPlants.length} von ${plants.length} Anlagen · ${modeLabel(mode)}${territoriesVisible()?' · 16 Bundesländer nach Zuständigkeit':''}${withoutCoordinates?` · ${withoutCoordinates} ohne Geokoordinaten`:''}</span><span class="open-source-map-note"><strong>Grenzen:</strong> © BKG (2025) dl-de/by-2-0 · <strong>Karte:</strong> MapLibre/OpenFreeMap · <strong>Luftbild:</strong> Esri</span>`;
+        const territorySummary=isDemoWorkspace()?'94 Regionen in 6 Ländern':'16 Bundesländer';
+        const sourceSummary=isDemoWorkspace()?'© BKG (2025) · geoBoundaries CC BY 4.0':'© BKG (2025) dl-de/by-2-0';
+        status.innerHTML=`<span>${validPlants.length} von ${plants.length} Anlagen · ${modeLabel(mode)}${territoriesVisible()?` · ${territorySummary} nach Zuständigkeit`:''}${withoutCoordinates?` · ${withoutCoordinates} ohne Geokoordinaten`:''}</span><span class="open-source-map-note"><strong>Grenzen:</strong> ${sourceSummary} · <strong>Karte:</strong> MapLibre/OpenFreeMap · <strong>Luftbild:</strong> Esri</span>`;
       });
       map.on('error',event=>console.warn('OpenStreetMap-Kartenfehler',event?.error||event));
     }catch(error){

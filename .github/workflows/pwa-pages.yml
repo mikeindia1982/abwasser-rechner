@@ -53,10 +53,13 @@ jobs:
           test -f js/services/knowledge-seed-service.js
           test -f js/open-map-provider.js
           test -f js/sales-territory-config.js
+          test -f js/demo-i18n.js
           test -f assets/data/bundeslaender-vg250.geojson
+          test -f assets/data/demo-sales-regions.geojson
           test -f tests/influent-dosing.test.mjs
           test -f tests/knowledge-seed-vta-v1.test.mjs
           test -f tests/sales-territory-map.test.mjs
+          test -f tests/demo-international-pilot.test.mjs
           test -d js
           node --check js/plant-location-imagery.js
           node --check js/plant-gps-summary.js
@@ -73,9 +76,11 @@ jobs:
           node --input-type=module --check < js/services/knowledge-seed-service.js
           node --input-type=module --check < js/open-map-provider.js
           node --input-type=module --check < js/sales-territory-config.js
+          node --check js/demo-i18n.js
           node tests/influent-dosing.test.mjs
           node --test tests/knowledge-seed-vta-v1.test.mjs
           node --test tests/sales-territory-map.test.mjs
+          node --test tests/demo-international-pilot.test.mjs
           grep -q 'vta-theme.css?v=0.11.0-alpha.71-nano1' index.html
           grep -q 'plant-location-imagery.css?v=0.11.0-alpha.69' index.html
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' index.html
@@ -89,7 +94,9 @@ jobs:
           grep -q 'js/page-transitions.js?v=0.11.0-alpha.75-page-transitions2' index.html
           grep -q 'js/product-dosing-profile-ui.js?v=0.11.0-alpha.76-influent-dosing1' index.html
           grep -q 'js/knowledge-entry.js' index.html
-          grep -q 'js/open-map-provider.js?v=0.11.0-alpha.81-sales-territories1' index.html
+          grep -q 'js/open-map-provider.js?v=0.11.0-alpha.82-demo-international1' index.html
+          grep -q 'js/demo-i18n.js?v=0.11.0-alpha.82-demo-i18n1' index.html
+          grep -q 'js/demo-workspace.js?v=0.11.0-alpha.82-demo-international1' index.html
           node -e 'const fs=require("fs"); const sw=fs.readFileSync("service-worker.js","utf8"); if(!/const CACHE=`\$\{CACHE_PREFIX\}v[^`]+`;/.test(sw)){throw new Error("Service-worker cache version missing or invalid")}'
           grep -q 'plant-gps-summary.css?v=0.11.0-alpha.73-gps-summary1' service-worker.js
           grep -q 'js/plant-gps-summary.js?v=0.11.0-alpha.73-gps-summary1' service-worker.js
@@ -109,9 +116,12 @@ jobs:
           grep -q 'js/knowledge/knowledge-seed-data.js' service-worker.js
           grep -q 'js/knowledge/knowledge-seed-vta-v1.js' service-worker.js
           grep -q 'js/services/knowledge-seed-service.js' service-worker.js
-          grep -q 'js/open-map-provider.js?v=0.11.0-alpha.81-sales-territories1' service-worker.js
+          grep -q 'js/open-map-provider.js?v=0.11.0-alpha.82-demo-international1' service-worker.js
+          grep -q 'js/demo-i18n.js?v=0.11.0-alpha.82-demo-i18n1' service-worker.js
+          grep -q 'js/demo-workspace.js?v=0.11.0-alpha.82-demo-international1' service-worker.js
           grep -q 'js/sales-territory-config.js' service-worker.js
           grep -q 'assets/data/bundeslaender-vg250.geojson' service-worker.js
+          grep -q 'assets/data/demo-sales-regions.geojson' service-worker.js
           grep -q 'Nano Water Technology Theme' vta-theme.css
           grep -q -- '--nano-grid:' vta-theme.css
           grep -q 'schema3d-section::before' vta-theme.css
@@ -187,7 +197,9 @@ jobs:
           test -f _site/js/services/knowledge-seed-service.js
           test -f _site/js/open-map-provider.js
           test -f _site/js/sales-territory-config.js
+          test -f _site/js/demo-i18n.js
           test -f _site/assets/data/bundeslaender-vg250.geojson
+          test -f _site/assets/data/demo-sales-regions.geojson
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

@@ -15,3 +15,18 @@ Kartographie und Geodäsie (BKG).
 Die Vereinfachung dient ausschließlich einer schnellen Darstellung im Browser.
 Die Datei ist nicht für Vermessung oder rechtlich verbindliche Grenzauskünfte
 geeignet.
+
+## Internationale Demo-Gebiete
+
+`demo-sales-regions.geojson` ergänzt die deutsche Datengrundlage ausschließlich
+für den Demo-Modus um die erste Verwaltungsebene von Österreich, der Schweiz,
+Frankreich (europäisches Festland), Tschechien und Polen.
+
+- Quelle: geoBoundaries `gbOpen`, ADM1, aktueller API-Stand vom 26. August 2026
+- Länder: AUT, CHE, FRA, CZE und POL
+- Lizenz der zusätzlichen Grenzen: Creative Commons Attribution 4.0
+- Verarbeitung: auf 8 % vereinfacht, Formen erhalten, Koordinaten auf vier
+  Nachkommastellen gerundet und mit stabilen Länder-/Regionscodes versehen
+- Umfang: 94 Regionen in sechs Ländern einschließlich Deutschland
+
+Quelle und Lizenz: `https://www.geoboundaries.org/`
